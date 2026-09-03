@@ -84,7 +84,7 @@ export default function Dashboard({ events, attendees, onNew, onNavigate }: Prop
         <StatCard label="Total eventos" value={total} sub={`${published} publicados`} />
         <StatCard label="Asistentes confirmados" value={totalAttendees.toLocaleString()} sub="en todos los eventos" />
         <StatCard label="Ocupación media" value={`${Math.round(events.reduce((s, e) => s + fillPct(e), 0) / (events.length || 1))}%`} sub="de capacidad total" />
-        <StatCard label="Ingresos estimados" value={`€${revenue.toLocaleString()}`} sub="todos los eventos" />
+        <StatCard label="Ingresos estimados" value={`ARS ${revenue.toLocaleString('es-AR')}`} sub="todos los eventos" />
       </div>
 
       {/* Two columns: upcoming + activity */}
@@ -166,4 +166,3 @@ export default function Dashboard({ events, attendees, onNew, onNavigate }: Prop
     </div>
   )
 }
-

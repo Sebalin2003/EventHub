@@ -110,7 +110,7 @@ export default function EventList({ events, onEdit, onDelete, onNew }: Props) {
                     </div>
                   </td>
                   <td style={{ padding: '1rem 1.25rem', fontFamily: 'var(--font-mono)', fontSize: '0.83rem', whiteSpace: 'nowrap' }}>
-                    {ev.price === 0 ? <span style={{ color: '#1a6e2e' }}>Gratis</span> : `€${ev.price}`}
+                    {ev.price === 0 ? <span style={{ color: '#1a6e2e' }}>Gratis</span> : `ARS ${ev.price.toLocaleString('es-AR')}`}
                   </td>
                   <td style={{ padding: '1rem 1.25rem' }}>
                     <span style={{ backgroundColor: sm.bg, color: sm.color, padding: '0.2rem 0.55rem', borderRadius: 2, fontSize: '0.72rem', fontWeight: 600, fontFamily: 'var(--font-mono)', letterSpacing: '0.04em' }}>{sm.label}</span>
@@ -134,4 +134,3 @@ export default function EventList({ events, onEdit, onDelete, onNew }: Props) {
     </div>
   )
 }
-

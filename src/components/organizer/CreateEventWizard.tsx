@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import type { Event, EventCategory, EventModality, EventStatus, TicketType } from '../../types'
+import type { Event, EventCategory, EventModality, EventStatus, Seat, SeatingMode, Sector, TicketType } from '../../types'
 
 type Props = {
   editing: Event | null
@@ -56,6 +56,7 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
   const [saleCutoff, setSaleCutoff] = useState('')
   const [maxPerUser, setMaxPerUser] = useState('4')
   const [cancelPolicy, setCancelPolicy] = useState('Reembolso completo hasta 7 días antes del evento.')
+  const [seatingMode, setSeatingMode] = useState<SeatingMode>('general')
 
   const [errors, setErrors] = useState<Record<string, string>>({})
 
@@ -67,12 +68,12 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
       setModality(editing.modality); setCapacity(String(editing.capacity))
       setTicketTypes(editing.ticketTypes.map(t => ({ name: t.name, description: t.description, price: String(t.price), quantity: String(t.totalQuantity) })))
       setSaleCutoff(editing.saleCutoffDate ?? ''); setMaxPerUser(String(editing.maxTicketsPerUser))
-      setCancelPolicy(editing.cancellationPolicy); setStep(1)
+      setCancelPolicy(editing.cancellationPolicy); setSeatingMode(editing.seatingMode ?? 'general'); setStep(1)
     } else {
       setTitle(''); setDescription(''); setCategory('conferencia'); setImageUrl(''); setDate(''); setEndDate('')
       setVenueName(''); setAddress(''); setCity(''); setModality('presencial'); setCapacity('')
       setTicketTypes([blankTT()]); setSaleCutoff(''); setMaxPerUser('4')
-      setCancelPolicy('Reembolso completo hasta 7 días antes del evento.'); setStep(1)
+      setCancelPolicy('Reembolso completo hasta 7 días antes del evento.'); setSeatingMode('general'); setStep(1)
     }
     setErrors({})
   }, [editing])
@@ -102,9 +103,10 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
   function prev() { setStep(s => Math.max(1, s - 1) as Step) }
 
   function handlePublish(status: EventStatus) {
+    const eventId = editing?.id ?? `e${Date.now()}`
     const tts: TicketType[] = ticketTypes.map((t, i) => ({
       id: editing?.ticketTypes[i]?.id ?? `tt-${Date.now()}-${i}`,
-      eventId: editing?.id ?? '',
+      eventId,
       name: t.name,
       description: t.description,
       price: Number(t.price) || 0,
@@ -112,8 +114,10 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
       sold: editing?.ticketTypes[i]?.sold ?? 0,
       status: 'DISPONIBLE' as const,
     }))
+    const sectors: Sector[] = seatingMode === 'numbered' ? tts.map((ticket, index) => ({ id: `${eventId}-sector-${index + 1}`, name: ticket.name, ticketTypeId: ticket.id, rows: ['A', 'B'] })) : []
+    const seats: Seat[] = sectors.flatMap(sector => sector.rows.flatMap(row => Array.from({ length: 6 }, (_, index) => ({ id: `${eventId}-${sector.id}-${row}-${index + 1}`, eventId, sectorId: sector.id, row, number: index + 1, ticketTypeId: sector.ticketTypeId, status: 'available' as const }))))
     const ev: Event = {
-      id: editing?.id ?? `e${Date.now()}`,
+      id: eventId,
       title, description, category, modality,
       date, endDate, venueName, address, city,
       capacity: Number(capacity),
@@ -127,6 +131,9 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
       cancellationPolicy: cancelPolicy,
       featured: editing?.featured ?? false,
       checkIns: editing?.checkIns ?? 0,
+      seatingMode,
+      sectors,
+      seats,
     }
     tts.forEach(t => { t.eventId = ev.id })
     onSave(ev)
@@ -207,7 +214,7 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr', gap: '0.75rem', marginBottom: '0.75rem' }}>
                     <div><Label>Nombre *</Label><input style={fieldStyle} value={tt.name} onChange={e => setTicketTypes(ts => ts.map((t, j) => j === i ? { ...t, name: e.target.value } : t))} placeholder="General, VIP, Premium..." />{errors[`tt_name_${i}`] && <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: '#a02020' }}>{errors[`tt_name_${i}`]}</p>}</div>
-                    <div><Label>Precio (€)</Label><input type="number" min={0} style={fieldStyle} value={tt.price} onChange={e => setTicketTypes(ts => ts.map((t, j) => j === i ? { ...t, price: e.target.value } : t))} placeholder="0" /></div>
+                    <div><Label>Precio (ARS)</Label><input type="number" min={0} style={fieldStyle} value={tt.price} onChange={e => setTicketTypes(ts => ts.map((t, j) => j === i ? { ...t, price: e.target.value } : t))} placeholder="0" /></div>
                     <div><Label>Cantidad *</Label><input type="number" min={1} style={fieldStyle} value={tt.quantity} onChange={e => setTicketTypes(ts => ts.map((t, j) => j === i ? { ...t, quantity: e.target.value } : t))} placeholder="100" />{errors[`tt_qty_${i}`] && <p style={{ margin: '0.2rem 0 0', fontSize: '0.72rem', color: '#a02020' }}>{errors[`tt_qty_${i}`]}</p>}</div>
                   </div>
                   <div><Label>Descripción del tipo</Label><input style={fieldStyle} value={tt.description} onChange={e => setTicketTypes(ts => ts.map((t, j) => j === i ? { ...t, description: e.target.value } : t))} placeholder="¿Qué incluye esta entrada?" /></div>
@@ -221,6 +228,7 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
         {/* Step 4: Config */}
         {step === 4 && (
           <div style={{ display: 'grid', gap: '1.25rem' }}>
+            <div><Label>Tipo de localidades</Label><div style={{ display: 'flex', gap: '0.5rem' }}>{(['general', 'numbered'] as SeatingMode[]).map(mode => <button key={mode} type="button" onClick={() => setSeatingMode(mode)} style={{ flex: 1, padding: '0.65rem', border: `2px solid ${seatingMode === mode ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 'var(--radius)', background: seatingMode === mode ? 'var(--color-secondary)' : '#fff', fontFamily: 'var(--font-body)', cursor: 'pointer' }}>{mode === 'general' ? 'Entrada general' : 'Asientos numerados'}</button>)}</div>{seatingMode === 'numbered' && <p style={{ fontSize: '0.78rem', color: 'var(--color-muted-foreground)', marginBottom: 0 }}>El demo crea un sector por tipo de entrada, con dos filas de seis asientos.</p>}</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div><Label>Fecha límite de venta</Label><input type="date" style={fieldStyle} value={saleCutoff} onChange={e => setSaleCutoff(e.target.value)} /></div>
               <div><Label>Límite de entradas por usuario</Label><input type="number" min={1} max={20} style={fieldStyle} value={maxPerUser} onChange={e => setMaxPerUser(e.target.value)} /></div>
@@ -239,7 +247,7 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
                 { label: 'Fecha', value: date ? new Date(date).toLocaleDateString('es', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—' },
                 { label: 'Ciudad', value: city || '—' },
                 { label: 'Capacidad', value: capacity ? `${Number(capacity).toLocaleString()} personas` : '—' },
-                { label: 'Tipos de entrada', value: ticketTypes.filter(t => t.name).map(t => `${t.name} (€${t.price || 0})`).join(', ') || '—' },
+                { label: 'Tipos de entrada', value: ticketTypes.filter(t => t.name).map(t => `${t.name} (ARS ${Number(t.price || 0).toLocaleString('es-AR')})`).join(', ') || '—' },
               ].map(item => (
                 <div key={item.label} style={{ display: 'flex', gap: '1rem' }}>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--color-muted-foreground)', minWidth: 110, paddingTop: '0.1rem' }}>{item.label}</span>
@@ -278,4 +286,3 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
     </div>
   )
 }
-

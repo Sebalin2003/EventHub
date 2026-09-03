@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { Event } from '../../types'
+import { formatMoney } from '../../demoStore'
 
 type Props = {
   events: Event[]
   onEdit: (ev: Event) => void
   onDelete: (id: string) => void
+  onPublish: (id: string) => void
   onNew: () => void
 }
 
@@ -15,7 +17,7 @@ const STATUS_META: Record<string, { label: string; bg: string; color: string }> 
   finalizado: { label: 'Finalizado', bg: '#e8edf5', color: '#1B2A4A' },
 }
 
-export default function OrgEvents({ events, onEdit, onDelete, onNew }: Props) {
+export default function OrgEvents({ events, onEdit, onDelete, onPublish, onNew }: Props) {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   return (
@@ -58,7 +60,7 @@ export default function OrgEvents({ events, onEdit, onDelete, onNew }: Props) {
                   </div>
                   <div>
                     <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--color-muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ingresos</p>
-                    <p style={{ margin: '0.1rem 0 0', fontWeight: 600, fontSize: '0.85rem' }}>€{revenue.toLocaleString()}</p>
+                    <p style={{ margin: '0.1rem 0 0', fontWeight: 600, fontSize: '0.85rem' }}>{formatMoney(revenue * 100)}</p>
                   </div>
                   <div>
                     <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--color-muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Tipos</p>
@@ -68,10 +70,11 @@ export default function OrgEvents({ events, onEdit, onDelete, onNew }: Props) {
               </div>
               <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'center', borderLeft: '1px solid var(--color-border)' }}>
                 <button onClick={() => onEdit(ev)} style={{ padding: '0.45rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Editar</button>
+                {ev.status === 'borrador' && <button onClick={() => onPublish(ev.id)} style={{ padding: '0.45rem 1rem', border: 'none', borderRadius: 'var(--radius)', background: 'var(--color-primary)', color: '#fff', fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Publicar</button>}
                 {confirmDelete === ev.id ? (
-                  <button onClick={() => { onDelete(ev.id); setConfirmDelete(null) }} style={{ padding: '0.45rem 1rem', border: 'none', borderRadius: 'var(--radius)', backgroundColor: '#a02020', color: '#fff', fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>¿Confirmar?</button>
+                  <button onClick={() => { onDelete(ev.id); setConfirmDelete(null) }} style={{ padding: '0.45rem 1rem', border: 'none', borderRadius: 'var(--radius)', backgroundColor: '#a02020', color: '#fff', fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Confirmar cancelación</button>
                 ) : (
-                  <button onClick={() => setConfirmDelete(ev.id)} style={{ padding: '0.45rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer', color: 'var(--color-muted-foreground)', whiteSpace: 'nowrap' }}>Eliminar</button>
+                  ev.status !== 'cancelado' && <button onClick={() => setConfirmDelete(ev.id)} style={{ padding: '0.45rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', background: 'transparent', fontFamily: 'var(--font-body)', fontSize: '0.8rem', cursor: 'pointer', color: '#a02020', whiteSpace: 'nowrap' }}>Cancelar evento</button>
                 )}
               </div>
             </div>
@@ -81,4 +84,3 @@ export default function OrgEvents({ events, onEdit, onDelete, onNew }: Props) {
     </div>
   )
 }
-

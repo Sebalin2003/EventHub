@@ -1,4 +1,5 @@
 import type { Event, Order } from '../../types'
+import { formatMoney } from '../../demoStore'
 
 type Props = {
   events: Event[]
@@ -60,7 +61,7 @@ export default function OrgDashboard({ events, orders, onNew }: Props) {
       {/* Stats */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
         <Stat label="Entradas vendidas" value={totalSold.toLocaleString()} sub="todos los eventos" />
-        <Stat label="Ingresos totales" value={`€${totalRevenue.toLocaleString()}`} sub="ventas confirmadas" accent />
+        <Stat label="Ingresos totales" value={formatMoney(Math.round(totalRevenue * 100))} sub="ventas confirmadas" accent />
         <Stat label="Capacidad total" value={`${Math.round((events.reduce((s,e)=>s+e.registered,0)/Math.max(totalCapacity,1))*100)}%`} sub={`${totalCapacity.toLocaleString()} aforo`} />
         <Stat label="Check-ins" value={totalCheckIns.toLocaleString()} sub="accesos registrados" />
       </div>
@@ -72,7 +73,7 @@ export default function OrgDashboard({ events, orders, onNew }: Props) {
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', height: 140 }}>
             {monthlySales.map(m => (
               <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', height: '100%', justifyContent: 'flex-end' }}>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-muted-foreground)' }}>€{m.value.toFixed(0)}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.7rem', color: 'var(--color-muted-foreground)' }}>{formatMoney(Math.round(m.value * 100))}</span>
                 <div style={{ width: '100%', height: `${Math.max(8, (m.value / maxRev) * 110)}px`, backgroundColor: m.value === Math.max(...monthlySales.map(x => x.value)) ? 'var(--color-accent)' : 'var(--color-primary)', borderRadius: '2px 2px 0 0', transition: 'height 0.4s ease' }} />
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--color-muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{m.label}</span>
               </div>
@@ -90,7 +91,7 @@ export default function OrgDashboard({ events, orders, onNew }: Props) {
               <div key={name}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.3rem' }}>
                   <span style={{ fontSize: '0.82rem', fontWeight: 500 }}>{name}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--color-muted-foreground)' }}>{data.qty} · €{data.rev.toFixed(0)}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.78rem', color: 'var(--color-muted-foreground)' }}>{data.qty} · {formatMoney(Math.round(data.rev * 100))}</span>
                 </div>
                 <div style={{ height: 5, backgroundColor: 'var(--color-muted)', borderRadius: 2, overflow: 'hidden' }}>
                   <div style={{ height: '100%', width: `${(data.qty / maxQty) * 100}%`, backgroundColor: 'var(--color-primary)', borderRadius: 2 }} />
@@ -124,7 +125,7 @@ export default function OrgDashboard({ events, orders, onNew }: Props) {
                   <td style={{ padding: '0.75rem 1.25rem', fontSize: '0.83rem', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{getEventTitle(o.eventId)}</td>
                   <td style={{ padding: '0.75rem 1.25rem', fontSize: '0.83rem' }}>{o.ticketTypeName}</td>
                   <td style={{ padding: '0.75rem 1.25rem', fontFamily: 'var(--font-mono)', fontSize: '0.83rem' }}>{o.quantity}</td>
-                  <td style={{ padding: '0.75rem 1.25rem', fontFamily: 'var(--font-mono)', fontSize: '0.83rem', fontWeight: 600, color: 'var(--color-primary)' }}>€{o.total.toFixed(2)}</td>
+                  <td style={{ padding: '0.75rem 1.25rem', fontFamily: 'var(--font-mono)', fontSize: '0.83rem', fontWeight: 600, color: 'var(--color-primary)' }}>{formatMoney(Math.round(o.total * 100))}</td>
                   <td style={{ padding: '0.75rem 1.25rem', fontSize: '0.78rem', color: 'var(--color-muted-foreground)' }}>{new Date(o.purchasedAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })}</td>
                 </tr>
               ))}
@@ -135,4 +136,3 @@ export default function OrgDashboard({ events, orders, onNew }: Props) {
     </div>
   )
 }
-

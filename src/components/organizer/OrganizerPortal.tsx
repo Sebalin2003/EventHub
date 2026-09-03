@@ -6,6 +6,8 @@ import CreateEventWizard from './CreateEventWizard'
 import OrgSales from './OrgSales'
 import OrgAttendees from './OrgAttendees'
 import OrgCheckIn from './OrgCheckIn'
+import { useToast } from '../shared/Ui'
+import BrandLogo from '../shared/BrandLogo'
 
 type OrgTab = 'dashboard' | 'eventos' | 'crear' | 'ventas' | 'asistentes' | 'checkin'
 
@@ -14,7 +16,8 @@ type Props = {
   orders: Order[]
   currentUser: UserProfile
   onLogout: () => void
-  onEventsChange: (events: Event[]) => void
+  onUpsertEvent: (event: Event) => void
+  onSetEventStatus: (eventId: string, status: Event['status']) => void
 }
 
 const NAV: { key: OrgTab; label: string }[] = [
@@ -26,7 +29,8 @@ const NAV: { key: OrgTab; label: string }[] = [
   { key: 'crear', label: 'Crear evento' },
 ]
 
-export default function OrganizerPortal({ events, orders, currentUser, onLogout, onEventsChange }: Props) {
+export default function OrganizerPortal({ events, orders, currentUser, onLogout, onUpsertEvent, onSetEventStatus }: Props) {
+  const { notify } = useToast()
   const [tab, setTab] = useState<OrgTab>('dashboard')
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
 
@@ -34,12 +38,8 @@ export default function OrganizerPortal({ events, orders, currentUser, onLogout,
   const myOrders = orders.filter(o => myEvents.some(e => e.id === o.eventId))
 
   function handleSaveEvent(ev: Event) {
-    const exists = events.find(e => e.id === ev.id)
-    if (exists) {
-      onEventsChange(events.map(e => e.id === ev.id ? ev : e))
-    } else {
-      onEventsChange([ev, ...events])
-    }
+    onUpsertEvent(ev)
+    notify(ev.status === 'publicado' ? 'Evento publicado.' : 'Borrador guardado.', 'success')
     setEditingEvent(null)
     setTab('eventos')
   }
@@ -50,16 +50,21 @@ export default function OrganizerPortal({ events, orders, currentUser, onLogout,
   }
 
   function handleDelete(id: string) {
-    onEventsChange(events.filter(e => e.id !== id))
+    onSetEventStatus(id, 'cancelado')
+    notify('Evento cancelado. Las órdenes afectadas fueron enviadas a reembolso.', 'success')
+  }
+
+  function handlePublish(id: string) {
+    onSetEventStatus(id, 'publicado')
+    notify('Evento publicado.', 'success')
   }
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--font-body)', backgroundColor: 'var(--color-background)' }}>
       {/* Sidebar */}
       <aside style={{ width: 220, backgroundColor: 'var(--color-primary)', flexShrink: 0, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh', overflowY: 'auto' }}>
-        <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600, color: '#F5F3EE', letterSpacing: '-0.02em' }}>EventHub</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--color-accent)', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '0.1rem' }}>Organizador</div>
+        <div style={{ padding: '1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <BrandLogo subtitle="Organizador" />
         </div>
         <nav style={{ padding: '1rem 0', flex: 1 }}>
           {NAV.map(item => (
@@ -85,7 +90,7 @@ export default function OrganizerPortal({ events, orders, currentUser, onLogout,
       {/* Content */}
       <main style={{ flex: 1, padding: '2.5rem', minWidth: 0, overflowY: 'auto' }}>
         {tab === 'dashboard' && <OrgDashboard events={myEvents} orders={myOrders} onNew={() => setTab('crear')} />}
-        {tab === 'eventos' && <OrgEvents events={myEvents} onEdit={handleEdit} onDelete={handleDelete} onNew={() => setTab('crear')} />}
+        {tab === 'eventos' && <OrgEvents events={myEvents} onEdit={handleEdit} onDelete={handleDelete} onPublish={handlePublish} onNew={() => setTab('crear')} />}
         {tab === 'crear' && <CreateEventWizard editing={editingEvent} organizerId={currentUser.id} organizerName={currentUser.name} onSave={handleSaveEvent} onCancel={() => setTab('eventos')} />}
         {tab === 'ventas' && <OrgSales events={myEvents} orders={myOrders} />}
         {tab === 'asistentes' && <OrgAttendees events={myEvents} orders={myOrders} />}
@@ -94,4 +99,3 @@ export default function OrganizerPortal({ events, orders, currentUser, onLogout,
     </div>
   )
 }
-

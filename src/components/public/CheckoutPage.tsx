@@ -1,247 +1,155 @@
-import { useState, useEffect } from 'react'
-import type { Event, UserProfile, TicketType, Order, Ticket } from '../../types'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { DemoAction } from '../../demoStore'
+import { activeHolds, buildOrder, createHold, effectiveAvailability, formatMoney, isSeatUnavailable } from '../../demoStore'
+import type { CheckoutSelection, DemoState, Event, Hold, PaymentAttempt, Seat, UserProfile } from '../../types'
+import { Breadcrumb, StatusBadge, useToast } from '../shared/Ui'
+import { useI18n } from '../../i18n'
 
 type Props = {
+  state: DemoState
   event: Event
   currentUser: UserProfile
-  onComplete: (order: Order) => void
+  dispatch: React.Dispatch<DemoAction>
+  onComplete: (orderId: string) => void
   onCancel: () => void
+  onHome: () => void
 }
 
 type Step = 'select' | 'payment' | 'processing'
+type DemoOutcome = 'approved' | 'declined'
 
-const PAYMENT_METHODS = ['Tarjeta de crédito/débito', 'PayPal', 'Bizum']
-
-function makeTickets(order: Partial<Order>, qty: number, event: Event, ticketType: TicketType, holderName: string): Ticket[] {
-  return Array.from({ length: qty }).map((_, i) => ({
-    id: `TKT-${Date.now()}-${i}`,
-    orderId: order.id!,
-    eventId: event.id,
-    userId: order.userId!,
-    ticketTypeId: ticketType.id,
-    ticketTypeName: ticketType.name,
-    qrCode: `EVENTHUB::TKT-${Date.now()}-${i}::2026`,
-    status: 'activo' as const,
-    eventTitle: event.title,
-    eventDate: event.date,
-    venueName: event.venueName,
-    address: event.address ? `${event.address}, ${event.city}` : event.city,
-    holderName,
-  }))
+function SeatButton({ seat, status, onToggle }: { seat: Seat; status: 'available' | 'selected' | 'hold' | 'sold'; onToggle: () => void }) {
+  const unavailable = status === 'hold' || status === 'sold'
+  const label = `Fila ${seat.row}, asiento ${seat.number}, ${status === 'hold' ? 'en HOLD' : status === 'sold' ? 'vendido' : status === 'selected' ? 'seleccionado' : 'disponible'}`
+  return <button type="button" className={`seat seat--${status}`} disabled={unavailable} aria-pressed={status === 'selected'} aria-label={label} onClick={onToggle}>{seat.number}</button>
 }
 
-export default function CheckoutPage({ event, currentUser, onComplete, onCancel }: Props) {
+export default function CheckoutPage({ state, event, currentUser, dispatch, onComplete, onCancel, onHome }: Props) {
+  const { notify } = useToast()
+  const { t, locale } = useI18n()
   const [step, setStep] = useState<Step>('select')
-  const [selectedType, setSelectedType] = useState<TicketType | null>(null)
-  const [qty, setQty] = useState(1)
-  const [payMethod, setPayMethod] = useState(PAYMENT_METHODS[0])
-  const [cardNum, setCardNum] = useState('')
-  const [cardName, setCardName] = useState('')
-  const [cardExp, setCardExp] = useState('')
-  const [cardCvv, setCardCvv] = useState('')
-  const [timeLeft, setTimeLeft] = useState(5 * 60) // 5 minutes
-  const [timerActive, setTimerActive] = useState(false)
+  const [ticketTypeId, setTicketTypeId] = useState('')
+  const [quantity, setQuantity] = useState(1)
+  const [seatIds, setSeatIds] = useState<string[]>([])
+  const [hold, setHold] = useState<Hold | null>(null)
+  const [timeLeft, setTimeLeft] = useState(0)
+  const [payMethod, setPayMethod] = useState('card')
+  const [outcome, setOutcome] = useState<DemoOutcome>('approved')
+  const [error, setError] = useState('')
+  const idempotencyKey = useRef(crypto.randomUUID())
+  const selectedType = event.ticketTypes.find(type => type.id === ticketTypeId)
+  const selectedSector = event.sectors?.find(sector => sector.ticketTypeId === ticketTypeId)
+  const effectiveQuantity = event.seatingMode === 'numbered' ? seatIds.length : quantity
+  const subtotalCents = (selectedType?.priceCents ?? Math.round((selectedType?.price ?? 0) * 100)) * effectiveQuantity
+  const feeCents = Math.round(subtotalCents * 0.04)
+  const selection: CheckoutSelection = { ticketTypeId, quantity: effectiveQuantity, seatIds }
+
+  const seats = useMemo(() => event.seats?.filter(seat => seat.ticketTypeId === ticketTypeId) ?? [], [event.seats, ticketTypeId])
+  const heldSeatIds = useMemo(() => new Set(activeHolds(state, event.id).filter(item => item.userId !== currentUser.id).flatMap(item => item.items.map(held => held.seatId).filter(Boolean))), [state.holds, event.id, currentUser.id])
+  const seatState = (seat: Seat) => seatIds.includes(seat.id) ? 'selected' as const : seat.status === 'sold' ? 'sold' as const : heldSeatIds.has(seat.id) ? 'hold' as const : 'available' as const
 
   useEffect(() => {
-    if (!timerActive) return
-    if (timeLeft <= 0) { onCancel(); return }
-    const t = setInterval(() => setTimeLeft(s => s - 1), 1000)
-    return () => clearInterval(t)
-  }, [timerActive, timeLeft])
+    if (!hold) return
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((new Date(hold.expiresAt).getTime() - Date.now()) / 1000))
+      setTimeLeft(remaining)
+      if (remaining === 0) {
+        dispatch({ type: 'RELEASE_HOLD', holdId: hold.id })
+        setHold(null)
+        setStep('select')
+        setError('La reserva temporal venció. Vuelve a seleccionar tus entradas.')
+        notify('La reserva temporal venció y el inventario fue liberado.', 'error')
+      }
+    }
+    tick()
+    const timer = window.setInterval(tick, 1000)
+    return () => window.clearInterval(timer)
+  }, [hold, dispatch, notify])
 
-  function handleSelectContinue() {
-    if (!selectedType) return
-    setTimerActive(true)
-    setStep('payment')
+  function toggleSeat(seatId: string) {
+    setSeatIds(current => current.includes(seatId) ? current.filter(id => id !== seatId) : current.length < event.maxTicketsPerUser ? [...current, seatId] : current)
   }
 
-  function handlePay(e: React.FormEvent) {
-    e.preventDefault()
+  function confirmSelection() {
+    setError('')
+    if (!selectedType || effectiveQuantity < 1) { setError(event.seatingMode === 'numbered' ? 'Selecciona al menos un asiento.' : 'Selecciona un tipo de entrada.'); return }
+    if (effectiveQuantity > event.maxTicketsPerUser || effectiveQuantity > effectiveAvailability(state, event.id, selectedType.id)) { setError('La cantidad supera la disponibilidad o el límite por usuario.'); return }
+    if (event.seatingMode === 'numbered' && seatIds.some(id => {
+      const seat = event.seats?.find(item => item.id === id)
+      return !seat || isSeatUnavailable(state, event, seat, currentUser.id)
+    })) { setError('Uno de los asientos dejó de estar disponible. Actualiza tu selección.'); return }
+    const nextHold = createHold(currentUser.id, event.id, selection)
+    dispatch({ type: 'CREATE_HOLD', hold: nextHold })
+    setHold(nextHold)
+    setStep('payment')
+    notify(`Reserva temporal creada por ${Math.round((new Date(nextHold.expiresAt).getTime() - Date.now()) / 60000)} minutos.`, 'info')
+  }
+
+  function cancelCheckout() {
+    if (hold) dispatch({ type: 'RELEASE_HOLD', holdId: hold.id })
+    onCancel()
+  }
+
+  function pay(eventSubmit: React.FormEvent<HTMLFormElement>) {
+    eventSubmit.preventDefault()
+    if (!hold || !selectedType) return
+    setError('')
     setStep('processing')
-    setTimeout(() => {
-      const orderId = `ORD-${Date.now()}`
-      const unitPrice = selectedType!.price
-      const serviceFee = parseFloat((unitPrice * qty * 0.04).toFixed(2))
-      const order: Order = {
-        id: orderId,
-        userId: currentUser.id,
-        eventId: event.id,
-        ticketTypeId: selectedType!.id,
-        ticketTypeName: selectedType!.name,
-        quantity: qty,
-        unitPrice,
-        serviceFee,
-        total: parseFloat((unitPrice * qty + serviceFee).toFixed(2)),
-        status: 'confirmado',
-        purchasedAt: new Date().toISOString(),
-        tickets: makeTickets({ id: orderId, userId: currentUser.id }, qty, event, selectedType!, currentUser.name),
+    window.setTimeout(() => {
+      if (outcome === 'declined') {
+        const payment: PaymentAttempt = { id: `pay-${crypto.randomUUID()}`, orderId: `failed-${crypto.randomUUID()}`, idempotencyKey: idempotencyKey.current, result: 'declined', createdAt: new Date().toISOString() }
+        dispatch({ type: 'RECORD_PAYMENT_FAILURE', holdId: hold.id, payment, actorLabel: currentUser.name })
+        setHold(null)
+        setStep('select')
+        setError('El pago fue rechazado. No se realizó ningún cargo y la reserva se liberó.')
+        idempotencyKey.current = crypto.randomUUID()
+        notify('Pago rechazado. Revisa el medio de pago y vuelve a intentarlo.', 'error')
+        return
       }
-      onComplete(order)
-    }, 2000)
+      const { order, payment } = buildOrder(state, currentUser.id, currentUser.name, event, selection, hold, idempotencyKey.current)
+      dispatch({ type: 'COMPLETE_PURCHASE', order, payment })
+      notify('Compra confirmada. Tus entradas ya están disponibles.', 'success')
+      onComplete(order.id)
+    }, 900)
   }
 
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, '0')
   const seconds = String(timeLeft % 60).padStart(2, '0')
-  const subtotal = (selectedType?.price ?? 0) * qty
-  const fee = parseFloat((subtotal * 0.04).toFixed(2))
-  const total = subtotal + fee
 
-  const available = event.ticketTypes.filter(t => t.sold < t.totalQuantity)
-
-  return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', padding: '2.5rem 2rem' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2rem' }}>
-        <button onClick={onCancel} style={{ background: 'none', border: 'none', color: 'var(--color-muted-foreground)', cursor: 'pointer', fontSize: '0.85rem', fontFamily: 'var(--font-body)', padding: 0 }}>← Volver</button>
-        <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '2rem', fontWeight: 600, letterSpacing: '-0.03em', color: 'var(--color-primary)', margin: 0 }}>Checkout</h1>
-      </div>
-
-      {step === 'processing' ? (
-        <div style={{ textAlign: 'center', padding: '6rem 2rem' }}>
-          <div style={{ width: 60, height: 60, border: '4px solid var(--color-muted)', borderTopColor: 'var(--color-accent)', borderRadius: '50%', margin: '0 auto 2rem', animation: 'spin 0.8s linear infinite' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.8rem', fontWeight: 600, color: 'var(--color-primary)', margin: '0 0 0.5rem' }}>Procesando pago...</h2>
-          <p style={{ color: 'var(--color-muted-foreground)', fontSize: '0.9rem' }}>Comunicando con la pasarela de pago. Por favor, espera.</p>
+  return <main className="page-shell checkout-page">
+    <Breadcrumb items={[{ label: t('home'), onClick: onHome }, { label: event.title, onClick: cancelCheckout }, { label: t('checkout') }]} />
+    <div className="page-heading"><h1>{t('checkout')}</h1><p>{t('checkoutBody')}</p></div>
+    {error && <div className="form-error" role="alert">{error}</div>}
+    {step === 'processing' ? <section className="processing-state" aria-live="polite"><div className="processing-mark" aria-hidden="true" /><h2>{t('processing')}</h2><p>{t('processingBody')}</p></section> :
+      <div className="checkout-layout">
+        <div className="checkout-steps">
+          <section className={`checkout-step${step === 'select' ? ' is-active' : ' is-complete'}`}>
+            <header><span>{step === 'select' ? '1' : '✓'}</span><div><h2>{t('selectTickets')}</h2><p>{t('typeQuantitySeat')}</p></div></header>
+            {step === 'select' && <div className="checkout-step__body">
+              <fieldset className="ticket-choice"><legend>{t('ticketType')}</legend>{event.ticketTypes.map(type => {
+                const available = effectiveAvailability(state, event.id, type.id)
+                return <label key={type.id} className={ticketTypeId === type.id ? 'is-selected' : ''}><input type="radio" name="ticketType" value={type.id} checked={ticketTypeId === type.id} disabled={available === 0} onChange={() => { setTicketTypeId(type.id); setSeatIds([]); setQuantity(1) }} /><span><b>{type.name}</b><small>{available} {t('available')}</small></span><strong>{type.price === 0 ? t('free') : formatMoney(type.priceCents ?? type.price * 100, locale)}</strong></label>
+              })}</fieldset>
+              {selectedType && event.seatingMode !== 'numbered' && <div className="quantity-control"><span>Cantidad</span><button type="button" onClick={() => setQuantity(value => Math.max(1, value - 1))} aria-label="Quitar una entrada">−</button><output>{quantity}</output><button type="button" onClick={() => setQuantity(value => Math.min(event.maxTicketsPerUser, effectiveAvailability(state, event.id, selectedType.id), value + 1))} aria-label="Añadir una entrada">+</button><small>Máx. {event.maxTicketsPerUser}</small></div>}
+              {selectedType && event.seatingMode === 'numbered' && selectedSector && <section className="seat-picker"><div className="seat-picker__heading"><div><h3>{selectedSector.name}</h3><p>Escenario</p></div><StatusBadge tone="info">{seatIds.length} seleccionados</StatusBadge></div><div className="seat-legend"><span><i className="available" />Disponible</span><span><i className="selected" />Seleccionado</span><span><i className="hold" />HOLD</span><span><i className="sold" />Vendido</span></div><div className="seat-map" aria-label={`Asientos de ${selectedSector.name}`}>{selectedSector.rows.map(row => <div className="seat-row" key={row}><b>{row}</b>{seats.filter(seat => seat.row === row).map(seat => <SeatButton key={seat.id} seat={seat} status={seatState(seat)} onToggle={() => toggleSeat(seat.id)} />)}</div>)}</div><details className="seat-text-list"><summary>Alternativa textual de asientos</summary><ul>{seats.map(seat => <li key={seat.id}>Fila {seat.row}, asiento {seat.number}: {seatState(seat) === 'hold' ? 'en HOLD' : seatState(seat) === 'sold' ? 'vendido' : seatState(seat) === 'selected' ? 'seleccionado' : 'disponible'}</li>)}</ul></details></section>}
+              <button className="button button--secondary" type="button" onClick={confirmSelection}>Reservar y continuar</button>
+            </div>}
+          </section>
+          <section className={`checkout-step${step === 'payment' ? ' is-active' : ''}`} aria-disabled={step !== 'payment'}>
+            <header><span>2</span><div><h2>{t('paymentMethod')}</h2><p>{t('paymentData')}</p></div></header>
+            {step === 'payment' && <form className="checkout-step__body payment-form" onSubmit={pay}>
+              <fieldset className="payment-methods"><legend>{t('paymentMethod')}</legend>{[['card', t('card')], ['paypal', t('paypal')], ['mercado-pago', t('mercadoPago')]].map(([value, label]) => <label key={value}><input type="radio" name="payment" value={value} checked={payMethod === value} onChange={() => setPayMethod(value)} />{label}</label>)}</fieldset>
+              {payMethod === 'card' && <><label>{t('cardNumber')}<input required inputMode="numeric" autoComplete="cc-number" placeholder="4242 4242 4242 4242" /></label><label>{t('cardName')}<input required autoComplete="cc-name" placeholder="NOMBRE APELLIDO" /></label><div className="field-row"><label>{t('expiration')}<input required placeholder="MM/AA" autoComplete="cc-exp" /></label><label>CVV<input required inputMode="numeric" placeholder="123" autoComplete="cc-csc" /></label></div></>}
+              <label className="demo-control">{t('demoResult')}<select value={outcome} onChange={event => setOutcome(event.target.value as DemoOutcome)}><option value="approved">{t('approved')}</option><option value="declined">{t('declined')}</option></select><small>{t('demoHelp')}</small></label>
+              <button className="button button--primary button--block" type="submit">{t('confirmPurchase')} · {formatMoney(subtotalCents + feeCents, locale)}</button>
+            </form>}
+          </section>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: '2rem', alignItems: 'start' }}>
-          {/* Left: steps */}
-          <div>
-            {/* Step 1: Select */}
-            <div style={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', marginBottom: '1.25rem', overflow: 'hidden' }}>
-              <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '0.75rem', backgroundColor: step === 'select' ? 'var(--color-secondary)' : 'var(--color-card)' }}>
-                <span style={{ width: 26, height: 26, borderRadius: '50%', backgroundColor: step !== 'select' ? 'var(--color-primary)' : 'var(--color-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', flexShrink: 0 }}>
-                  {step !== 'select' ? '✓' : '1'}
-                </span>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, margin: 0, color: 'var(--color-primary)' }}>Seleccionar entradas</h2>
-              </div>
-              {step === 'select' && (
-                <div style={{ padding: '1.25rem 1.5rem' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-                    {available.map(tt => (
-                      <div key={tt.id} onClick={() => setSelectedType(tt)} style={{
-                        padding: '0.9rem 1.1rem', border: `2px solid ${selectedType?.id === tt.id ? 'var(--color-primary)' : 'var(--color-border)'}`,
-                        borderRadius: 'var(--radius)', cursor: 'pointer', backgroundColor: selectedType?.id === tt.id ? 'var(--color-secondary)' : '#fff', transition: 'all 0.12s',
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                      }}>
-                        <div>
-                          <p style={{ margin: 0, fontWeight: 700, fontSize: '0.9rem' }}>{tt.name}</p>
-                          <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: 'var(--color-muted-foreground)' }}>{tt.description}</p>
-                        </div>
-                        <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', color: tt.price === 0 ? '#1a6e2e' : 'var(--color-primary)', flexShrink: 0, marginLeft: '1rem' }}>
-                          {tt.price === 0 ? 'Gratis' : `€${tt.price}`}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  {selectedType && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem' }}>
-                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--color-muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Cantidad</span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-                        <button onClick={() => setQty(q => Math.max(1, q - 1))} style={{ padding: '0.4rem 0.75rem', border: 'none', background: 'var(--color-secondary)', cursor: 'pointer', fontSize: '1rem', fontWeight: 700 }}>−</button>
-                        <span style={{ padding: '0 0.75rem', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{qty}</span>
-                        <button onClick={() => setQty(q => Math.min(event.maxTicketsPerUser, q + 1))} style={{ padding: '0.4rem 0.75rem', border: 'none', background: 'var(--color-secondary)', cursor: 'pointer', fontSize: '1rem', fontWeight: 700 }}>+</button>
-                      </div>
-                      <span style={{ fontSize: '0.8rem', color: 'var(--color-muted-foreground)' }}>Máx. {event.maxTicketsPerUser}</span>
-                    </div>
-                  )}
-                  <button onClick={handleSelectContinue} disabled={!selectedType} style={{ padding: '0.7rem 1.5rem', border: 'none', borderRadius: 'var(--radius)', backgroundColor: selectedType ? 'var(--color-primary)' : 'var(--color-muted)', color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem', cursor: selectedType ? 'pointer' : 'not-allowed' }}>
-                    Continuar al pago
-                  </button>
-                </div>
-              )}
-            </div>
-
-            {/* Step 2: Payment */}
-            <div style={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden', opacity: step === 'select' ? 0.5 : 1, pointerEvents: step === 'select' ? 'none' : 'auto' }}>
-              <div style={{ padding: '1rem 1.5rem', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ width: 26, height: 26, borderRadius: '50%', backgroundColor: 'var(--color-accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'var(--font-mono)', fontSize: '0.72rem', flexShrink: 0 }}>2</span>
-                <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, margin: 0, color: 'var(--color-primary)' }}>Método de pago</h2>
-              </div>
-              {step === 'payment' && (
-                <form onSubmit={handlePay} style={{ padding: '1.25rem 1.5rem' }}>
-                  <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem' }}>
-                    {PAYMENT_METHODS.map(m => (
-                      <button key={m} type="button" onClick={() => setPayMethod(m)} style={{ flex: 1, padding: '0.55rem 0.5rem', border: `2px solid ${payMethod === m ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 'var(--radius)', backgroundColor: payMethod === m ? 'var(--color-secondary)' : '#fff', fontFamily: 'var(--font-body)', fontSize: '0.75rem', fontWeight: payMethod === m ? 600 : 400, cursor: 'pointer' }}>{m}</button>
-                    ))}
-                  </div>
-                  {payMethod === 'Tarjeta de crédito/débito' && (
-                    <div style={{ display: 'grid', gap: '0.9rem', marginBottom: '1.25rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted-foreground)', marginBottom: '0.35rem' }}>Número de tarjeta</label>
-                        <input value={cardNum} onChange={e => setCardNum(e.target.value)} placeholder="1234 5678 9012 3456" required maxLength={19}
-                          style={{ width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' }} />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted-foreground)', marginBottom: '0.35rem' }}>Nombre en la tarjeta</label>
-                        <input value={cardName} onChange={e => setCardName(e.target.value)} placeholder="NOMBRE APELLIDO" required
-                          style={{ width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', fontFamily: 'var(--font-body)', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' }} />
-                      </div>
-                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                        <div>
-                          <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted-foreground)', marginBottom: '0.35rem' }}>Caducidad</label>
-                          <input value={cardExp} onChange={e => setCardExp(e.target.value)} placeholder="MM/AA" required maxLength={5}
-                            style={{ width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'var(--color-muted-foreground)', marginBottom: '0.35rem' }}>CVV</label>
-                          <input value={cardCvv} onChange={e => setCardCvv(e.target.value)} placeholder="123" required maxLength={4}
-                            style={{ width: '100%', padding: '0.6rem 0.85rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', fontFamily: 'var(--font-mono)', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box' }} />
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                  <button type="submit" style={{ width: '100%', padding: '0.85rem', border: 'none', borderRadius: 'var(--radius)', backgroundColor: 'var(--color-accent)', color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 700, fontSize: '0.95rem', cursor: 'pointer' }}>
-                    Confirmar compra · €{total.toFixed(2)}
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
-
-          {/* Right: summary */}
-          <div style={{ position: 'sticky', top: 80 }}>
-            {/* Timer */}
-            {timerActive && (
-              <div style={{ backgroundColor: timeLeft < 60 ? '#fde8e8' : 'var(--color-secondary)', border: `1px solid ${timeLeft < 60 ? '#f5c2c7' : 'var(--color-border)'}`, borderRadius: 'var(--radius)', padding: '0.85rem 1.25rem', marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <p style={{ margin: 0, fontSize: '0.82rem', color: timeLeft < 60 ? '#a02020' : 'var(--color-foreground)', fontWeight: 500 }}>
-                  {timeLeft < 60 ? '¡Reserva a punto de expirar!' : 'Reserva temporal activa'}
-                </p>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '1.1rem', fontWeight: 700, color: timeLeft < 60 ? '#a02020' : 'var(--color-primary)' }}>{minutes}:{seconds}</span>
-              </div>
-            )}
-
-            <div style={{ backgroundColor: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-              <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-secondary)' }}>
-                <h3 style={{ fontFamily: 'var(--font-display)', fontSize: '1rem', fontWeight: 600, margin: 0, color: 'var(--color-primary)' }}>Resumen del pedido</h3>
-              </div>
-              <div style={{ padding: '1.1rem 1.25rem' }}>
-                {event.imageUrl && <img src={event.imageUrl} alt={event.title} style={{ width: '100%', height: 110, objectFit: 'cover', borderRadius: 2, marginBottom: '0.85rem' }} />}
-                <p style={{ margin: '0 0 0.25rem', fontWeight: 700, fontSize: '0.9rem', color: 'var(--color-foreground)' }}>{event.title}</p>
-                <p style={{ margin: '0 0 1rem', fontSize: '0.78rem', color: 'var(--color-muted-foreground)' }}>
-                  {new Date(event.date).toLocaleDateString('es', { day: 'numeric', month: 'long', year: 'numeric' })} · {event.city}
-                </p>
-                {selectedType && (
-                  <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem', fontSize: '0.85rem' }}>
-                      <span>{selectedType.name} × {qty}</span>
-                      <span style={{ fontFamily: 'var(--font-mono)' }}>€{(selectedType.price * qty).toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.75rem', fontSize: '0.82rem', color: 'var(--color-muted-foreground)' }}>
-                      <span>Cargo de servicio (4%)</span>
-                      <span style={{ fontFamily: 'var(--font-mono)' }}>€{fee.toFixed(2)}</span>
-                    </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--color-foreground)', paddingTop: '0.75rem' }}>
-                      <span style={{ fontWeight: 700, fontSize: '0.95rem' }}>Total</span>
-                      <span style={{ fontFamily: 'var(--font-display)', fontWeight: 700, fontSize: '1.1rem', color: 'var(--color-primary)' }}>€{total.toFixed(2)}</span>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  )
+        <aside className="order-summary">
+          {hold && <div className={`hold-timer${timeLeft < 60 ? ' is-urgent' : ''}`} role="timer" aria-live="polite"><span>{timeLeft < 60 ? 'La reserva vence pronto' : 'Reserva temporal activa'}</span><b>{minutes}:{seconds}</b></div>}
+          <div className="order-summary__box"><h2>{t('orderSummary')}</h2><strong>{event.title}</strong><span>{new Date(event.date).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' })}</span>{selectedType && <dl><div><dt>{selectedType.name} × {effectiveQuantity}</dt><dd>{formatMoney(subtotalCents, locale)}</dd></div>{seatIds.length > 0 && <div><dt>{t('seats')}</dt><dd>{seatIds.map(id => { const seat = event.seats?.find(item => item.id === id); return seat ? `${seat.row}${seat.number}` : '' }).join(', ')}</dd></div>}<div><dt>{t('serviceFee')}</dt><dd>{formatMoney(feeCents, locale)}</dd></div><div className="total"><dt>{t('total')}</dt><dd>{formatMoney(subtotalCents + feeCents, locale)}</dd></div></dl>}</div>
+          <button className="button button--ghost button--block" type="button" onClick={cancelCheckout}>{t('cancelBack')}</button>
+        </aside>
+      </div>}
+  </main>
 }
-

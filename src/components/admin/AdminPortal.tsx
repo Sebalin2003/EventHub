@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import type { UserProfile, Event } from '../../types'
+import type { UserProfile, Event, AuditEntry } from '../../types'
+import BrandLogo from '../shared/BrandLogo'
 
 type AdminTab = 'usuarios' | 'organizadores' | 'eventos' | 'auditoria'
 
 type Props = {
   users: UserProfile[]
   events: Event[]
+  audit: AuditEntry[]
   currentUser: UserProfile
   onLogout: () => void
 }
@@ -32,15 +34,6 @@ const STATUS_META: Record<string, { label: string; bg: string; color: string }> 
   finalizado: { label: 'Finalizado', bg: '#e8edf5', color: '#1B2A4A' },
 }
 
-const AUDIT_LOG = [
-  { id: '1', user: 'org@techmadrid.es', action: 'EVENTO_PUBLICADO', detail: 'Cumbre de Innovación Digital 2026', time: '2026-07-01T10:23:00' },
-  { id: '2', user: 'maria@eventHub.com', action: 'COMPRA_CONFIRMADA', detail: 'ORD-1720602180000 · €915.96', time: '2026-07-10T10:23:00' },
-  { id: '3', user: 'hola@devacademy.es', action: 'EVENTO_PUBLICADO', detail: 'Workshop: Diseño de Sistemas Escalables', time: '2026-07-15T09:00:00' },
-  { id: '4', user: 'javier@eventHub.com', action: 'COMPRA_CONFIRMADA', detail: 'ORD-1720785900000 · €206.96', time: '2026-07-12T14:05:00' },
-  { id: '5', user: 'org@techmadrid.es', action: 'EVENTO_CREADO', detail: 'Festival de Jazz de Bilbao', time: '2026-06-01T16:30:00' },
-  { id: '6', user: 'admin@eventHub.com', action: 'USUARIO_SUSPENDIDO', detail: 'marcos@email.com', time: '2026-08-01T11:00:00' },
-]
-
 const ACTION_META: Record<string, { bg: string; color: string }> = {
   EVENTO_PUBLICADO: { bg: '#e6f4ea', color: '#1a6e2e' },
   EVENTO_CREADO: { bg: '#e8edf5', color: '#1B2A4A' },
@@ -48,7 +41,7 @@ const ACTION_META: Record<string, { bg: string; color: string }> = {
   USUARIO_SUSPENDIDO: { bg: '#fde8e8', color: '#a02020' },
 }
 
-export default function AdminPortal({ users, events, currentUser, onLogout }: Props) {
+export default function AdminPortal({ users, events, audit, currentUser, onLogout }: Props) {
   const [tab, setTab] = useState<AdminTab>('usuarios')
 
   const organizers = users.filter(u => u.role === 'ORGANIZADOR')
@@ -58,9 +51,8 @@ export default function AdminPortal({ users, events, currentUser, onLogout }: Pr
     <div style={{ display: 'flex', minHeight: '100vh', fontFamily: 'var(--font-body)', backgroundColor: 'var(--color-background)' }}>
       {/* Sidebar */}
       <aside style={{ width: 220, backgroundColor: '#0F1A2E', flexShrink: 0, display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, height: '100vh' }}>
-        <div style={{ padding: '1.5rem 1.25rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
-          <div style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600, color: '#F5F3EE' }}>EventHub</div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: '#FF8A8A', letterSpacing: '0.12em', textTransform: 'uppercase', marginTop: '0.1rem' }}>Administrador</div>
+        <div style={{ padding: '1.25rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+          <BrandLogo subtitle="Administrador" admin />
         </div>
         <nav style={{ padding: '1rem 0', flex: 1 }}>
           {NAV.map(item => (
@@ -198,18 +190,18 @@ export default function AdminPortal({ users, events, currentUser, onLogout }: Pr
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.2rem', fontWeight: 600, margin: 0, color: 'var(--color-primary)' }}>Registro de auditoría</h2>
             </div>
             <div>
-              {AUDIT_LOG.map((entry, i) => {
+              {audit.map((entry, i) => {
                 const am = ACTION_META[entry.action] ?? { bg: '#eee', color: '#333' }
                 return (
-                  <div key={entry.id} style={{ padding: '1rem 1.5rem', borderBottom: i < AUDIT_LOG.length - 1 ? '1px solid var(--color-border)' : 'none', display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
+                  <div key={entry.id} style={{ padding: '1rem 1.5rem', borderBottom: i < audit.length - 1 ? '1px solid var(--color-border)' : 'none', display: 'flex', gap: '1.25rem', alignItems: 'flex-start' }}>
                     <div style={{ flexShrink: 0, paddingTop: '0.15rem' }}>
                       <span style={{ backgroundColor: am.bg, color: am.color, fontSize: '0.62rem', fontFamily: 'var(--font-mono)', letterSpacing: '0.04em', padding: '0.2rem 0.55rem', borderRadius: 2, whiteSpace: 'nowrap' }}>{entry.action}</span>
                     </div>
                     <div style={{ flex: 1 }}>
                       <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 500 }}>{entry.detail}</p>
-                      <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: 'var(--color-muted-foreground)', fontFamily: 'var(--font-mono)' }}>{entry.user}</p>
+                      <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: 'var(--color-muted-foreground)', fontFamily: 'var(--font-mono)' }}>{entry.actorLabel}</p>
                     </div>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-muted-foreground)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{new Date(entry.time).toLocaleDateString('es', { day: 'numeric', month: 'short' })} {new Date(entry.time).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</p>
+                    <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-muted-foreground)', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>{new Date(entry.createdAt).toLocaleDateString('es', { day: 'numeric', month: 'short' })} {new Date(entry.createdAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>
                 )
               })}
@@ -220,4 +212,3 @@ export default function AdminPortal({ users, events, currentUser, onLogout }: Pr
     </div>
   )
 }
-

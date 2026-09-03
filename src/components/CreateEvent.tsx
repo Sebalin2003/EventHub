@@ -147,7 +147,7 @@ export default function CreateEvent({ onSave, onCancel, editing }: Props) {
             <Field label="Capacidad máxima" error={errors.capacity}>
               <input type="number" min={1} style={inputStyle} value={form.capacity} onChange={e => set('capacity', e.target.value)} placeholder="500" />
             </Field>
-            <Field label="Precio (€)">
+            <Field label="Precio (ARS)">
               <input type="number" min={0} step={0.01} style={inputStyle} value={form.price} onChange={e => set('price', e.target.value)} placeholder="0 = Gratis" />
             </Field>
             <Field label="Categoría">
@@ -192,4 +192,3 @@ export default function CreateEvent({ onSave, onCancel, editing }: Props) {
     </div>
   )
 }
-

@@ -1,131 +1,124 @@
-import { useState } from 'react'
-import type { Event, Order, UserProfile } from '../../types'
+import { useEffect, useState } from 'react'
+import type { DemoAction } from '../../demoStore'
+import type { DemoState, Event, UserProfile } from '../../types'
 import HomePage from './HomePage'
 import ExplorePage from './ExplorePage'
 import EventDetailPage from './EventDetailPage'
 import CheckoutPage from './CheckoutPage'
 import ConfirmationPage from './ConfirmationPage'
 import MyTicketsPage from './MyTicketsPage'
+import FavoritesPage from './FavoritesPage'
+import PurchasesPage from './PurchasesPage'
+import { useToast } from '../shared/Ui'
+import { LanguageSelect, useI18n } from '../../i18n'
+import BrandLogo from '../shared/BrandLogo'
 
-type PublicView = 'home' | 'explore' | 'detail' | 'checkout' | 'confirmation' | 'tickets'
+type PublicView = 'home' | 'explore' | 'detail' | 'checkout' | 'confirmation' | 'tickets' | 'favorites' | 'purchases'
+type PendingIntent = { kind: 'favorite' | 'buy'; eventId: string }
 
 type Props = {
-  events: Event[]
-  orders: Order[]
+  state: DemoState
+  dispatch: React.Dispatch<DemoAction>
   currentUser: UserProfile | null
   onLogin: () => void
   onLogout: () => void
-  onOrderPlaced: (order: Order) => void
 }
 
-export default function PublicPortal({ events, orders, currentUser, onLogin, onLogout, onOrderPlaced }: Props) {
-  const [view, setView] = useState<PublicView>('home')
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null)
-  const [lastOrder, setLastOrder] = useState<Order | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+const PENDING_KEY = 'eventhub-pending-intent'
 
-  function handleViewEvent(ev: Event) {
-    setSelectedEvent(ev)
-    setView('detail')
+export default function PublicPortal({ state, dispatch, currentUser, onLogin, onLogout }: Props) {
+  const { notify } = useToast()
+  const { t } = useI18n()
+  const [view, setView] = useState<PublicView>('home')
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null)
+  const [lastOrderId, setLastOrderId] = useState<string | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const selectedEvent = state.events.find(event => event.id === selectedEventId) ?? null
+  const lastOrder = state.orders.find(order => order.id === lastOrderId) ?? null
+  const favoriteIds = currentUser ? state.favoritesByUser[currentUser.id] ?? [] : []
+  const myOrders = currentUser ? state.orders.filter(order => order.userId === currentUser.id) : []
+
+  useEffect(() => {
+    if (!currentUser) return
+    const raw = sessionStorage.getItem(PENDING_KEY)
+    if (!raw) return
+    sessionStorage.removeItem(PENDING_KEY)
+    try {
+      const pending = JSON.parse(raw) as PendingIntent
+      const event = state.events.find(item => item.id === pending.eventId)
+      if (!event) return
+      setSelectedEventId(event.id)
+      if (pending.kind === 'favorite') {
+        if (!(state.favoritesByUser[currentUser.id] ?? []).includes(event.id)) dispatch({ type: 'TOGGLE_FAVORITE', userId: currentUser.id, eventId: event.id })
+        notify(t('saved'), 'success')
+        setView('detail')
+      } else setView('checkout')
+    } catch { sessionStorage.removeItem(PENDING_KEY) }
+  }, [currentUser?.id])
+
+  useEffect(() => {
+    if (!currentUser && ['checkout', 'confirmation', 'favorites', 'tickets', 'purchases'].includes(view)) setView(selectedEvent ? 'detail' : 'home')
+  }, [currentUser, selectedEvent, view])
+
+  function navigate(next: PublicView) {
+    if (!currentUser && ['favorites', 'tickets', 'purchases'].includes(next)) { onLogin(); return }
+    setView(next)
   }
 
-  function handleBuyTicket(ev: Event) {
-    if (!currentUser) { onLogin(); return }
-    setSelectedEvent(ev)
+  function viewEvent(event: Event) { setSelectedEventId(event.id); setView('detail') }
+
+  function toggleFavorite(event: Event) {
+    if (!currentUser) {
+      sessionStorage.setItem(PENDING_KEY, JSON.stringify({ kind: 'favorite', eventId: event.id } satisfies PendingIntent))
+      onLogin()
+      return
+    }
+    const saved = favoriteIds.includes(event.id)
+    dispatch({ type: 'TOGGLE_FAVORITE', userId: currentUser.id, eventId: event.id })
+    notify(saved ? t('removed') : t('saved'), 'success')
+  }
+
+  function buy(event: Event) {
+    if (!currentUser) {
+      sessionStorage.setItem(PENDING_KEY, JSON.stringify({ kind: 'buy', eventId: event.id } satisfies PendingIntent))
+      onLogin()
+      return
+    }
+    setSelectedEventId(event.id)
     setView('checkout')
   }
 
-  function handleOrderComplete(order: Order) {
-    onOrderPlaced(order)
-    setLastOrder(order)
-    setView('confirmation')
-  }
+  const publicNav = [{ key: 'home' as const, label: t('home') }, { key: 'explore' as const, label: t('explore') }]
+  const privateNav = currentUser?.role === 'ASISTENTE' ? [
+    { key: 'favorites' as const, label: t('favorites') }, { key: 'tickets' as const, label: t('tickets') }, { key: 'purchases' as const, label: t('purchases') },
+  ] : []
+  const navItems = [...publicNav, ...privateNav]
+  const mobileNavValue = navItems.some(item => item.key === view) ? view : selectedEvent ? 'explore' : 'home'
 
-  const navItems = [
-    { key: 'home' as PublicView, label: 'Inicio' },
-    { key: 'explore' as PublicView, label: 'Explorar' },
-    ...(currentUser?.role === 'ASISTENTE' ? [{ key: 'tickets' as PublicView, label: 'Mis entradas' }] : []),
-  ]
+  return <div className="public-app">
+    <header className="public-header">
+      <div className="public-header__inner">
+        <button className="brand" onClick={() => navigate('home')}><BrandLogo /></button>
+        <nav className="public-nav" aria-label={t('nav')}>
+          {navItems.map(item => <button key={item.key} aria-current={view === item.key ? 'page' : undefined} onClick={() => navigate(item.key)}>{item.label}</button>)}
+        </nav>
+        <label className="mobile-nav">
+          <span className="sr-only">{t('nav')}</span>
+          <select aria-label={t('nav')} value={mobileNavValue} onChange={event => navigate(event.target.value as PublicView)}>
+            {navItems.map(item => <option key={item.key} value={item.key}>{item.label}</option>)}
+          </select>
+        </label>
+        <div className="session-actions"><LanguageSelect compact />{currentUser ? <><span>{currentUser.name.split(' ')[0]}</span><button className="button button--dark-ghost" onClick={onLogout}>{t('logout')}</button></> : <button className="button button--primary" onClick={onLogin}>{t('login')}</button>}</div>
+      </div>
+    </header>
 
-  return (
-    <div style={{ fontFamily: 'var(--font-body)', minHeight: '100vh', backgroundColor: 'var(--color-background)' }}>
-      {/* Top nav */}
-      <header style={{ borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-primary)', position: 'sticky', top: 0, zIndex: 50 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 2rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 }}>
-          <button onClick={() => setView('home')} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'baseline', gap: '0.5rem' }}>
-            <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.35rem', fontWeight: 600, color: '#F5F3EE', letterSpacing: '-0.02em' }}>EventHub</span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--color-accent)', letterSpacing: '0.12em', textTransform: 'uppercase' }}>plataforma</span>
-          </button>
-
-          <nav style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
-            {navItems.map(item => (
-              <button key={item.key} onClick={() => setView(item.key)} style={{
-                padding: '0.35rem 0.85rem', borderRadius: 2, border: 'none', cursor: 'pointer',
-                fontFamily: 'var(--font-body)', fontSize: '0.8rem',
-                fontWeight: view === item.key ? 600 : 400,
-                backgroundColor: view === item.key ? 'var(--color-accent)' : 'transparent',
-                color: view === item.key ? '#fff' : 'rgba(245,243,238,0.75)',
-                transition: 'all 0.15s',
-              }}>{item.label}</button>
-            ))}
-            <div style={{ width: 1, height: 20, backgroundColor: 'rgba(255,255,255,0.2)', margin: '0 0.5rem' }} />
-            {currentUser ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                <span style={{ fontSize: '0.8rem', color: 'rgba(245,243,238,0.75)' }}>{currentUser.name.split(' ')[0]}</span>
-                <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 2, padding: '0.3rem 0.7rem', color: 'rgba(245,243,238,0.75)', fontFamily: 'var(--font-body)', fontSize: '0.78rem', cursor: 'pointer' }}>Salir</button>
-              </div>
-            ) : (
-              <button onClick={onLogin} style={{ backgroundColor: 'var(--color-accent)', color: '#fff', border: 'none', borderRadius: 2, padding: '0.4rem 0.9rem', fontFamily: 'var(--font-body)', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer' }}>Iniciar sesión</button>
-            )}
-          </nav>
-        </div>
-      </header>
-
-      {view === 'home' && (
-        <HomePage
-          events={events}
-          onViewEvent={handleViewEvent}
-          onExplore={() => setView('explore')}
-          onSearch={q => { setSearchQuery(q); setView('explore') }}
-        />
-      )}
-      {view === 'explore' && (
-        <ExplorePage
-          events={events}
-          initialSearch={searchQuery}
-          onViewEvent={handleViewEvent}
-        />
-      )}
-      {view === 'detail' && selectedEvent && (
-        <EventDetailPage
-          event={selectedEvent}
-          onBack={() => setView('explore')}
-          onBuy={handleBuyTicket}
-          currentUser={currentUser}
-        />
-      )}
-      {view === 'checkout' && selectedEvent && currentUser && (
-        <CheckoutPage
-          event={selectedEvent}
-          currentUser={currentUser}
-          onComplete={handleOrderComplete}
-          onCancel={() => setView('detail')}
-        />
-      )}
-      {view === 'confirmation' && lastOrder && selectedEvent && (
-        <ConfirmationPage
-          order={lastOrder}
-          event={selectedEvent}
-          onDone={() => setView('tickets')}
-        />
-      )}
-      {view === 'tickets' && currentUser && (
-        <MyTicketsPage
-          orders={orders.filter(o => o.userId === currentUser.id)}
-          events={events}
-        />
-      )}
-    </div>
-  )
+    {view === 'home' && <HomePage events={state.events} onViewEvent={viewEvent} onExplore={() => setView('explore')} onSearch={query => { setSearchQuery(query); setView('explore') }} />}
+    {view === 'explore' && <ExplorePage events={state.events} initialSearch={searchQuery} onViewEvent={viewEvent} />}
+    {view === 'detail' && selectedEvent && <EventDetailPage state={state} event={selectedEvent} currentUser={currentUser} favorite={favoriteIds.includes(selectedEvent.id)} onToggleFavorite={() => toggleFavorite(selectedEvent)} onBack={() => setView('explore')} onHome={() => setView('home')} onBuy={buy} />}
+    {view === 'checkout' && selectedEvent && currentUser && <CheckoutPage state={state} event={selectedEvent} currentUser={currentUser} dispatch={dispatch} onComplete={orderId => { setLastOrderId(orderId); setView('confirmation') }} onCancel={() => setView('detail')} onHome={() => setView('home')} />}
+    {view === 'confirmation' && lastOrder && selectedEvent && <ConfirmationPage order={lastOrder} event={selectedEvent} onTickets={() => setView('tickets')} onPurchases={() => setView('purchases')} />}
+    {view === 'favorites' && currentUser && <FavoritesPage events={state.events} favoriteIds={favoriteIds} onView={viewEvent} onExplore={() => setView('explore')} onHome={() => setView('home')} />}
+    {view === 'tickets' && currentUser && <MyTicketsPage orders={myOrders} events={state.events} onHome={() => setView('home')} />}
+    {view === 'purchases' && currentUser && <PurchasesPage orders={myOrders} events={state.events} currentUser={currentUser} dispatch={dispatch} onHome={() => setView('home')} onTickets={() => setView('tickets')} />}
+  </div>
 }
-

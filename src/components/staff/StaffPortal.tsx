@@ -1,10 +1,13 @@
 import { useState } from 'react'
 import type { Event, Order, CheckInRecord, UserProfile } from '../../types'
+import BrandLogo from '../shared/BrandLogo'
 
 type Props = {
   events: Event[]
   orders: Order[]
   currentUser: UserProfile
+  checkIns: CheckInRecord[]
+  onCheckIn: (record: CheckInRecord) => void
   onLogout: () => void
 }
 
@@ -15,15 +18,15 @@ const RESULT_META: Record<CheckInRecord['result'], { label: string; bg: string; 
   ENTRADA_EVENTO_INCORRECTO: { label: 'Evento incorrecto', bg: '#fde8e8', color: '#a02020', icon: '✕' },
 }
 
-export default function StaffPortal({ events, orders, currentUser, onLogout }: Props) {
+export default function StaffPortal({ events, orders, currentUser, checkIns, onCheckIn, onLogout }: Props) {
   const [selectedEventId, setSelectedEventId] = useState<string>('')
   const [scanInput, setScanInput] = useState('')
-  const [checkIns, setCheckIns] = useState<CheckInRecord[]>([])
   const [lastResult, setLastResult] = useState<(CheckInRecord & { flash: boolean }) | null>(null)
 
   const published = events.filter(e => e.status === 'publicado')
   const ev = published.find(e => e.id === selectedEventId)
-  const allTickets = orders.filter(o => o.eventId === selectedEventId).flatMap(o => o.tickets)
+  const allTickets = orders.flatMap(o => o.tickets)
+  const eventTickets = allTickets.filter(ticket => ticket.eventId === selectedEventId)
   const checkedInIds = new Set(checkIns.filter(c => c.result === 'ENTRADA_VALIDA').map(c => c.ticketId))
 
   function handleScan(e: React.FormEvent) {
@@ -42,7 +45,7 @@ export default function StaffPortal({ events, orders, currentUser, onLogout }: P
       result = 'ENTRADA_EVENTO_INCORRECTO'
       attendeeName = ticket.holderName
       ticketType = ticket.ticketTypeName
-    } else if (checkedInIds.has(ticket.id)) {
+    } else if (ticket.status === 'usado' || checkedInIds.has(ticket.id)) {
       result = 'ENTRADA_YA_UTILIZADA'
       attendeeName = ticket.holderName
       ticketType = ticket.ticketTypeName
@@ -61,7 +64,7 @@ export default function StaffPortal({ events, orders, currentUser, onLogout }: P
       checkedInAt: new Date().toISOString(),
       result,
     }
-    if (result === 'ENTRADA_VALIDA') setCheckIns(prev => [...prev, record])
+    onCheckIn({ ...record, operatorId: currentUser.id })
     setLastResult({ ...record, flash: true })
     setScanInput('')
     setTimeout(() => setLastResult(null), 5000)
@@ -71,10 +74,7 @@ export default function StaffPortal({ events, orders, currentUser, onLogout }: P
     <div style={{ minHeight: '100vh', backgroundColor: 'var(--color-primary)', fontFamily: 'var(--font-body)' }}>
       {/* Header */}
       <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <span style={{ fontFamily: 'var(--font-display)', fontSize: '1.1rem', fontWeight: 600, color: '#F5F3EE' }}>EventHub</span>
-          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.6rem', color: 'var(--color-accent)', letterSpacing: '0.12em', textTransform: 'uppercase', marginLeft: '0.5rem' }}>Staff</span>
-        </div>
+        <BrandLogo subtitle="Staff" />
         <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <span style={{ fontSize: '0.8rem', color: 'rgba(245,243,238,0.65)' }}>{currentUser.name}</span>
           <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 2, padding: '0.3rem 0.7rem', color: 'rgba(245,243,238,0.65)', fontFamily: 'var(--font-body)', fontSize: '0.75rem', cursor: 'pointer' }}>Salir</button>
@@ -110,7 +110,7 @@ export default function StaffPortal({ events, orders, currentUser, onLogout }: P
             {/* Event header */}
             <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
-                <button onClick={() => { setSelectedEventId(''); setCheckIns([]); setLastResult(null) }} style={{ background: 'none', border: 'none', color: 'rgba(245,243,238,0.5)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', cursor: 'pointer', padding: 0, marginBottom: '0.5rem', letterSpacing: '0.05em' }}>← Cambiar evento</button>
+                <button onClick={() => { setSelectedEventId(''); setLastResult(null) }} style={{ background: 'none', border: 'none', color: 'rgba(245,243,238,0.5)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', cursor: 'pointer', padding: 0, marginBottom: '0.5rem', letterSpacing: '0.05em' }}>← Cambiar evento</button>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, letterSpacing: '-0.02em', color: '#F5F3EE', margin: 0, lineHeight: 1.2 }}>{ev?.title}</h2>
                 <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'rgba(245,243,238,0.5)' }}>{ev?.venueName} · {ev?.city}</p>
               </div>
@@ -123,7 +123,7 @@ export default function StaffPortal({ events, orders, currentUser, onLogout }: P
                 <p style={{ margin: '0.3rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ingresados</p>
               </div>
               <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 'var(--radius)', padding: '1.1rem', textAlign: 'center' }}>
-                <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 700, color: '#F5F3EE', lineHeight: 1 }}>{allTickets.length}</p>
+                <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 700, color: '#F5F3EE', lineHeight: 1 }}>{eventTickets.length}</p>
                 <p style={{ margin: '0.3rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total</p>
               </div>
             </div>
@@ -176,4 +176,3 @@ export default function StaffPortal({ events, orders, currentUser, onLogout }: P
     </div>
   )
 }
-
