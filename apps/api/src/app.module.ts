@@ -28,7 +28,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
         username: configService.get<string>('DB_USERNAME', 'postgres'),
         password: configService.get<string>('DB_PASSWORD', 'postgres'),
         database: configService.get<string>('DB_DATABASE', 'eventhub'),
-        entities: [],
+        autoLoadEntities: true,
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
       }),
       inject: [ConfigService],
