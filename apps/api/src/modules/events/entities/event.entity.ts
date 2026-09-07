@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { User } from '../../identity/entities/user.entity.js';
 
 export enum EventModality {
@@ -47,7 +48,7 @@ export class Event {
 
   @ManyToOne(() => User, user => user.events)
   @JoinColumn({ name: 'organizerId' })
-  organizer: User;
+  organizer: Relation<User>;
 
   @Column()
   organizerId: string;

@@ -1,4 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import type { Relation } from 'typeorm';
 import { Event } from '../../events/entities/event.entity.js';
 
 export enum UserRole {
@@ -29,7 +30,7 @@ export class User {
   lastName: string;
 
   @OneToMany(() => Event, event => event.organizer)
-  events: Event[];
+  events: Relation<Event[]>;
 
   @CreateDateColumn()
   createdAt: Date;
