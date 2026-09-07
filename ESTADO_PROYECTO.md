@@ -13,5 +13,6 @@
 - [x] **Configuración de TypeORM:** Modificar `app.module.ts` en el backend para establecer la conexión con PostgreSQL leyendo variables de entorno.
 - [x] **Desarrollo de Módulos (Capa Datos):** Crear las entidades (`Entities`) iniciales para los módulos principales (como Usuarios y Eventos).
 - [x] **Desarrollo de Módulos (Capa Negocio/Controlador):** Programar la lógica de autenticación (Identity) y la gestión básica de eventos (Events).
+- [ ] **Aplicar al menos 3 patrones de diseño distintos** (por ejemplo, DAO, Facade, Adapter, Factory o Strategy).
 - [ ] **Integración Frontend-Backend:** Configurar los endpoints base en `apps/api` y comprobar que `apps/web` puede realizar peticiones exitosas.
 - [ ] **Pruebas de Infraestructura:** Levantar `docker-compose up` y verificar la conectividad de los servicios (Postgres/RabbitMQ) desde el backend NestJS.
