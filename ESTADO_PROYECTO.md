@@ -10,7 +10,7 @@
 - **Herramientas Adicionales:** Se instaló e integró la extensión **Ponytail** en `.agents` para reglas y directrices de código.
 
 ## ¿Qué falta hacer?
-- [ ] **Configuración de TypeORM:** Modificar `app.module.ts` en el backend para establecer la conexión con PostgreSQL leyendo variables de entorno.
+- [x] **Configuración de TypeORM:** Modificar `app.module.ts` en el backend para establecer la conexión con PostgreSQL leyendo variables de entorno.
 - [ ] **Desarrollo de Módulos (Capa Datos):** Crear las entidades (`Entities`) iniciales para los módulos principales (como Usuarios y Eventos).
 - [ ] **Desarrollo de Módulos (Capa Negocio/Controlador):** Programar la lógica de autenticación (Identity) y la gestión básica de eventos (Events).
 - [ ] **Integración Frontend-Backend:** Configurar los endpoints base en `apps/api` y comprobar que `apps/web` puede realizar peticiones exitosas.
