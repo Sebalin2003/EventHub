@@ -1,33 +1,35 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable } from '@nestjs/common';
 import { Event } from './entities/event.entity.js';
+import { EventDao } from './event.dao.js';
+import { EventFactory } from './event.factory.js';
 
 @Injectable()
 export class EventsService {
-  constructor(@InjectRepository(Event) private readonly events: Repository<Event>) {}
+  constructor(
+    private readonly eventDao: EventDao,
+    private readonly eventFactory: EventFactory,
+  ) {}
 
   findAll() {
-    return this.events.find({ order: { date: 'ASC' } });
+    return this.eventDao.findAll();
   }
 
   async findOne(id: string) {
-    const event = await this.events.findOne({ where: { id } });
-    if (!event) throw new NotFoundException('Event not found');
-    return event;
+    return this.eventDao.findOne(id);
   }
 
   create(data: Partial<Event>) {
-    return this.events.save(this.events.create(data));
+    const event = this.eventFactory.createEvent(data);
+    return this.eventDao.save(event);
   }
 
   async update(id: string, data: Partial<Event>) {
     const event = await this.findOne(id);
     Object.assign(event, data);
-    return this.events.save(event);
+    return this.eventDao.save(event);
   }
 
   async remove(id: string) {
-    await this.events.delete((await this.findOne(id)).id);
+    await this.eventDao.delete(id);
   }
 }

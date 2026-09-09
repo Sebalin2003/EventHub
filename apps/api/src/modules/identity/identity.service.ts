@@ -1,9 +1,9 @@
-import { ConflictException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity.js';
+import { HASH_STRATEGY, HashStrategy } from './strategies/hash.strategy.js';
 
 type RegisterData = {
   email: string;
@@ -17,6 +17,7 @@ export class IdentityService {
   constructor(
     @InjectRepository(User) private readonly users: Repository<User>,
     private readonly jwt: JwtService,
+    @Inject(HASH_STRATEGY) private readonly hashStrategy: HashStrategy,
   ) {}
 
   async register(data: RegisterData) {
@@ -27,7 +28,7 @@ export class IdentityService {
 
     const user = await this.users.save({
       email,
-      passwordHash: this.hashPassword(data.password),
+      passwordHash: this.hashStrategy.hashPassword(data.password),
       firstName: data.firstName,
       lastName: data.lastName,
     });
@@ -37,7 +38,7 @@ export class IdentityService {
 
   async login(email: string, password: string) {
     const user = await this.users.findOne({ where: { email: email.trim().toLowerCase() } });
-    if (!user || !this.validPassword(password, user.passwordHash)) {
+    if (!user || !this.hashStrategy.validPassword(password, user.passwordHash)) {
       throw new UnauthorizedException('Invalid credentials');
     }
 
@@ -45,19 +46,6 @@ export class IdentityService {
       accessToken: await this.jwt.signAsync({ sub: user.id, email: user.email, role: user.role }),
       user: this.publicUser(user),
     };
-  }
-
-  private hashPassword(password: string) {
-    const salt = randomBytes(16).toString('hex');
-    const hash = scryptSync(password, salt, 64).toString('hex');
-    return `${salt}:${hash}`;
-  }
-
-  private validPassword(password: string, stored: string) {
-    const [salt, expected] = stored.split(':');
-    if (!salt || !expected) return false;
-    const actual = scryptSync(password, salt, 64);
-    return timingSafeEqual(actual, Buffer.from(expected, 'hex'));
   }
 
   private publicUser(user: User) {

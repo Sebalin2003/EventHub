@@ -5,6 +5,8 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity.js';
 import { IdentityController } from './identity.controller.js';
 import { IdentityService } from './identity.service.js';
+import { HASH_STRATEGY } from './strategies/hash.strategy.js';
+import { ScryptHashStrategy } from './strategies/scrypt-hash.strategy.js';
 
 @Module({
   imports: [
@@ -19,7 +21,14 @@ import { IdentityService } from './identity.service.js';
     }),
   ],
   controllers: [IdentityController],
-  providers: [IdentityService],
+  providers: [
+    IdentityService,
+    {
+      provide: HASH_STRATEGY,
+      useClass: ScryptHashStrategy,
+    },
+  ],
   exports: [IdentityService, JwtModule],
 })
 export class IdentityModule {}
+
