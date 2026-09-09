@@ -3,7 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity.js';
-import { HASH_STRATEGY, HashStrategy } from './strategies/hash.strategy.js';
+import { HASH_STRATEGY } from './strategies/hash.strategy.js';
+import type { HashStrategy } from './strategies/hash.strategy.js';
 
 type RegisterData = {
   email: string;
