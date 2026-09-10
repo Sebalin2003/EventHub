@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useReducer } from 'react'
 import { seedCheckIns, seedEvents, seedOrders } from './data/seed'
+import { fetchEvents } from './api/events'
 import type {
   AuditEntry,
   CheckInRecord,
@@ -26,7 +27,10 @@ const defaultRefundPolicy: RefundPolicy = {
   label: 'Reembolso completo hasta 7 días antes del evento.',
 }
 
-const id = (prefix: string) => `${prefix}-${crypto.randomUUID()}`
+const id = (prefix: string) => {
+  const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(16).slice(2)}`
+  return `${prefix}-${uuid}`
+}
 export const formatMoney = (cents: number, locale = 'es-AR') =>
   new Intl.NumberFormat(locale, { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(cents / 100)
 
@@ -165,6 +169,8 @@ export function isSeatUnavailable(state: DemoState, event: Event, seat: Seat, us
 }
 
 export type DemoAction =
+  | { type: 'LOAD_EVENTS'; events: Event[] }
+  | { type: 'SET_FAVORITES'; userId: string; eventIds: string[] }
   | { type: 'LOGIN'; userId: string }
   | { type: 'LOGOUT' }
   | { type: 'TOGGLE_FAVORITE'; userId: string; eventId: string }
@@ -182,6 +188,8 @@ export type DemoAction =
 export function demoReducer(rawState: DemoState, action: DemoAction): DemoState {
   const state = expireHolds(rawState, action.type === 'EXPIRE_HOLDS' ? action.now : undefined)
   switch (action.type) {
+    case 'LOAD_EVENTS': return { ...state, events: action.events.map(enrichEvent) }
+    case 'SET_FAVORITES': return { ...state, favoritesByUser: { ...state.favoritesByUser, [action.userId]: action.eventIds } }
     case 'LOGIN': return { ...state, currentUserId: action.userId }
     case 'LOGOUT': return { ...state, currentUserId: null }
     case 'EXPIRE_HOLDS': return state
@@ -344,6 +352,11 @@ function loadState() {
 
 export function useDemoStore() {
   const [state, dispatch] = useReducer(demoReducer, undefined, loadState)
+  useEffect(() => {
+    fetchEvents().then(events => {
+      if (events.length) dispatch({ type: 'LOAD_EVENTS', events })
+    }).catch(() => undefined)
+  }, [])
   useEffect(() => localStorage.setItem(STORAGE_KEY, JSON.stringify(state)), [state])
   useEffect(() => {
     const timer = window.setInterval(() => dispatch({ type: 'EXPIRE_HOLDS' }), 1000)

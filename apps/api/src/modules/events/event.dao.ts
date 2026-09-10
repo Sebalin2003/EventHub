@@ -17,6 +17,10 @@ export class EventDao {
     return event;
   }
 
+  findByLegacyId(legacyId: string) {
+    return this.repository.findOne({ where: { legacyId } });
+  }
+
   async save(event: Event): Promise<Event> {
     return this.repository.save(event);
   }

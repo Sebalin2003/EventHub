@@ -1,14 +1,20 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Event } from './entities/event.entity.js';
 import { EventDao } from './event.dao.js';
 import { EventFactory } from './event.factory.js';
 
 @Injectable()
-export class EventsService {
+export class EventsService implements OnModuleInit {
+  private readonly logger = new Logger(EventsService.name);
+
   constructor(
     private readonly eventDao: EventDao,
     private readonly eventFactory: EventFactory,
   ) {}
+
+  onModuleInit() {
+    this.logger.log('Events service initialized');
+  }
 
   findAll() {
     return this.eventDao.findAll();

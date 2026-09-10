@@ -5,6 +5,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { User } from './entities/user.entity.js';
 import { IdentityController } from './identity.controller.js';
 import { IdentityService } from './identity.service.js';
+import { UserDao } from './user.dao.js';
 import { HASH_STRATEGY } from './strategies/hash.strategy.js';
 import { ScryptHashStrategy } from './strategies/scrypt-hash.strategy.js';
 
@@ -23,6 +24,7 @@ import { ScryptHashStrategy } from './strategies/scrypt-hash.strategy.js';
   controllers: [IdentityController],
   providers: [
     IdentityService,
+    UserDao,
     {
       provide: HASH_STRATEGY,
       useClass: ScryptHashStrategy,
@@ -31,4 +33,5 @@ import { ScryptHashStrategy } from './strategies/scrypt-hash.strategy.js';
   exports: [IdentityService, JwtModule],
 })
 export class IdentityModule {}
+
 

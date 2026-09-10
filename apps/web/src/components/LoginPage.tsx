@@ -3,6 +3,7 @@ import type { UserRole, UserProfile } from '../types'
 import { seedUsers } from '../data/seed'
 import { LanguageSelect, useI18n } from '../i18n'
 import BrandLogo from './shared/BrandLogo'
+import { login } from '../api/auth'
 
 type Props = {
   onLogin: (user: UserProfile) => void
@@ -30,11 +31,13 @@ export default function LoginPage({ onLogin, onGuest, onReset }: Props) {
     onLogin(user)
   }
 
-  function handleManualLogin(e: React.FormEvent) {
+  async function handleManualLogin(e: React.FormEvent) {
     e.preventDefault()
-    const user = seedUsers.find(u => u.email === email)
-    if (!user) { setError(t('userNotFound')); return }
-    onLogin(user)
+    try {
+      onLogin(await login(email, password))
+    } catch {
+      setError(t('userNotFound'))
+    }
   }
 
   return (

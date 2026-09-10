@@ -2,7 +2,7 @@
 
 Demo frontend de una plataforma para vender entradas y administrar eventos. Mantiene el lenguaje visual de “boletería contemporánea” definido en [`DESIGN.md`](./DESIGN.md) y ofrece recorridos para asistentes, organizadores, staff y administradores.
 
-> **Estado:** demo frontend funcional con persistencia local. Los pagos, reembolsos, notificaciones y servicios externos son simulaciones deterministas; no existe todavía un backend ni autenticación real.
+> **Estado:** el catálogo de eventos se carga desde el backend NestJS y PostgreSQL cuando están disponibles; compras, tickets, check-in y servicios externos continúan funcionando como demo local.
 
 ## Perfiles de demostración
 
@@ -34,7 +34,7 @@ El estado se almacena de forma versionada en `localStorage`. Recargar la aplicac
 
 ## Fuera del alcance actual
 
-- Backend, PostgreSQL, RabbitMQ y autenticación real.
+- Migración completa de órdenes, tickets y check-in al backend.
 - Pasarela de pagos, correo, mensajería e integraciones REST/SOAP reales.
 - Generación directa de PDF; el demo entrega PNG.
 - Sincronización automática de los cambios de código hacia Figma.
@@ -50,15 +50,15 @@ El estado se almacena de forma versionada en `localStorage`. Recargar la aplicac
 
 ```bash
 pnpm install
-pnpm dev
+pnpm --filter @evenhub/web dev
 ```
 
 ## Verificación
 
 ```bash
-pnpm exec tsc --noEmit
-pnpm test
-pnpm build
+pnpm --filter @evenhub/web exec tsc --noEmit
+pnpm --filter @evenhub/web test
+pnpm --filter @evenhub/web build
 ```
 
 Las pruebas cubren aislamiento y persistencia de favoritos, vencimiento de HOLD, doble venta, cálculos monetarios, idempotencia, reembolsos, inventario y check-in repetido.
@@ -67,20 +67,15 @@ Las pruebas cubren aislamiento y persistencia de favoritos, vencimiento de HOLD,
 
 ```text
 EvenHub/
-├── src/
-│   ├── components/
-│   │   ├── public/
-│   │   ├── organizer/
-│   │   ├── staff/
-│   │   ├── admin/
-│   │   └── shared/
-│   ├── data/
-│   ├── App.tsx
-│   ├── demoStore.ts
-│   ├── demoStore.test.ts
-│   ├── ticketDownload.ts
-│   ├── index.css
-│   └── types.ts
+├── apps/
+│   ├── api/
+│   └── web/
+│       ├── src/
+│       ├── package.json
+│       └── vite.config.ts
+├── infra/
+│   └── docker-compose.yml
+├── pnpm-workspace.yaml
 ├── PRODUCT.md
 ├── DESIGN.md
 ├── REQUIREMENTS.md
