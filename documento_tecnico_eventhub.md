@@ -84,7 +84,7 @@ Inventory administra disponibilidad por evento.
 InventoryController → InventoryService → InventoryDao → Inventory/PostgreSQL
 ```
 
-Sus endpoints son `GET /inventory/:eventId` y `PUT /inventory/:eventId`. La entidad almacena `eventId`, cantidad disponible y fecha de actualización. `InventoryDao` crea o actualiza el registro existente, por lo que la disponibilidad permanece después de reiniciar la API.
+Sus endpoints permiten consultar y actualizar disponibilidad, crear o liberar un HOLD y confirmar su venta. La entidad almacena `eventId`, cantidad disponible y fecha de actualización. `InventoryDao` crea o actualiza el registro existente, por lo que las ventas confirmadas permanecen después de reiniciar la API.
 
 Los tres componentes principales con capas completas son Identity, Events y Favorites. Inventory agrega una cuarta implementación persistente y sirve como evidencia de estado y autorización.
 
@@ -92,15 +92,15 @@ Los tres componentes principales con capas completas son Identity, Events y Favo
 
 ### Stateful: Inventory
 
-Inventory mantiene un estado de negocio persistente: la disponibilidad de entradas. El estado se almacena en PostgreSQL y no en un `Map` local. Por eso cualquier instancia del backend puede consultar el mismo valor.
+Inventory mantiene en memoria un `Map` de reservas HOLD activas. Cada HOLD contiene el evento, usuario, cantidad y vencimiento; mientras está activo reduce la disponibilidad efectiva sin modificar todavía la cantidad persistida. Si se confirma, la venta descuenta PostgreSQL. Si se cancela, vence o la API se reinicia, la reserva temporal se libera.
 
-`InventoryService` implementa `OnModuleInit` y `OnModuleDestroy`. En `OnModuleInit` marca el servicio como inicializado; en `OnModuleDestroy` cambia su estado a cerrado. Estos callbacks demuestran que NestJS administra el ciclo de vida del provider.
+`InventoryService` implementa `OnModuleInit` y `OnModuleDestroy`. En `OnModuleInit` inicia el temporizador que elimina HOLD vencidos. En `OnModuleDestroy` detiene ese temporizador y limpia las reservas en memoria. Estos callbacks demuestran que NestJS administra el ciclo de vida del provider y de sus recursos.
 
 ### Stateless: Events
 
 Events es stateless en ejecución. `EventsService` no conserva eventos en memoria entre solicitudes; cada operación consulta o modifica PostgreSQL a través de `EventDao`. Events también implementa `OnModuleInit` y registra la inicialización del servicio mediante el logger de NestJS.
 
-La distinción es clara: Inventory administra disponibilidad persistente como estado de negocio, mientras Events procesa solicitudes consultando siempre la fuente de datos.
+La distinción es clara: Inventory conserva reservas temporales entre solicitudes dentro de la instancia activa, mientras Events no mantiene su catálogo en memoria y consulta siempre la fuente de datos.
 
 ## 5. Patrones de diseño aplicados
 
@@ -151,7 +151,7 @@ El frontend activo se encuentra únicamente en `apps/web`. `apps/web/src/api/eve
 
 El catálogo se carga desde PostgreSQL cuando Docker y el backend están activos. Si el backend no está disponible, el frontend puede usar el estado demo local como fallback. Esta compatibilidad permite mostrar la interfaz sin infraestructura, pero no reemplaza la persistencia real.
 
-Órdenes, tickets, pagos, reembolsos, check-in, holds y auditoría todavía se mantienen en `localStorage` dentro de `demoStore.ts`. Esas funciones no deben interpretarse como módulos backend terminados.
+Órdenes, tickets, pagos, reembolsos, check-in y auditoría todavía se mantienen en `localStorage` dentro de `demoStore.ts`. Inventory ya ofrece HOLD temporales en el backend, aunque el checkout visual todavía utiliza su simulación local y no consume esos endpoints.
 
 ## 8. Infraestructura y ejecución
 
@@ -213,6 +213,6 @@ La aplicación no posee todavía entidades y endpoints backend para Orders, Paym
 
 ## Conclusión
 
-La versión actual de EventHub cumple una arquitectura monorepo modular con frontend React, API NestJS y persistencia PostgreSQL. Identity, Events y Favorites tienen capas de presentación, negocio y datos integradas con el frontend. Inventory añade persistencia, lifecycle y control de disponibilidad.
+La versión actual de EventHub cumple una arquitectura monorepo modular con frontend React, API NestJS y persistencia PostgreSQL. Identity, Events y Favorites tienen capas de presentación, negocio y datos integradas con el frontend. Inventory añade disponibilidad persistente, HOLD stateful y lifecycle administrado por NestJS.
 
 DAO, Strategy y Factory están implementados y justificados. JWT proporciona autenticación y `RolesGuard` aplica autorización declarativa en una operación sensible. Docker Compose permite ejecutar PostgreSQL y RabbitMQ de forma reproducible, mientras que el documento distingue claramente las capacidades reales de las funcionalidades que aún pertenecen a la demo local.

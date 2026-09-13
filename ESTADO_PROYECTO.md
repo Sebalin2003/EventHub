@@ -21,9 +21,9 @@
 
 - **Capas:** Identity, Events y Favorites tienen controller, service y DAO/repository. Events agrega además una factory para construir entidades.
 - **Strategy:** `HashStrategy` abstrae el hash de contraseñas y utiliza `ScryptHashStrategy` como implementación.
-- **Stateful:** `InventoryService` mantiene disponibilidad en memoria y limpia su estado al destruirse.
-- **Lifecycle:** Inventory implementa `OnModuleInit` y `OnModuleDestroy`; Events implementa `OnModuleInit`.
+- **Stateful:** `InventoryService` conserva HOLD temporales en memoria, los excluye de la disponibilidad efectiva y evita sobreventa dentro de la instancia.
+- **Lifecycle:** `onModuleInit` inicia la liberación automática de HOLD vencidos y `onModuleDestroy` detiene el temporizador y limpia el estado; Events implementa `OnModuleInit`.
 - **Seguridad declarativa:** `JwtAuthGuard` valida tokens Bearer en Inventory y Favorites. `RolesGuard` protege `PUT /inventory/:eventId`, permitido solo para `ADMIN` y `ORGANIZER`.
-- **Validación:** el build, los tests unitarios y el test e2e del API pasan con PostgreSQL levantado mediante Docker.
+- **Validación:** el build del API pasa y las pruebas unitarias cubren creación, vencimiento, liberación, propiedad, confirmación y concurrencia de HOLD. El test e2e requiere PostgreSQL activo.
 - **Migración frontend-backend:** el catálogo de eventos se inicializa en PostgreSQL mediante `EventSeed` y React lo consume desde `/api/events`, con fallback local si el backend no está disponible.
-- **Favorites e Inventory:** Favorites consume el API protegido desde React; Inventory persiste disponibilidad en PostgreSQL mediante entidad, DAO y service con lifecycle.
+- **Favorites e Inventory:** Favorites consume el API protegido desde React; Inventory persiste ventas en PostgreSQL y administra HOLD temporales mediante un service stateful con lifecycle.
