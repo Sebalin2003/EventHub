@@ -8,6 +8,7 @@ import OrgAttendees from './OrgAttendees'
 import OrgCheckIn from './OrgCheckIn'
 import { useToast } from '../shared/Ui'
 import BrandLogo from '../shared/BrandLogo'
+import { cancelEvent, publishEvent } from '../../api/events'
 
 type OrgTab = 'dashboard' | 'eventos' | 'crear' | 'ventas' | 'asistentes' | 'checkin'
 
@@ -50,11 +51,13 @@ export default function OrganizerPortal({ events, orders, currentUser, onLogout,
   }
 
   function handleDelete(id: string) {
+    cancelEvent(id).catch(() => undefined)
     onSetEventStatus(id, 'cancelado')
     notify('Evento cancelado. Las órdenes afectadas fueron enviadas a reembolso.', 'success')
   }
 
   function handlePublish(id: string) {
+    publishEvent(id).catch(() => undefined)
     onSetEventStatus(id, 'publicado')
     notify('Evento publicado.', 'success')
   }

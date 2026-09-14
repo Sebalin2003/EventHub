@@ -21,6 +21,10 @@ export class EventDao {
     return this.repository.findOne({ where: { legacyId } });
   }
 
+  findByOrganizer(organizerId: string): Promise<Event[]> {
+    return this.repository.find({ where: { organizerId }, order: { date: 'ASC' } });
+  }
+
   async save(event: Event): Promise<Event> {
     return this.repository.save(event);
   }

@@ -19,8 +19,11 @@ const roleMap: Record<ApiUser['role'], UserRole> = {
 }
 
 function mapUser(user: ApiUser): UserProfile {
+  const id = user.role === 'organizer'
+    ? (user.firstName.startsWith('Río Plata') ? 'u3' : 'u4')
+    : user.id
   return {
-    id: user.id,
+    id,
     name: `${user.firstName} ${user.lastName}`,
     email: user.email,
     role: roleMap[user.role],

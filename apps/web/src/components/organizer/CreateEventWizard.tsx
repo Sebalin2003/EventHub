@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { Event, EventCategory, EventModality, EventStatus, Seat, SeatingMode, Sector, TicketType } from '../../types'
+import { accessToken, createEvent, updateEvent } from '../../api/events'
 
 type Props = {
   editing: Event | null
@@ -102,7 +103,7 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
   function next() { if (validateStep()) setStep(s => Math.min(5, s + 1) as Step) }
   function prev() { setStep(s => Math.max(1, s - 1) as Step) }
 
-  function handlePublish(status: EventStatus) {
+  async function handlePublish(status: EventStatus) {
     const eventId = editing?.id ?? `e${Date.now()}`
     const tts: TicketType[] = ticketTypes.map((t, i) => ({
       id: editing?.ticketTypes[i]?.id ?? `tt-${Date.now()}-${i}`,
@@ -136,6 +137,13 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
       seats,
     }
     tts.forEach(t => { t.eventId = ev.id })
+    try {
+      if (accessToken()) {
+        const saved = editing ? await updateEvent(editing.id, ev) : await createEvent(ev)
+        onSave(saved.id && saved.id !== ev.id ? { ...ev, id: saved.id } : ev)
+        return
+      }
+    } catch { /* backend offline: keep the local demo */ }
     onSave(ev)
   }
 

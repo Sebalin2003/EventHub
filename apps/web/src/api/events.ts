@@ -1,5 +1,21 @@
 import type { Event, EventModality, EventStatus, TicketType } from '../types'
 
+const AUTH_TOKEN_KEY = 'eventhub-access-token'
+
+export function accessToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY)
+}
+
+async function authed(path: string, init: RequestInit = {}): Promise<unknown> {
+  const headers = new Headers(init.headers)
+  headers.set('Content-Type', 'application/json')
+  const token = accessToken()
+  if (token) headers.set('Authorization', `Bearer ${token}`)
+  const response = await fetch(path, { ...init, headers })
+  if (!response.ok) throw new Error(`${init.method ?? 'GET'} ${path} failed: ${response.status}`)
+  return response.json()
+}
+
 type ApiEvent = {
   id: string
   legacyId?: string | null
@@ -78,4 +94,57 @@ export async function fetchEvents(): Promise<Event[]> {
   if (!response.ok) throw new Error(`Events request failed: ${response.status}`)
   const data = await response.json() as ApiEvent[]
   return data.map(mapApiEvent)
+}
+
+const apiModality = (value: EventModality): ApiEvent['modality'] => value === 'online' ? 'online' : 'in_person'
+const apiStatus: Record<EventStatus, ApiEvent['status']> = {
+  borrador: 'draft',
+  publicado: 'published',
+  cancelado: 'cancelled',
+  finalizado: 'completed',
+}
+
+export function toApiEvent(ev: Event) {
+  return {
+    title: ev.title,
+    description: ev.description,
+    category: ev.category,
+    modality: apiModality(ev.modality),
+    date: ev.date,
+    endDate: ev.endDate || null,
+    venue: ev.venueName || null,
+    location: [ev.address, ev.city].filter(Boolean).join(', ') || null,
+    capacity: ev.capacity,
+    registered: ev.registered,
+    status: apiStatus[ev.status],
+    organizerName: ev.organizerName,
+    imageUrl: ev.imageUrl ?? null,
+    featured: ev.featured,
+    ticketTypes: ev.ticketTypes.map((ticket): NonNullable<ApiEvent['ticketTypes']>[number] => ({
+      id: ticket.id,
+      eventId: ev.id,
+      name: ticket.name,
+      description: ticket.description,
+      price: ticket.price,
+      totalQuantity: ticket.totalQuantity,
+      sold: ticket.sold,
+      status: ticket.status,
+    })),
+  }
+}
+
+export function createEvent(event: Event): Promise<ApiEvent> {
+  return authed('/api/organizer/events', { method: 'POST', body: JSON.stringify(toApiEvent(event)) }) as Promise<ApiEvent>
+}
+
+export function updateEvent(eventId: string, event: Event): Promise<ApiEvent> {
+  return authed(`/api/organizer/events/${eventId}`, { method: 'PATCH', body: JSON.stringify(toApiEvent(event)) }) as Promise<ApiEvent>
+}
+
+export function publishEvent(eventId: string): Promise<ApiEvent> {
+  return authed(`/api/organizer/events/${eventId}/publish`, { method: 'POST' }) as Promise<ApiEvent>
+}
+
+export function cancelEvent(eventId: string): Promise<ApiEvent> {
+  return authed(`/api/organizer/events/${eventId}/cancel`, { method: 'POST' }) as Promise<ApiEvent>
 }
