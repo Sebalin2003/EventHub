@@ -188,7 +188,12 @@ export type DemoAction =
 export function demoReducer(rawState: DemoState, action: DemoAction): DemoState {
   const state = expireHolds(rawState, action.type === 'EXPIRE_HOLDS' ? action.now : undefined)
   switch (action.type) {
-    case 'LOAD_EVENTS': return { ...state, events: action.events.map(enrichEvent) }
+    case 'LOAD_EVENTS': {
+      if (!action.events.length) return state
+      const incoming = action.events.map(enrichEvent)
+      const localOnly = state.events.filter(local => !incoming.some(api => api.id === local.id))
+      return { ...state, events: [...incoming, ...localOnly] }
+    }
     case 'SET_FAVORITES': return { ...state, favoritesByUser: { ...state.favoritesByUser, [action.userId]: action.eventIds } }
     case 'LOGIN': return { ...state, currentUserId: action.userId }
     case 'LOGOUT': return { ...state, currentUserId: null }
