@@ -19,14 +19,23 @@ export class Event {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', unique: true, nullable: true })
+  legacyId: string | null;
+
   @Column()
   title: string;
 
   @Column('text')
   description: string;
 
+  @Column({ default: 'conferencia' })
+  category: string;
+
   @Column()
   date: Date;
+
+  @Column({ type: 'timestamp', nullable: true })
+  endDate: Date | null;
 
   @Column({ type: 'int' }) // duration in minutes
   duration: number;
@@ -39,6 +48,21 @@ export class Event {
 
   @Column({ nullable: true })
   location: string;
+
+  @Column({ type: 'varchar', nullable: true })
+  imageUrl: string | null;
+
+  @Column({ default: false })
+  featured: boolean;
+
+  @Column({ type: 'int', default: 0 })
+  registered: number;
+
+  @Column({ type: 'varchar', nullable: true })
+  organizerName: string | null;
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  ticketTypes: Array<Record<string, unknown>>;
 
   @Column({ type: 'int' })
   capacity: number;

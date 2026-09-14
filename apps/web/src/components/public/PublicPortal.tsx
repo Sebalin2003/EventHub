@@ -12,6 +12,7 @@ import PurchasesPage from './PurchasesPage'
 import { useToast } from '../shared/Ui'
 import { LanguageSelect, useI18n } from '../../i18n'
 import BrandLogo from '../shared/BrandLogo'
+import { addFavorite, fetchFavorites, removeFavorite } from '../../api/favorites'
 
 type PublicView = 'home' | 'explore' | 'detail' | 'checkout' | 'confirmation' | 'tickets' | 'favorites' | 'purchases'
 type PendingIntent = { kind: 'favorite' | 'buy'; eventId: string }
@@ -37,6 +38,13 @@ export default function PublicPortal({ state, dispatch, currentUser, onLogin, on
   const lastOrder = state.orders.find(order => order.id === lastOrderId) ?? null
   const favoriteIds = currentUser ? state.favoritesByUser[currentUser.id] ?? [] : []
   const myOrders = currentUser ? state.orders.filter(order => order.userId === currentUser.id) : []
+
+  useEffect(() => {
+    if (!currentUser) return
+    if (localStorage.getItem('eventhub-access-token')) {
+      fetchFavorites().then(eventIds => dispatch({ type: 'SET_FAVORITES', userId: currentUser.id, eventIds })).catch(() => undefined)
+    }
+  }, [currentUser?.id])
 
   useEffect(() => {
     if (!currentUser) return
@@ -67,14 +75,23 @@ export default function PublicPortal({ state, dispatch, currentUser, onLogin, on
 
   function viewEvent(event: Event) { setSelectedEventId(event.id); setView('detail') }
 
-  function toggleFavorite(event: Event) {
+  async function toggleFavorite(event: Event) {
     if (!currentUser) {
       sessionStorage.setItem(PENDING_KEY, JSON.stringify({ kind: 'favorite', eventId: event.id } satisfies PendingIntent))
       onLogin()
       return
     }
     const saved = favoriteIds.includes(event.id)
-    dispatch({ type: 'TOGGLE_FAVORITE', userId: currentUser.id, eventId: event.id })
+    try {
+      if (localStorage.getItem('eventhub-access-token')) {
+        if (saved) await removeFavorite(event.id)
+        else await addFavorite(event.id)
+      }
+      dispatch({ type: 'TOGGLE_FAVORITE', userId: currentUser.id, eventId: event.id })
+    } catch {
+      notify('No se pudo actualizar favoritos', 'error')
+      return
+    }
     notify(saved ? t('removed') : t('saved'), 'success')
   }
 

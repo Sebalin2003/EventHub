@@ -8,14 +8,24 @@ import StaffPortal from './components/staff/StaffPortal'
 import AdminPortal from './components/admin/AdminPortal'
 import { BackToTop, ConfirmDialog, SkeletonPage, ToastProvider } from './components/shared/Ui'
 import { I18nProvider, useI18n } from './i18n'
+import type { UserProfile } from './types'
+
+function loadAuthenticatedUser(): UserProfile | null {
+  try {
+    return JSON.parse(localStorage.getItem('eventhub-user') ?? 'null') as UserProfile | null
+  } catch {
+    return null
+  }
+}
 
 function EvenHubApp() {
   const { state, dispatch } = useDemoStore()
   const [showLogin, setShowLogin] = useState(false)
   const [confirmingLogout, setConfirmingLogout] = useState(false)
+  const [authenticatedUser, setAuthenticatedUser] = useState<UserProfile | null>(loadAuthenticatedUser)
   const [hydrating, setHydrating] = useState(true)
   const { t } = useI18n()
-  const currentUser = seedUsers.find(user => user.id === state.currentUserId) ?? null
+  const currentUser = authenticatedUser ?? seedUsers.find(user => user.id === state.currentUserId) ?? null
 
   useEffect(() => {
     const timer = window.setTimeout(() => setHydrating(false), 320)
@@ -26,14 +36,14 @@ function EvenHubApp() {
 
   if (showLogin && !currentUser) {
     return <LoginPage
-      onLogin={user => { dispatch({ type: 'LOGIN', userId: user.id }); setShowLogin(false) }}
+      onLogin={user => { localStorage.setItem('eventhub-user', JSON.stringify(user)); setAuthenticatedUser(user); dispatch({ type: 'LOGIN', userId: user.id }); setShowLogin(false) }}
       onGuest={() => setShowLogin(false)}
       onReset={() => dispatch({ type: 'RESET' })}
     />
   }
 
   const requestLogout = () => setConfirmingLogout(true)
-  const confirmLogout = () => { dispatch({ type: 'LOGOUT' }); setShowLogin(false); setConfirmingLogout(false) }
+  const confirmLogout = () => { localStorage.removeItem('eventhub-user'); localStorage.removeItem('eventhub-access-token'); setAuthenticatedUser(null); dispatch({ type: 'LOGOUT' }); setShowLogin(false); setConfirmingLogout(false) }
   const withLogoutDialog = (content: React.ReactNode) => <>{content}<ConfirmDialog open={confirmingLogout} title={t('logoutTitle')} message={t('logoutMessage')} confirmLabel={t('logoutConfirm')} cancelLabel={t('cancel')} onConfirm={confirmLogout} onCancel={() => setConfirmingLogout(false)} /></>
 
   if (currentUser?.role === 'ORGANIZADOR') {

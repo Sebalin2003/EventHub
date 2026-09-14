@@ -1,376 +1,173 @@
-# Documento Técnico de Arquitectura e Ingeniería de Software: EventHub
+# Documento Técnico: Arquitectura e Ingeniería de Software de EventHub
 
 **Proyecto:** EventHub  
 **Materia:** Desarrollo de Aplicaciones 2 — UADE  
-**Versión:** 2.0  
-**Estado:** Implementación actual verificada  
+**Versión:** 2.1 — Implementación actual  
 **Fecha:** 10 de septiembre de 2026
 
-## 1. Introducción y alcance
+## 1. Introducción
 
-EventHub es una plataforma web para descubrir eventos, administrar un catálogo, gestionar usuarios y conservar favoritos. El proyecto se organiza como un monorepo administrado con pnpm y contiene una aplicación web React y una API NestJS. La persistencia principal del backend se realiza con PostgreSQL y los servicios de infraestructura se ejecutan localmente mediante Docker Compose.
+EventHub es una plataforma web para descubrir eventos, administrar un catálogo y gestionar usuarios, favoritos y disponibilidad. El proyecto está organizado como un monorepo administrado con pnpm. La solución contiene una aplicación web React y una API NestJS. PostgreSQL proporciona persistencia y Docker Compose permite reproducir el entorno local.
 
-El objetivo de esta versión es integrar el catálogo de eventos, la identidad de usuarios, los favoritos y la disponibilidad de inventario entre frontend, backend y base de datos. La aplicación mantiene todavía algunas funciones de demostración en el navegador, especialmente compras, tickets, pagos, reembolsos y check-in. Es importante distinguir esas funciones locales de las que ya tienen persistencia real.
-
-El sistema actual se divide en dos aplicaciones:
-
-- `apps/web`: SPA desarrollada con React 19, TypeScript y Vite.
-- `apps/api`: API REST desarrollada con NestJS, TypeORM y PostgreSQL.
-
-La infraestructura se define en `infra/docker-compose.yml` y contiene PostgreSQL 15 y RabbitMQ 3 con interfaz de administración. RabbitMQ está preparado para futuras integraciones, pero actualmente no existe código de productores o consumidores que lo utilice.
+El documento describe el código implementado actualmente. Las funciones que todavía pertenecen a la demo local se identifican como limitaciones y no se presentan como funcionalidades del backend.
 
 ## 2. Arquitectura general
 
-EventHub utiliza un monolito modular. Esto significa que el backend se ejecuta como un único proceso NestJS, pero sus responsabilidades se separan en módulos de dominio. Esta decisión reduce la complejidad operativa de los microservicios y permite mantener límites claros entre las funcionalidades.
+EventHub utiliza un monolito modular. NestJS se ejecuta como un único backend, dividido en módulos de negocio independientes. Esta decisión evita la complejidad inicial de los microservicios y permite aplicar separación de responsabilidades, inyección de dependencias y capas claramente identificables.
 
-El flujo integrado actual es:
-
-```text
-Navegador React
-      |
-      | HTTP /api
-      v
-Vite Proxy
-      |
-      v
-API NestJS
-      |
-      +--> Controllers
-      +--> Services
-      +--> DAO / TypeORM
-      |
-      v
-PostgreSQL
-```
-
-El frontend no se conecta directamente a PostgreSQL. Las peticiones pasan por la API. Vite tiene configurado un proxy que transforma `/api/...` en peticiones hacia `http://localhost:3000/...`. Por ejemplo:
+La estructura principal es:
 
 ```text
-GET /api/events
-        |
-        v
-GET http://localhost:3000/events
+EventHub/
+├── apps/web/       Frontend React, TypeScript y Vite
+├── apps/api/       API NestJS, TypeORM y PostgreSQL
+├── infra/          Docker Compose: PostgreSQL y RabbitMQ
+├── pnpm-workspace.yaml
+└── documentación técnica
 ```
 
-La configuración de TypeORM se encuentra en `apps/api/src/app.module.ts`. Las variables de entorno disponibles son `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` y `DB_DATABASE`. En el entorno Docker utilizado para desarrollo se emplean `localhost`, `5432`, `user`, `password` y `evenhub`.
+El flujo integrado es:
 
-## 3. Componentes implementados y capas
+```text
+React → Vite proxy (/api) → Controllers NestJS → Services → DAO/TypeORM → PostgreSQL
+```
 
-La aplicación tiene cuatro componentes backend funcionales. Tres de ellos cumplen con una estructura de presentación, negocio y datos: Identity, Events y Favorites. Inventory también tiene controller, service, DAO y entidad, y se utiliza para demostrar persistencia de disponibilidad y lifecycle.
+El frontend no accede directamente a la base. Vite redirige `/api` a `http://localhost:3000`. NestJS configura TypeORM desde las variables `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD` y `DB_DATABASE`.
+
+Docker Compose utiliza PostgreSQL 15 y RabbitMQ 3. PostgreSQL se configura con usuario `user`, contraseña `password` y base `evenhub`. RabbitMQ está disponible para una evolución futura, pero actualmente no tiene productores ni consumidores implementados.
+
+## 3. Componentes y arquitectura en capas
 
 ### 3.1 Identity
 
-Identity administra los usuarios y la autenticación.
+Identity gestiona usuarios y autenticación.
 
 ```text
-LoginPage / API client
-        |
-        v
-IdentityController
-        |
-        v
-IdentityService
-        |
-        +--> UserDao
-        +--> HashStrategy
-        +--> JwtService
-        |
-        v
-User entity / PostgreSQL
+LoginPage / auth.ts → IdentityController → IdentityService → UserDao → User/PostgreSQL
 ```
 
-La capa de presentación está formada por `IdentityController`, que expone:
+El controller expone `POST /auth/register` y `POST /auth/login`. El service normaliza emails, evita duplicados, verifica contraseñas y genera JWT. `UserDao` encapsula el acceso al repositorio TypeORM y `User` representa la tabla `users`.
 
-- `POST /auth/register`
-- `POST /auth/login`
-
-La capa de negocio es `IdentityService`. Se ocupa de normalizar el email, evitar usuarios duplicados, hashear contraseñas, verificar credenciales y generar el token JWT.
-
-La capa de datos está representada por `UserDao`, `User` y el repositorio TypeORM. `User` contiene email, contraseña hasheada, rol, nombre y fechas de creación y actualización.
-
-Las contraseñas no se guardan en texto plano. `ScryptHashStrategy` genera un salt aleatorio y calcula un hash mediante la función `scrypt` de Node.js. El valor almacenado tiene el formato:
-
-```text
-salt:hash
-```
-
-Los usuarios de prueba se crean mediante `EventSeed` con la contraseña inicial `password`. En PostgreSQL solo se guarda el hash generado.
+Las contraseñas no se guardan en texto plano. `ScryptHashStrategy` genera un salt aleatorio y almacena `salt:hash` usando la función `scrypt` de Node.js. Los usuarios iniciales se crean desde el seed con la contraseña de desarrollo `password`; en PostgreSQL se conserva únicamente el hash.
 
 ### 3.2 Events
 
-Events administra el catálogo de eventos y es el componente más completo del sistema.
+Events administra el catálogo de eventos.
 
 ```text
-Frontend events.ts
-        |
-        v
-EventsController
-        |
-        v
-EventsService
-        |
-        +--> EventFactory
-        +--> EventDao
-        |
-        v
-Event entity / PostgreSQL
+events.ts → EventsController → EventsService → EventDao/EventFactory → Event/PostgreSQL
 ```
 
-La capa de presentación expone:
+Sus endpoints son `GET /events`, `GET /events/:id`, `POST /events`, `PATCH /events/:id` y `DELETE /events/:id`. El service aplica las operaciones de negocio y delega la persistencia en `EventDao`. `EventFactory` centraliza la creación de entidades.
 
-- `GET /events`
-- `GET /events/:id`
-- `POST /events`
-- `PATCH /events/:id`
-- `DELETE /events/:id`
+La entidad `Event` contiene título, descripción, categoría, modalidad, fechas, ubicación, capacidad, estado, organizador, imagen, registros y tipos de entrada en JSONB. `legacyId` conserva identificadores de la demo como `e1`, mientras que PostgreSQL utiliza UUID como clave primaria.
 
-La capa de negocio está en `EventsService`. El service coordina la creación, consulta, actualización y eliminación. No realiza consultas SQL directamente: delega la persistencia en `EventDao`.
-
-La capa de datos contiene la entidad `Event` y `EventDao`. La entidad almacena título, descripción, modalidad, fechas, capacidad, ubicación, estado, organizador, imagen, categoría, cantidad registrada y tipos de entrada en formato JSONB.
-
-El backend conserva un `legacyId`, como `e1` o `e5`, para mantener la compatibilidad con los identificadores usados por la interfaz original. El UUID continúa siendo la clave primaria real de PostgreSQL.
-
-`EventSeed` carga en PostgreSQL los veinte eventos iniciales de la demo. El proceso es idempotente: antes de insertar un evento busca su `legacyId` y no vuelve a insertarlo si ya existe.
+`EventSeed` carga veinte eventos y los usuarios iniciales. La carga es idempotente: verifica el `legacyId` antes de insertar y no duplica datos al reiniciar el backend.
 
 ### 3.3 Favorites
 
-Favorites permite que un usuario autenticado marque y desmarque eventos.
+Favorites permite administrar favoritos por usuario.
 
 ```text
-PublicPortal / favorites.ts
-        |
-        v
-FavoritesController
-        |
-        v
-FavoritesService
-        |
-        +--> FavoriteDao
-        +--> EventDao
-        |
-        v
-Favorite entity / PostgreSQL
+favorites.ts → FavoritesController → FavoritesService → FavoriteDao → Favorite/PostgreSQL
 ```
 
-Sus endpoints son:
+Sus endpoints son `GET /me/favorites`, `PUT /me/favorites/:eventId` y `DELETE /me/favorites/:eventId`. El módulo está protegido por JWT. El usuario se obtiene desde el claim `sub`, no desde un header manipulable. La entidad posee una restricción única para evitar duplicar la relación entre usuario y evento.
 
-- `GET /me/favorites`
-- `PUT /me/favorites/:eventId`
-- `DELETE /me/favorites/:eventId`
-
-`FavoritesController` está protegido con `JwtAuthGuard`. El usuario se obtiene desde el claim `sub` del token y no desde un header enviado por el cliente. Esto evita que un usuario pueda modificar los favoritos de otra persona alterando un identificador en la petición.
-
-`FavoritesService` contiene las reglas de negocio: no permite duplicar un favorito y devuelve un error si se intenta quitar uno inexistente. `FavoriteDao` consulta y modifica la entidad `Favorite`, que tiene una restricción única sobre `userId` y `eventId`.
-
-El frontend utiliza `apps/web/src/api/favorites.ts`. Cuando existe un JWT, carga, agrega y elimina favoritos desde la API. El estado local se conserva para permitir el modo demo sin backend.
+El frontend utiliza `apps/web/src/api/favorites.ts`. Cuando existe un JWT, carga, agrega y elimina favoritos desde la API. El estado local solo funciona como fallback para la demostración offline.
 
 ### 3.4 Inventory
 
-Inventory administra la disponibilidad por evento. La primera versión utilizaba un `Map` en memoria; esa implementación fue reemplazada por persistencia PostgreSQL para que el estado no se pierda al reiniciar la API.
+Inventory administra disponibilidad por evento.
 
 ```text
-InventoryController
-        |
-        v
-InventoryService
-        |
-        v
-InventoryDao
-        |
-        v
-Inventory entity / PostgreSQL
+InventoryController → InventoryService → InventoryDao → Inventory/PostgreSQL
 ```
 
-Sus endpoints son:
+Sus endpoints son `GET /inventory/:eventId` y `PUT /inventory/:eventId`. La entidad almacena `eventId`, cantidad disponible y fecha de actualización. `InventoryDao` crea o actualiza el registro existente, por lo que la disponibilidad permanece después de reiniciar la API.
 
-- `GET /inventory/:eventId`
-- `PUT /inventory/:eventId`
-
-La entidad `Inventory` contiene `eventId`, `available` y `updatedAt`. `InventoryDao` busca y actualiza el registro correspondiente. Si el registro ya existe, lo actualiza; de lo contrario, lo crea.
-
-La operación `PUT /inventory/:eventId` requiere un JWT y autorización con rol `ADMIN` u `ORGANIZER`. Un usuario `ATTENDEE` recibe `403 Forbidden`.
+Los tres componentes principales con capas completas son Identity, Events y Favorites. Inventory agrega una cuarta implementación persistente y sirve como evidencia de estado y autorización.
 
 ## 4. Componentes stateful y stateless
 
-### 4.1 Componente stateful: Inventory
+### Stateful: Inventory
 
-Inventory es stateful porque mantiene un estado de negocio persistente: la cantidad disponible por evento. El estado reside en PostgreSQL, no en una variable local del proceso. Esto permite que una nueva instancia del backend lea el mismo valor y evita perder la disponibilidad cuando se reinicia NestJS.
+Inventory mantiene un estado de negocio persistente: la disponibilidad de entradas. El estado se almacena en PostgreSQL y no en un `Map` local. Por eso cualquier instancia del backend puede consultar el mismo valor.
 
-Además, `InventoryService` implementa los callbacks de lifecycle de NestJS:
+`InventoryService` implementa `OnModuleInit` y `OnModuleDestroy`. En `OnModuleInit` marca el servicio como inicializado; en `OnModuleDestroy` cambia su estado a cerrado. Estos callbacks demuestran que NestJS administra el ciclo de vida del provider.
 
-```typescript
-export class InventoryService implements OnModuleInit, OnModuleDestroy {
-  onModuleInit() {
-    this.initialized = true;
-  }
+### Stateless: Events
 
-  onModuleDestroy() {
-    this.initialized = false;
-  }
-}
-```
+Events es stateless en ejecución. `EventsService` no conserva eventos en memoria entre solicitudes; cada operación consulta o modifica PostgreSQL a través de `EventDao`. Events también implementa `OnModuleInit` y registra la inicialización del servicio mediante el logger de NestJS.
 
-`OnModuleInit` marca que el servicio está listo para operar. `OnModuleDestroy` libera el estado de lifecycle cuando NestJS cierra el módulo. La persistencia de negocio se conserva en PostgreSQL mediante `InventoryDao`.
-
-### 4.2 Componente stateless: Events
-
-Events se comporta como componente stateless en ejecución. `EventsService` no mantiene una colección de eventos en memoria entre solicitudes. Cada operación consulta o actualiza PostgreSQL a través de `EventDao`. Por eso dos instancias del backend podrían procesar solicitudes diferentes consultando la misma fuente persistente.
-
-Events también implementa `OnModuleInit` y registra la inicialización del servicio. El callback evidencia que el contenedor NestJS administra el ciclo de vida del provider:
-
-```typescript
-onModuleInit() {
-  this.logger.log('Events service initialized');
-}
-```
-
-La diferencia entre ambos componentes es que Events no conserva estado propio en memoria, mientras que Inventory administra la disponibilidad persistente como estado de negocio.
+La distinción es clara: Inventory administra disponibilidad persistente como estado de negocio, mientras Events procesa solicitudes consultando siempre la fuente de datos.
 
 ## 5. Patrones de diseño aplicados
 
-### 5.1 DAO
+### DAO
 
-El patrón DAO está implementado en `UserDao`, `EventDao`, `FavoriteDao` e `InventoryDao`. Cada DAO encapsula el acceso a TypeORM y evita que los servicios conozcan detalles del repositorio.
+`UserDao`, `EventDao`, `FavoriteDao` e `InventoryDao` encapsulan TypeORM. Los services no ejecutan consultas directamente. Este patrón reduce el acoplamiento entre negocio y persistencia y facilita cambiar o simular el acceso a datos en pruebas.
 
-Por ejemplo, `EventsService` utiliza:
+### Strategy
 
-```typescript
-return this.eventDao.findAll();
-```
+`HashStrategy` define las operaciones `hashPassword` y `validPassword`. `ScryptHashStrategy` es la implementación concreta inyectada por NestJS mediante el token `HASH_STRATEGY`. Identity puede cambiar el algoritmo sin modificar el service.
 
-El service no construye consultas ni accede directamente al repositorio. La ventaja es separar las reglas de negocio de la persistencia y facilitar pruebas o cambios de almacenamiento.
+### Factory
 
-### 5.2 Strategy
+`EventFactory` crea entidades Event. El controller no instancia entidades y el service no necesita conocer detalles de construcción. Actualmente la factory es simple, pero establece un punto único para futuras reglas de creación.
 
-`HashStrategy` define el contrato para generar y verificar contraseñas. `ScryptHashStrategy` es la implementación actual.
+### Inyección de dependencias
 
-```typescript
-export interface HashStrategy {
-  hashPassword(password: string): string;
-  validPassword(password: string, stored: string): boolean;
-}
-```
-
-NestJS inyecta la implementación mediante el token `HASH_STRATEGY`. Si en el futuro se necesitara otra estrategia de hashing, IdentityService podría conservarse sin modificar su lógica principal.
-
-### 5.3 Factory
-
-`EventFactory` centraliza la creación de objetos `Event`. `EventsService` solicita al factory una entidad nueva y luego la entrega al DAO:
-
-```typescript
-const event = this.eventFactory.createEvent(data);
-return this.eventDao.save(event);
-```
-
-El patrón evita que el controller o el service conozcan detalles de instanciación de la entidad. La factory actual es simple porque el modelo todavía no necesita variantes complejas.
-
-### 5.4 Inyección de dependencias como soporte arquitectónico
-
-NestJS utiliza inversión de control e inyección de dependencias para construir controllers, services, DAOs, guards y factories. No se presenta como uno de los tres patrones principales exigidos, pero es una decisión transversal que permite aplicar DAO y Strategy sin acoplar las clases a implementaciones concretas.
+NestJS administra controllers, services, DAOs, factories y guards mediante inyección de dependencias. Esto permite aplicar los patrones anteriores sin acoplar cada clase a una implementación concreta.
 
 ### Patrones no implementados
 
-El documento no considera implementados Adapter, Facade, Transactional Outbox ni comunicación RabbitMQ. RabbitMQ está disponible en Docker como infraestructura futura, pero el código actual no registra productores ni consumidores. Las integraciones REST de pagos y SOAP de recinto son parte del diseño futuro, no de la implementación actual.
+Adapter, Facade, Transactional Outbox y mensajería RabbitMQ están previstos en la arquitectura futura, pero no se declaran implementados porque no existen actualmente en el código. Payments, Orders, Tickets y CheckIn también permanecen como módulos base o funcionalidades locales de la demo.
 
 ## 6. Seguridad declarativa
 
-La autenticación se realiza mediante JWT. `IdentityService` genera el token después de validar email y contraseña. El token contiene el identificador del usuario, su email y su rol:
+Identity genera un JWT después de validar el email y el hash de contraseña. El token incluye `sub`, `email` y `role`.
 
-```typescript
-{
-  sub: user.id,
-  email: user.email,
-  role: user.role
-}
-```
+`JwtAuthGuard` extrae `Authorization: Bearer <token>`, verifica la firma y coloca el payload en `request.user`. La ausencia o invalidez del token produce `401 Unauthorized`.
 
-`JwtAuthGuard` extrae el token desde:
-
-```text
-Authorization: Bearer <token>
-```
-
-Luego verifica su firma usando el `JwtModule` y coloca el payload en `request.user`. Si falta el token o es inválido, responde `401 Unauthorized`.
-
-La autorización por rol se implementa mediante dos elementos declarativos:
-
-- `@Roles(...)`, que define los roles permitidos.
-- `RolesGuard`, que compara el rol del usuario autenticado con los metadatos de la ruta.
-
-La operación sensible es:
-
-```typescript
-@Put(':eventId')
-@Roles(UserRole.ADMIN, UserRole.ORGANIZER)
-```
-
-El controller usa ambos guards:
+La autorización se implementa mediante `@Roles(...)` y `RolesGuard`. La operación sensible es `PUT /inventory/:eventId`, declarada de esta forma:
 
 ```typescript
 @UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(UserRole.ADMIN, UserRole.ORGANIZER)
 ```
 
 El comportamiento verificado es:
 
-- Sin token: `401 Unauthorized`.
-- Token de `ATTENDEE`: `403 Forbidden`.
-- Token de `ORGANIZER` o `ADMIN`: operación permitida.
+- Sin token: `401`.
+- Usuario `ATTENDEE`: `403 Forbidden`.
+- Usuario `ORGANIZER` o `ADMIN`: operación permitida.
 
-Favorites también requiere autenticación, aunque no restringe la operación por un rol específico porque cada usuario puede administrar sus propios favoritos.
+Favorites requiere autenticación, pero cada usuario solo opera sobre sus propios favoritos mediante el claim `sub`.
 
-## 7. Frontend, integración y datos locales
+## 7. Frontend e integración
 
-El frontend activo se encuentra únicamente en `apps/web`. La copia antigua ubicada en la raíz fue eliminada para evitar dos aplicaciones React diferentes.
+El frontend activo se encuentra únicamente en `apps/web`. `apps/web/src/api/events.ts` carga el catálogo desde `/api/events` y adapta el modelo backend al modelo visual de React. `auth.ts` realiza el login real y guarda el JWT. `favorites.ts` consume las rutas protegidas de favoritos.
 
-El frontend utiliza tres clientes API:
+El catálogo se carga desde PostgreSQL cuando Docker y el backend están activos. Si el backend no está disponible, el frontend puede usar el estado demo local como fallback. Esta compatibilidad permite mostrar la interfaz sin infraestructura, pero no reemplaza la persistencia real.
 
-- `api/events.ts`: carga y adapta eventos desde `/api/events`.
-- `api/auth.ts`: realiza login y guarda el JWT.
-- `api/favorites.ts`: consulta, agrega y elimina favoritos autenticados.
-
-El adaptador de eventos transforma el modelo del backend al modelo visual de React. Por ejemplo, convierte `published` en `publicado`, `in_person` en `presencial` y usa `legacyId` para mantener compatibilidad con las órdenes demo.
-
-La aplicación sigue utilizando `localStorage` para algunas funciones que aún no tienen backend: órdenes, tickets, pagos, reembolsos, check-in, holds y auditoría. Esto está documentado como alcance pendiente, no como persistencia real de producción.
-
-El frontend tiene un fallback local para mostrar la demo si el backend no está disponible. Cuando PostgreSQL y NestJS están activos, el catálogo de eventos se carga desde la API. La autenticación manual y los favoritos autenticados utilizan el backend.
+Órdenes, tickets, pagos, reembolsos, check-in, holds y auditoría todavía se mantienen en `localStorage` dentro de `demoStore.ts`. Esas funciones no deben interpretarse como módulos backend terminados.
 
 ## 8. Infraestructura y ejecución
 
-Docker Compose levanta:
-
-```text
-PostgreSQL: localhost:5432
-RabbitMQ AMQP: localhost:5672
-RabbitMQ Management: localhost:15672
-```
-
-Las credenciales de desarrollo son:
-
-```text
-PostgreSQL user: user
-PostgreSQL password: password
-PostgreSQL database: evenhub
-RabbitMQ user: user
-RabbitMQ password: password
-```
-
-Pasos para ejecutar el sistema completo:
-
-### 8.1 Instalar dependencias
+Instalar dependencias:
 
 ```powershell
 pnpm install
 ```
 
-### 8.2 Levantar infraestructura
+Levantar PostgreSQL y RabbitMQ:
 
 ```powershell
 docker compose -f infra/docker-compose.yml up -d
 ```
 
-### 8.3 Iniciar el backend
-
-En una terminal:
+Iniciar la API:
 
 ```powershell
 $env:DB_HOST='localhost'
@@ -381,21 +178,17 @@ $env:DB_DATABASE='evenhub'
 pnpm --filter api start:dev
 ```
 
-La API queda disponible en `http://localhost:3000`. Al iniciar, TypeORM sincroniza las entidades en desarrollo y `EventSeed` carga usuarios y eventos iniciales.
-
-### 8.4 Iniciar el frontend
-
-En otra terminal:
+Iniciar el frontend en otra terminal:
 
 ```powershell
 pnpm --filter @evenhub/web dev
 ```
 
-La aplicación queda disponible normalmente en `http://localhost:5173`. Si el puerto está ocupado, Vite elige otro y lo informa en la terminal.
+La API queda en `http://localhost:3000` y el frontend normalmente en `http://localhost:5173`. Si el puerto está ocupado, Vite informa otro puerto disponible.
 
-## 9. Verificación y pruebas
+## 9. Verificación
 
-El backend tiene pruebas unitarias y una prueba e2e que inicializa `AppModule` y verifica una respuesta HTTP. Los comandos son:
+Backend:
 
 ```powershell
 pnpm --filter api build
@@ -404,7 +197,7 @@ pnpm --filter api test:e2e
 pnpm --filter api lint
 ```
 
-El frontend tiene pruebas Vitest para las reglas del store demo y un typecheck/build:
+Frontend:
 
 ```powershell
 pnpm --filter @evenhub/web exec tsc --noEmit
@@ -412,36 +205,14 @@ pnpm --filter @evenhub/web test
 pnpm --filter @evenhub/web build
 ```
 
-Durante la verificación funcional se comprobaron estos flujos:
-
-- `GET /events` devuelve eventos cargados desde PostgreSQL.
-- Login de un usuario sembrado devuelve JWT.
-- Un usuario autenticado puede consultar y modificar sus favoritos.
-- Inventory conserva la disponibilidad al escribir y leer desde PostgreSQL.
-- Un `ATTENDEE` recibe `403` al intentar actualizar Inventory.
-- Un `ORGANIZER` puede ejecutar la misma operación.
-- React accede al backend mediante el proxy `/api`.
-
-Una advertencia conocida es la deprecación reportada por la versión de `pg`; no impide la ejecución ni altera el resultado de las pruebas.
+Se verificaron el login real contra PostgreSQL, la carga de eventos, favoritos autenticados, persistencia de Inventory, rechazo de `ATTENDEE` con `403` y autorización de `ORGANIZER`. Los tests del frontend cubren las reglas del store demo.
 
 ## 10. Limitaciones y evolución
 
-La implementación actual no incluye todavía:
-
-- Entidades y endpoints reales de Orders.
-- Persistencia backend para Payments.
-- Emisión y consulta de Tickets desde la API.
-- Check-in persistido en PostgreSQL.
-- Consumidores y productores RabbitMQ.
-- Integraciones externas REST o SOAP.
-- Despliegue público en Railway, Supabase o una plataforma cloud.
-
-Estas funciones permanecen en la demo frontend o en módulos NestJS vacíos. La arquitectura deja puntos de extensión, pero el documento distingue explícitamente la propuesta futura del código que ya fue implementado.
+La aplicación no posee todavía entidades y endpoints backend para Orders, Payments, Tickets y CheckIn. RabbitMQ está disponible en Docker, pero no tiene consumidores ni productores. Tampoco existe despliegue cloud público. Estas funcionalidades pueden incorporarse posteriormente sin cambiar la separación modular actual.
 
 ## Conclusión
 
-EventHub cuenta actualmente con una arquitectura monorepo modular, cuatro componentes backend funcionales y tres componentes con integración frontend, backend y PostgreSQL: Identity, Events y Favorites. Inventory agrega persistencia y seguridad por rol, además de evidencias de lifecycle administrado por NestJS.
+La versión actual de EventHub cumple una arquitectura monorepo modular con frontend React, API NestJS y persistencia PostgreSQL. Identity, Events y Favorites tienen capas de presentación, negocio y datos integradas con el frontend. Inventory añade persistencia, lifecycle y control de disponibilidad.
 
-Los patrones DAO, Strategy y Factory están implementados y justificados. JWT proporciona autenticación y `RolesGuard` implementa autorización declarativa en una operación sensible. PostgreSQL y RabbitMQ se ejecutan de forma reproducible mediante Docker Compose.
-
-La principal limitación es que las compras y operaciones posteriores al catálogo todavía pertenecen a la demo local. Esta limitación está documentada para que la evaluación pueda distinguir los componentes terminados de las funcionalidades planificadas.
+DAO, Strategy y Factory están implementados y justificados. JWT proporciona autenticación y `RolesGuard` aplica autorización declarativa en una operación sensible. Docker Compose permite ejecutar PostgreSQL y RabbitMQ de forma reproducible, mientras que el documento distingue claramente las capacidades reales de las funcionalidades que aún pertenecen a la demo local.
