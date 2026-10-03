@@ -1,4 +1,5 @@
-import { ForbiddenException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ForbiddenException, Inject, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { ClientProxy } from '@nestjs/microservices';
 import { Event, EventStatus } from './entities/event.entity.js';
 import { EventDao } from './event.dao.js';
 import { EventFactory } from './event.factory.js';
@@ -10,6 +11,7 @@ export class EventsService implements OnModuleInit {
   constructor(
     private readonly eventDao: EventDao,
     private readonly eventFactory: EventFactory,
+    @Inject('NOTIFICATIONS_SERVICE') private readonly client: ClientProxy,
   ) {}
 
   onModuleInit() {
@@ -69,7 +71,16 @@ export class EventsService implements OnModuleInit {
   async publishOwned(organizerId: string, eventId: string) {
     const event = await this.owned(eventId, organizerId);
     event.status = EventStatus.PUBLISHED;
-    return this.eventDao.save(event);
+    const saved = await this.eventDao.save(event);
+    
+    // Emit notification event asynchronously
+    this.client.emit('event.created', {
+      eventId: saved.id,
+      title: saved.title,
+      organizerEmail: 'organizador@eventhub.com', // Typically from User lookup
+    });
+    
+    return saved;
   }
 
   async cancelOwned(organizerId: string, eventId: string) {
