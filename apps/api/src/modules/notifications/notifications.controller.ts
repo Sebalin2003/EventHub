@@ -1,5 +1,5 @@
 import { Controller, Logger } from '@nestjs/common';
-import { EventPattern, Payload, Ctx, RmqContext } from '@nestjs/microservices';
+import { EventPattern, Payload } from '@nestjs/microservices';
 import { NotificationsService } from './notifications.service.js';
 
 @Controller()
@@ -9,7 +9,7 @@ export class NotificationsController {
   constructor(private readonly notificationsService: NotificationsService) {}
 
   @EventPattern('event.created')
-  async handleEventCreated(@Payload() data: any, @Ctx() context: RmqContext) {
+  async handleEventCreated(@Payload() data: any) {
     this.logger.log(`Received event.created: ${JSON.stringify(data)}`);
     await this.notificationsService.sendEmail(
       data.organizerEmail || 'admin@eventhub.com',
@@ -20,7 +20,7 @@ export class NotificationsController {
   }
 
   @EventPattern('order.created')
-  async handleOrderCreated(@Payload() data: any, @Ctx() context: RmqContext) {
+  async handleOrderCreated(@Payload() data: any) {
     this.logger.log(`Received order.created: ${JSON.stringify(data)}`);
     await this.notificationsService.sendEmail(
       data.userEmail || 'user@example.com',
