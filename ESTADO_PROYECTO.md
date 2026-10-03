@@ -16,6 +16,13 @@
 - [x] **Aplicar al menos 3 patrones de diseño distintos** (por ejemplo, DAO, Facade, Adapter, Factory o Strategy).
 - [x] **Integración Frontend-Backend:** Configurar los endpoints base en `apps/api` y comprobar que `apps/web` puede realizar peticiones exitosas.
 - [x] **Pruebas de Infraestructura:** Levantar `docker-compose up` y verificar la conectividad de los servicios (Postgres/RabbitMQ) desde el backend NestJS.
+- [x] **Flujo Asincrónico (RabbitMQ):** Implementar notificaciones mediante mensajes `event.created` y `order.created` (NotificationsModule).
+- [ ] **Módulo de Órdenes (Orders):** Implementar creación de órdenes, lógica de checkout y cálculo de totales.
+- [ ] **Módulo de Entradas (Tickets):** Implementar la emisión, consulta y cancelación de tickets.
+- [ ] **Integración de Pagos (Payments):** Conectar con la pasarela de pagos legada (SOAP).
+- [ ] **Módulo de Check-in:** Implementar la validación de acceso (tickets escaneados) por parte del staff.
+- [ ] **Integración de Mapas (Geocoding):** Llamar a una API REST externa para ubicaciones al crear eventos.
+- [ ] **Integración en Frontend:** Actualizar `apps/web` para consumir todo el flujo protegido de compra y administración desde la API real.
 
 ## Arquitectura implementada
 
