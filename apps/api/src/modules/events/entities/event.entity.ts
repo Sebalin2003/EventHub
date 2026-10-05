@@ -49,6 +49,12 @@ export class Event {
   @Column({ nullable: true })
   location: string;
 
+  @Column({ type: 'float', nullable: true })
+  lat: number | null;
+
+  @Column({ type: 'float', nullable: true })
+  lon: number | null;
+
   @Column({ type: 'varchar', nullable: true })
   imageUrl: string | null;
 

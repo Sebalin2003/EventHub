@@ -45,10 +45,25 @@ export class EventsService implements OnModuleInit {
     return this.eventDao.findByOrganizer(organizerId);
   }
 
-  createForOrganizer(organizerId: string, data: Partial<Event>) {
+  async createForOrganizer(organizerId: string, data: Partial<Event>) {
+    let lat = null, lon = null;
+    if (data.location) {
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(data.location)}`);
+        const json = await res.json();
+        if (json && json.length > 0) {
+          lat = parseFloat(json[0].lat);
+          lon = parseFloat(json[0].lon);
+        }
+      } catch (e) {
+        this.logger.warn('Geocoding failed');
+      }
+    }
     const event = this.eventFactory.createEvent({
       ...data,
       organizerId,
+      lat,
+      lon,
       status: data.status ?? EventStatus.DRAFT,
     });
     return this.eventDao.save(event);
