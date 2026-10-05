@@ -9,7 +9,7 @@ export class TicketsService {
   constructor(
     @InjectRepository(Ticket)
     private readonly ticketsRepository: Repository<Ticket>,
-  ) {}
+  ) { }
 
   async emit(orderId: string, eventId: string, userId: string, quantity: number): Promise<Ticket[]> {
     const tickets = [];

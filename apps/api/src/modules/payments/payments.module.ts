@@ -7,4 +7,4 @@ import { PaymentsController } from './payments.controller';
   providers: [PaymentsService],
   exports: [PaymentsService]
 })
-export class PaymentsModule {}
+export class PaymentsModule { }

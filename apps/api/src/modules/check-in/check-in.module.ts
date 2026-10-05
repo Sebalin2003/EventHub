@@ -4,4 +4,4 @@ import { CheckInController } from './check-in.controller';
 @Module({
   controllers: [CheckInController],
 })
-export class CheckInModule {}
+export class CheckInModule { }

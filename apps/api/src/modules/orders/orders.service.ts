@@ -14,14 +14,14 @@ export class OrdersService {
     @InjectRepository(Order)
     private orderRepo: Repository<Order>,
     @Inject('NOTIFICATIONS_SERVICE') private rabbitClient: ClientProxy,
-  ) {}
+  ) { }
 
   async create(userId: string, createOrderDto: CreateOrderDto): Promise<Order> {
     let total = 0;
     const items = createOrderDto.items.map(itemDto => {
       const subtotal = itemDto.quantity * itemDto.unitPrice;
       total += subtotal;
-      
+
       const item = new OrderItem();
       item.eventId = itemDto.eventId;
       item.ticketType = itemDto.ticketType;

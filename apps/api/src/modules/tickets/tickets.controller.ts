@@ -3,7 +3,7 @@ import { TicketsService } from './tickets.service';
 
 @Controller('tickets')
 export class TicketsController {
-  constructor(private readonly ticketsService: TicketsService) {}
+  constructor(private readonly ticketsService: TicketsService) { }
 
   @Post()
   emit(@Body() body: { orderId: string, eventId: string, userId: string, quantity: number }) {
