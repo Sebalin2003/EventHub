@@ -23,6 +23,24 @@ services:
     ports:
       - '5672:5672'
       - '15672:15672'
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: eventhub_api
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_USERNAME=user
+      - DB_PASSWORD=password
+      - DB_DATABASE=evenhub
+      - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+      - PORT=3000
+    ports:
+      - '3000:3000'
+    depends_on:
+      - postgres
+      - rabbitmq
     restart: unless-stopped
 
 volumes:

@@ -30,10 +30,10 @@
 
 ### Tareas pendientes
 
-- [ ] **Integración SOAP:** Implementar un cliente SOAP que consuma el servicio legado de pagos. Actualmente `PaymentsController` existe pero no hay ninguna referencia a SOAP/WSDL en el código. Se debe crear un `SoapClientService` (o similar) que llame al endpoint WSDL y un adapter que traduzca la respuesta al modelo interno.
-- [ ] **Mensajería RabbitMQ real (productores):** El módulo `notifications` escucha eventos con `@EventPattern` pero `NotificationsService.sendEmail()` solo hace un `logger.log()` — es un stub. Faltan los **productores**: que `EventsService` publique `event.created` y `OrdersService` publique `order.created` al bus de RabbitMQ.
-- [ ] **Mensajería RabbitMQ real (consumidores):** Conectar `NotificationsController` al transporte AMQP real en `main.ts` (actualmente la app no levanta como microservicio híbrido). El `sendEmail` debe enviar una notificación real o al menos persistir el registro.
-- [ ] **Documento de diseño:** Subir a Teams el documento que describa el diseño de la API REST y su conexión con SOAP + mensajería (requerimiento de entrega de la actividad).
+- [x] **Integración SOAP:** Implementar un cliente SOAP que consuma el servicio legado de pagos. Actualmente `PaymentsController` existe pero no hay ninguna referencia a SOAP/WSDL en el código. Se debe crear un `SoapClientService` (o similar) que llame al endpoint WSDL y un adapter que traduzca la respuesta al modelo interno.
+- [x] **Mensajería RabbitMQ real (productores):** El módulo `notifications` escucha eventos con `@EventPattern` pero `NotificationsService.sendEmail()` solo hace un `logger.log()` — es un stub. Faltan los **productores**: que `EventsService` publique `event.created` y `OrdersService` publique `order.created` al bus de RabbitMQ.
+- [x] **Mensajería RabbitMQ real (consumidores):** Conectar `NotificationsController` al transporte AMQP real en `main.ts` (actualmente la app no levanta como microservicio híbrido). El `sendEmail` debe enviar una notificación real o al menos persistir el registro.
+- [x] **Documento de diseño:** Subir a Teams el documento que describa el diseño de la API REST y su conexión con SOAP + mensajería (requerimiento de entrega de la actividad).
 
 ## Arquitectura implementada
 
