@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { CheckInController } from './check-in.controller';
+import { CheckInController } from './check-in.controller.js';
 
 @Module({
   controllers: [CheckInController],

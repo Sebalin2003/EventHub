@@ -9,19 +9,19 @@ export class OrdersController {
   constructor(private readonly ordersService: OrdersService) { }
 
   @Post()
-  async create(@Request() req, @Body() createOrderDto: CreateOrderDto) {
+  async create(@Request() req: any, @Body() createOrderDto: CreateOrderDto) {
     const userId = req.user.id;
     return this.ordersService.create(userId, createOrderDto);
   }
 
   @Get()
-  async findAll(@Request() req) {
+  async findAll(@Request() req: any) {
     const userId = req.user.id;
     return this.ordersService.findAllByUser(userId);
   }
 
   @Get(':id')
-  async findOne(@Request() req, @Param('id') id: string) {
+  async findOne(@Request() req: any, @Param('id') id: string) {
     const userId = req.user.id;
     const order = await this.ordersService.findOne(id, userId);
     if (!order) {

@@ -6,8 +6,12 @@ import { OrdersController } from './orders.controller.js';
 import { Order } from './entities/order.entity.js';
 import { OrderItem } from './entities/order-item.entity.js';
 
+import { IdentityModule } from '../identity/identity.module.js';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+
 @Module({
   imports: [
+    IdentityModule,
     TypeOrmModule.forFeature([Order, OrderItem]),
     ClientsModule.register([
       {
@@ -24,7 +28,7 @@ import { OrderItem } from './entities/order-item.entity.js';
     ]),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService],
+  providers: [OrdersService, JwtAuthGuard],
   exports: [OrdersService],
 })
 export class OrdersModule {}

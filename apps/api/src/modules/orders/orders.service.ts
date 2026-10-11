@@ -54,7 +54,7 @@ export class OrdersService {
   async findAllByUser(userId: string): Promise<Order[]> {
     return this.orderRepo.find({
       where: { userId },
-      relations: ['items', 'items.event'],
+      relations: { items: { event: true } },
       order: { createdAt: 'DESC' }
     });
   }
@@ -62,7 +62,7 @@ export class OrdersService {
   async findOne(id: string, userId: string): Promise<Order | null> {
     return this.orderRepo.findOne({
       where: { id, userId },
-      relations: ['items', 'items.event']
+      relations: { items: { event: true } }
     });
   }
 }

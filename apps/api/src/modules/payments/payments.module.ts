@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { PaymentsService, SoapClientService } from './payments.service';
-import { PaymentsController } from './payments.controller';
+import { PaymentsService, SoapClientService } from './payments.service.js';
+import { PaymentsController } from './payments.controller.js';
 
 @Module({
   controllers: [PaymentsController],
