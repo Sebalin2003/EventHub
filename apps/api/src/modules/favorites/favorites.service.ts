@@ -14,7 +14,7 @@ export class FavoritesService {
   }
 
   async addFavorite(userId: string, eventId: string) {
-    const event = await this.eventDao.findByLegacyId(eventId) ?? await this.eventDao.findOne(eventId);
+    const event = await this.eventDao.findOne(eventId);
     const databaseEventId = event.id;
     const existing = await this.favoriteDao.findOne(userId, databaseEventId);
     if (existing) {
@@ -24,7 +24,7 @@ export class FavoritesService {
   }
 
   async removeFavorite(userId: string, eventId: string) {
-    const event = await this.eventDao.findByLegacyId(eventId) ?? await this.eventDao.findOne(eventId);
+    const event = await this.eventDao.findOne(eventId);
     const deleted = await this.favoriteDao.delete(userId, event.id);
     if (!deleted) {
       throw new NotFoundException('Favorite not found');

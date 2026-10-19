@@ -7,11 +7,19 @@ import { Order } from './entities/order.entity.js';
 import { OrderItem } from './entities/order-item.entity.js';
 
 import { IdentityModule } from '../identity/identity.module.js';
+import { EventsModule } from '../events/events.module.js';
+import { InventoryModule } from '../inventory/inventory.module.js';
+import { PaymentsModule } from '../payments/payments.module.js';
+import { TicketsModule } from '../tickets/tickets.module.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 
 @Module({
   imports: [
     IdentityModule,
+    EventsModule,
+    InventoryModule,
+    PaymentsModule,
+    TicketsModule,
     TypeOrmModule.forFeature([Order, OrderItem]),
     ClientsModule.register([
       {

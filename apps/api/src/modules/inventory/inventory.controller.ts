@@ -4,6 +4,7 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { UserRole } from '../identity/entities/user.entity.js';
 import { InventoryService } from './inventory.service.js';
+import { CreateHoldDto, SetInventoryDto } from './dto/inventory.dto.js';
 
 @Controller('inventory')
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -14,7 +15,7 @@ export class InventoryController {
   createHold(
     @Param('eventId') eventId: string,
     @Req() req: { user: { sub: string } },
-    @Body() body: { quantity: number; ttlSeconds?: number },
+    @Body() body: CreateHoldDto,
   ) {
     const ttlMs = body.ttlSeconds === undefined ? undefined : body.ttlSeconds * 1000;
     return this.inventory.createHold(eventId, req.user.sub, body.quantity, ttlMs);
@@ -45,7 +46,11 @@ export class InventoryController {
 
   @Put(':eventId')
   @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
-  set(@Param('eventId') eventId: string, @Body() body: { available: number }) {
-    return this.inventory.set(eventId, body.available);
+  set(
+    @Param('eventId') eventId: string,
+    @Req() req: { user: { sub: string; role: UserRole } },
+    @Body() body: SetInventoryDto,
+  ) {
+    return this.inventory.set(eventId, body.available, req.user);
   }
 }

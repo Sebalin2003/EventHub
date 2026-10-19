@@ -3,7 +3,7 @@ import type { CheckInRecord, Event, EventCategory, EventModality, Order, TicketT
 export const seedUsers: UserProfile[] = [
   { id: 'u1', name: 'María González', email: 'maria@eventhub.com.ar', role: 'ASISTENTE', phone: '+54 9 11 6123 1122', joinedAt: '2025-03-10', active: true },
   { id: 'u2', name: 'Javier Romero', email: 'javier@eventhub.com.ar', role: 'ASISTENTE', phone: '+54 9 11 6553 3344', joinedAt: '2025-05-20', active: true },
-  { id: 'u3', name: 'Río Plata Producciones', email: 'eventos@rioplata.com.ar', role: 'ORGANIZADOR', phone: '+54 11 4312 1234', joinedAt: '2024-11-01', active: true },
+  { id: 'u3', name: 'Río Plata Producciones', email: 'eventos@eventhub.com.ar', role: 'ORGANIZADOR', phone: '+54 11 4312 1234', joinedAt: '2024-11-01', active: true },
   { id: 'u4', name: 'Comunidad Digital Argentina', email: 'hola@comunidaddigital.ar', role: 'ORGANIZADOR', phone: '+54 11 4788 5678', joinedAt: '2025-01-15', active: true },
   { id: 'u5', name: 'Carlos Staff', email: 'staff@eventhub.com.ar', role: 'STAFF', phone: '+54 9 11 6119 9000', joinedAt: '2025-06-01', active: true },
   { id: 'u6', name: 'Admin Sistema', email: 'admin@eventhub.com.ar', role: 'ADMIN', phone: '+54 11 0800 100 200', joinedAt: '2024-01-01', active: true },

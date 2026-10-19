@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { Event } from './entities/event.entity.js';
+import { In, Repository } from 'typeorm';
+import { Event, EventStatus } from './entities/event.entity.js';
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class EventDao {
@@ -11,8 +13,17 @@ export class EventDao {
     return this.repository.find({ order: { date: 'ASC' } });
   }
 
+  // Catálogo público: los borradores solo los ve su organizador.
+  async findVisible(): Promise<Event[]> {
+    return this.repository.find({
+      where: { status: In([EventStatus.PUBLISHED, EventStatus.CANCELLED, EventStatus.COMPLETED]) },
+      order: { date: 'ASC' },
+    });
+  }
+
+  // Acepta el UUID o el legacyId del seed (e1, e2...) que usa el frontend.
   async findOne(id: string): Promise<Event> {
-    const event = await this.repository.findOne({ where: { id } });
+    const event = await this.repository.findOne({ where: UUID.test(id) ? { id } : { legacyId: id } });
     if (!event) throw new NotFoundException('Event not found');
     return event;
   }

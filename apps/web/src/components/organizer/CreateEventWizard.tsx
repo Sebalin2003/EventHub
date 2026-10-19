@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { Event, EventCategory, EventModality, EventStatus, Seat, SeatingMode, Sector, TicketType } from '../../types'
-import { accessToken, createEvent, updateEvent } from '../../api/events'
+import { accessToken, createEvent, mapApiEvent, publishEvent, updateEvent } from '../../api/events'
+import { useToast } from '../shared/Ui'
 
 type Props = {
   editing: Event | null
@@ -19,6 +20,15 @@ const STEPS = [
   { num: 5 as Step, label: 'Publicación' },
 ]
 
+// <input type="datetime-local"> no acepta ISO con zona horaria ("...Z"): se muestra en hora local.
+function toInputDate(value: string | undefined) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+
 type TT = { name: string; description: string; price: string; quantity: string }
 const blankTT = (): TT => ({ name: '', description: '', price: '', quantity: '' })
 
@@ -33,7 +43,9 @@ function Label({ children }: { children: React.ReactNode }) {
 }
 
 export default function CreateEventWizard({ editing, organizerId, organizerName, onSave, onCancel }: Props) {
+  const { notify } = useToast()
   const [step, setStep] = useState<Step>(1)
+  const [saving, setSaving] = useState(false)
 
   // Step 1
   const [title, setTitle] = useState('')
@@ -64,7 +76,7 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
   useEffect(() => {
     if (editing) {
       setTitle(editing.title); setDescription(editing.description); setCategory(editing.category)
-      setImageUrl(editing.imageUrl ?? ''); setDate(editing.date); setEndDate(editing.endDate)
+      setImageUrl(editing.imageUrl ?? ''); setDate(toInputDate(editing.date)); setEndDate(toInputDate(editing.endDate))
       setVenueName(editing.venueName); setAddress(editing.address); setCity(editing.city)
       setModality(editing.modality); setCapacity(String(editing.capacity))
       setTicketTypes(editing.ticketTypes.map(t => ({ name: t.name, description: t.description, price: String(t.price), quantity: String(t.totalQuantity) })))
@@ -137,14 +149,27 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
       seats,
     }
     tts.forEach(t => { t.eventId = ev.id })
+    // Sin sesión real (backend apagado) se guarda solo en la demo local.
+    if (!accessToken()) { onSave(ev); return }
+
+    setSaving(true)
     try {
-      if (accessToken()) {
-        const saved = editing ? await updateEvent(editing.id, ev) : await createEvent(ev)
-        onSave(saved.id && saved.id !== ev.id ? { ...ev, id: saved.id } : ev)
-        return
-      }
-    } catch { /* backend offline: keep the local demo */ }
-    onSave(ev)
+      let saved = editing ? await updateEvent(editing.id, ev) : await createEvent(ev)
+      // El backend crea siempre borradores; publicar pasa por /publish para emitir event.created.
+      if (status === 'publicado' && saved.status === 'draft') saved = await publishEvent(saved.legacyId ?? saved.id)
+      const remote = mapApiEvent(saved)
+      onSave({
+        ...ev,
+        id: remote.id,
+        status: remote.status,
+        ticketTypes: remote.ticketTypes,
+        seats: ev.seats?.map(seat => ({ ...seat, eventId: remote.id })),
+      })
+    } catch (error) {
+      notify(`No se pudo guardar el evento en el servidor: ${(error as Error).message}`, 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -264,10 +289,10 @@ export default function CreateEventWizard({ editing, organizerId, organizerName,
               ))}
             </div>
             <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <button onClick={() => handlePublish('borrador')} style={{ flex: 1, padding: '0.75rem', border: '2px solid var(--color-border)', borderRadius: 'var(--radius)', backgroundColor: 'transparent', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', color: 'var(--color-foreground)' }}>
+              <button disabled={saving} onClick={() => handlePublish('borrador')} style={{ flex: 1, padding: '0.75rem', border: '2px solid var(--color-border)', borderRadius: 'var(--radius)', backgroundColor: 'transparent', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer', color: 'var(--color-foreground)' }}>
                 Guardar como borrador
               </button>
-              <button onClick={() => handlePublish('publicado')} style={{ flex: 2, padding: '0.75rem', border: 'none', borderRadius: 'var(--radius)', backgroundColor: 'var(--color-accent)', color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
+              <button disabled={saving} onClick={() => handlePublish('publicado')} style={{ flex: 2, padding: '0.75rem', border: 'none', borderRadius: 'var(--radius)', backgroundColor: 'var(--color-accent)', color: '#fff', fontFamily: 'var(--font-body)', fontWeight: 600, fontSize: '0.875rem', cursor: 'pointer' }}>
                 Publicar evento →
               </button>
             </div>

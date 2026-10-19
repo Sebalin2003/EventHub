@@ -1,10 +1,12 @@
 import { BadRequestException, ConflictException, ForbiddenException, GoneException } from '@nestjs/common';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InventoryDao } from './inventory.dao.js';
+import { EventDao } from '../events/event.dao.js';
+import { UserRole } from '../identity/entities/user.entity.js';
 import { InventoryService } from './inventory.service.js';
 
 describe('InventoryService', () => {
-  let storedAvailable: number;
+  let storedAvailable: number | undefined;
   let service: InventoryService;
 
   beforeEach(() => {
@@ -13,14 +15,18 @@ describe('InventoryService', () => {
     storedAvailable = 10;
 
     const inventoryDao = {
-      findOne: vi.fn(async (eventId: string) => ({ eventId, available: storedAvailable })),
+      findOne: vi.fn(async (eventId: string) => (storedAvailable === undefined ? null : { eventId, available: storedAvailable })),
       save: vi.fn(async (data: { eventId: string; available: number }) => {
         storedAvailable = data.available;
         return data;
       }),
     } as unknown as InventoryDao;
 
-    service = new InventoryService(inventoryDao);
+    const eventDao = {
+      findOne: vi.fn(async (eventId: string) => ({ id: eventId, capacity: 12, registered: 2, organizerId: 'org-1' })),
+    } as unknown as EventDao;
+
+    service = new InventoryService(inventoryDao, eventDao);
     service.onModuleInit();
   });
 
@@ -108,5 +114,18 @@ describe('InventoryService', () => {
     vi.setSystemTime(new Date('2026-09-13T12:00:01.000Z'));
 
     await expect(service.commitHold('event-1', hold.id, 'user-1')).rejects.toBeInstanceOf(GoneException);
+  });
+
+  it('initializes availability from event capacity when there is no inventory row', async () => {
+    storedAvailable = undefined;
+    await expect(service.get('event-1')).resolves.toEqual({ eventId: 'event-1', available: 10, held: 0, totalAvailable: 10 });
+    await service.createHold('event-1', 'user-1', 4);
+    await expect(service.get('event-1')).resolves.toMatchObject({ available: 6, held: 4 });
+  });
+
+  it('only lets the owner organizer or an admin set inventory', async () => {
+    await expect(service.set('event-1', 5, { sub: 'org-2', role: UserRole.ORGANIZER })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.set('event-1', 5, { sub: 'org-1', role: UserRole.ORGANIZER })).resolves.toEqual({ eventId: 'event-1', available: 5 });
+    await expect(service.set('event-1', 6, { sub: 'admin', role: UserRole.ADMIN })).resolves.toEqual({ eventId: 'event-1', available: 6 });
   });
 });

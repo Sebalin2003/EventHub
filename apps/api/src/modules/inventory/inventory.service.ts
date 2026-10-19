@@ -10,6 +10,9 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { InventoryDao } from './inventory.dao.js';
+import { EventDao } from '../events/event.dao.js';
+import { Event } from '../events/entities/event.entity.js';
+import { UserRole } from '../identity/entities/user.entity.js';
 
 export type InventoryHold = {
   id: string;
@@ -31,7 +34,10 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
   private expiryTimer?: NodeJS.Timeout;
   private mutationQueue: Promise<void> = Promise.resolve();
 
-  constructor(private readonly inventoryDao: InventoryDao) {}
+  constructor(
+    private readonly inventoryDao: InventoryDao,
+    private readonly eventDao: EventDao,
+  ) {}
 
   onModuleInit() {
     this.initialized = true;
@@ -46,19 +52,25 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     this.initialized = false;
   }
 
-  async get(eventId: string) {
+  async get(rawEventId: string) {
     this.expireHolds();
-    const inventory = await this.inventoryDao.findOne(eventId);
-    const totalAvailable = inventory?.available ?? 0;
+    const event = await this.eventDao.findOne(rawEventId);
+    const eventId = event.id;
+    const totalAvailable = await this.storedAvailable(event);
     const held = this.getHeldQuantity(eventId);
     return { eventId, available: Math.max(0, totalAvailable - held), held, totalAvailable };
   }
 
-  async set(eventId: string, available: number) {
+  async set(rawEventId: string, available: number, actor?: { sub: string; role?: UserRole }) {
     this.ensureInitialized();
     if (!Number.isInteger(available) || available < 0) {
       throw new BadRequestException('Available must be a non-negative integer');
     }
+    const event = await this.eventDao.findOne(rawEventId);
+    if (actor && actor.role !== UserRole.ADMIN && event.organizerId !== actor.sub) {
+      throw new ForbiddenException('Not your event');
+    }
+    const eventId = event.id;
 
     return this.serializeMutation(async () => {
       this.expireHolds();
@@ -71,7 +83,7 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async createHold(eventId: string, userId: string, quantity: number, ttlMs = DEFAULT_HOLD_TTL_MS) {
+  async createHold(rawEventId: string, userId: string, quantity: number, ttlMs = DEFAULT_HOLD_TTL_MS) {
     this.ensureInitialized();
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new BadRequestException('Quantity must be a positive integer');
@@ -80,10 +92,12 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
       throw new BadRequestException('Hold duration must be between 1 ms and 5 minutes');
     }
 
+    const event = await this.eventDao.findOne(rawEventId);
+    const eventId = event.id;
+
     return this.serializeMutation(async () => {
       this.expireHolds();
-      const inventory = await this.inventoryDao.findOne(eventId);
-      const available = (inventory?.available ?? 0) - this.getHeldQuantity(eventId);
+      const available = (await this.storedAvailable(event)) - this.getHeldQuantity(eventId);
       if (quantity > available) {
         throw new ConflictException('Not enough inventory available');
       }
@@ -103,8 +117,9 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async releaseHold(eventId: string, holdId: string, userId: string) {
+  async releaseHold(rawEventId: string, holdId: string, userId: string) {
     this.ensureInitialized();
+    const eventId = (await this.eventDao.findOne(rawEventId)).id;
     return this.serializeMutation(async () => {
       const hold = this.requireOwnedHold(eventId, holdId, userId);
       this.activeHolds.delete(holdId);
@@ -112,8 +127,10 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async commitHold(eventId: string, holdId: string, userId: string) {
+  async commitHold(rawEventId: string, holdId: string, userId: string) {
     this.ensureInitialized();
+    const event = await this.eventDao.findOne(rawEventId);
+    const eventId = event.id;
     return this.serializeMutation(async () => {
       const hold = this.requireOwnedHold(eventId, holdId, userId);
       if (new Date(hold.expiresAt).getTime() <= Date.now()) {
@@ -121,8 +138,7 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
         throw new GoneException('Hold expired');
       }
 
-      const inventory = await this.inventoryDao.findOne(eventId);
-      const totalAvailable = inventory?.available ?? 0;
+      const totalAvailable = await this.storedAvailable(event);
       if (hold.quantity > totalAvailable) {
         throw new ConflictException('Not enough inventory available');
       }
@@ -131,6 +147,18 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
       this.activeHolds.delete(holdId);
       return { ...hold, status: 'committed' as const };
     });
+  }
+
+  // Un evento sin registro de inventario arranca con los lugares libres según su capacidad.
+  private async storedAvailable(event: Event) {
+    const inventory = await this.inventoryDao.findOne(event.id);
+    return inventory?.available ?? Math.max(0, event.capacity - (event.registered ?? 0));
+  }
+
+  isHoldActive(holdId: string, userId: string) {
+    this.expireHolds();
+    const hold = this.activeHolds.get(holdId);
+    return Boolean(hold && hold.userId === userId);
   }
 
   private getHeldQuantity(eventId: string) {

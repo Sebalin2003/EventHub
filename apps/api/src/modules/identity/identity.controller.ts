@@ -1,29 +1,44 @@
 import { Body, Controller, Post } from '@nestjs/common';
+import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 import { IdentityService } from './identity.service.js';
 
-type RegisterBody = {
+export class RegisterDto {
+  @IsEmail()
   email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-};
 
-type LoginBody = {
-  email: string;
+  @IsString()
+  @MinLength(6)
   password: string;
-};
+
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
+
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
+}
+
+export class LoginDto {
+  @IsEmail()
+  email: string;
+
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+}
 
 @Controller('auth')
 export class IdentityController {
   constructor(private readonly identity: IdentityService) {}
 
   @Post('register')
-  register(@Body() body: RegisterBody) {
+  register(@Body() body: RegisterDto) {
     return this.identity.register(body);
   }
 
   @Post('login')
-  login(@Body() body: LoginBody) {
+  login(@Body() body: LoginDto) {
     return this.identity.login(body.email, body.password);
   }
 }

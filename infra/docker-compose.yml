@@ -35,6 +35,7 @@ services:
       - DB_PASSWORD=password
       - DB_DATABASE=evenhub
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+      - JWT_SECRET=${JWT_SECRET:-eventhub-dev-secret-cambiar}
       - PORT=3000
     ports:
       - '3000:3000'

@@ -22,6 +22,9 @@ export class OrderItem {
   @Column()
   eventId: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  ticketTypeId: string | null;
+
   @Column()
   ticketType: string;
 
