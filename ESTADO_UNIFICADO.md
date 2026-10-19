@@ -1,10 +1,11 @@
 # EventHub — Estado unificado del proyecto
 
-**Fecha de relevamiento:** 19/10/2026
-**Base:** `main` @ `d9655b7` ("Correcciones a referencias realizadas")
-**Branch:** `avances-octavio`
+**Última actualización:** 19/10/2026
+**Base:** `main` @ `d9655b7` + correcciones de la branch `avances-octavio`
 
-Este documento junta en un solo lugar la información que hoy está repartida entre `README.md`, `ESTADO_PROYECTO.md`, `ENTREGA_PARCIAL_2.md`, `documento_tecnico_eventhub.md` y `documento_diseño_api.md`, y la corrige según el código actual. Todo lo que dice "verificado" se probó contra la API levantada con PostgreSQL 16 y RabbitMQ 3, usando `curl`.
+Este documento junta en un solo lugar la información que hoy está repartida entre `README.md`, `ESTADO_PROYECTO.md`, `ENTREGA_PARCIAL_2.md`, `documento_tecnico_eventhub.md` y `documento_diseño_api.md`, y la corrige según el código actual.
+
+Todo lo que dice "verificado" se probó levantando la API con PostgreSQL 16 y RabbitMQ 3: los endpoints con `curl` y el frontend con un navegador automatizado (Playwright).
 
 > Los documentos anteriores siguen en el repo. Donde contradicen a este, vale este (detalle en la [sección 9](#9-qué-quedó-desactualizado-en-los-documentos-anteriores)).
 
@@ -19,10 +20,10 @@ Este documento junta en un solo lugar la información que hoy está repartida en
 5. [Integraciones: RabbitMQ, SOAP y geocoding](#5-integraciones-rabbitmq-soap-y-geocoding)
 6. [Patrones de diseño, stateful/stateless y seguridad](#6-patrones-de-diseño-statefulstateless-y-seguridad)
 7. [Frontend: qué usa la API y qué es demo local](#7-frontend-qué-usa-la-api-y-qué-es-demo-local)
-8. [Errores encontrados](#8-errores-encontrados)
+8. [Errores encontrados y su estado](#8-errores-encontrados-y-su-estado)
 9. [Qué quedó desactualizado en los documentos anteriores](#9-qué-quedó-desactualizado-en-los-documentos-anteriores)
 10. [Guion de demo con curl (verificado)](#10-guion-de-demo-con-curl-verificado)
-11. [Próximos pasos sugeridos](#11-próximos-pasos-sugeridos)
+11. [Pendientes](#11-pendientes)
 
 ---
 
@@ -30,23 +31,26 @@ Este documento junta en un solo lugar la información que hoy está repartida en
 
 **Funciona (verificado):**
 
-- Login con JWT contra PostgreSQL (`POST /auth/login`), con contraseñas hasheadas con scrypt.
-- Catálogo de eventos desde PostgreSQL, con un seed idempotente de 20 eventos y 8 usuarios.
-- CRUD de eventos del organizador vía API (`/organizer/events`), siempre que se envíe `duration`.
-- Publicación de eventos: emite `event.created` a RabbitMQ, el consumidor lo recibe y guarda una fila en `notifications`.
-- Favoritos protegidos con JWT. Aceptan tanto el `legacyId` (`e1`) como el UUID del evento.
-- Inventario con HOLD temporales (stateful, en memoria) y commit persistido. La restricción por rol funciona (`401` sin token, `403` para un asistente).
-- Build y tests: API `build` OK y 8 tests OK. Web `tsc` OK, `build` OK y 8 tests OK.
+- **Login** con JWT contra PostgreSQL. Los perfiles de la pestaña "Demostración" también obtienen un JWT real si la API está levantada; si no, siguen en modo demo local.
+- **Catálogo** de eventos desde PostgreSQL. Los borradores no se publican en el catálogo: solo los ve su organizador.
+- **Eventos desde la web:** crear, editar, publicar y cancelar se guardan en la base. Si el backend responde con error, la UI lo muestra y no marca nada como "publicado".
+- **Publicación:** al publicar se emite `event.created` a RabbitMQ con el email real del organizador, y la notificación se guarda en la tabla `notifications`.
+- **Flujo de compra completo por API:**
+  1. `POST /orders` toma un HOLD de inventario y calcula los precios en el servidor, y se emite `order.created`.
+  2. `POST /orders/:id/pay` cobra mediante el adapter SOAP.
+  3. Al aprobarse el pago se confirma el HOLD, se registra la venta en el evento, se emiten los tickets y se emite `order.paid`.
+- **Rechazos:** un pago rechazado o un HOLD vencido cancelan la orden y liberan el cupo.
+- **Check-in real:** distingue entrada válida, ya utilizada, inválida y de otro evento.
+- **Seguridad:** todos los endpoints que modifican datos exigen JWT y el rol correcto. Hay validación global de los bodies, y los ids inválidos dan 404 o 400 en lugar de 500.
+- **Build, tests y lint:** sin errores ni warnings.
+  - API: `tsc` OK (incluye los tests e2e), build OK, 10/10 tests y lint sin warnings.
+  - Web: `tsc` OK, build OK y 8/8 tests.
 
-**No funciona o funciona a medias:**
+**Sigue pendiente** (detalle en la [sección 11](#11-pendientes)):
 
-- `POST /orders` y `GET /orders` devuelven **500**, porque se usa `req.user.id` y el token trae `sub`. Con ese cambio de una línea, `order.created` llega bien (verificado).
-- **Desde la web no se puede crear ni publicar un evento en la base**, y la UI muestra "publicado" igual. Hay varias causas encadenadas (ver [B2–B6](#81-bloqueantes-para-la-demo-desde-la-web)).
-- Checkout, órdenes, tickets, pagos, reembolsos y check-in **de la web** siguen siendo 100 % `localStorage` (`demoStore.ts`). El front no llama a `/orders`, `/payments`, `/tickets`, `/check-in` ni `/inventory`.
-- Varios endpoints no tienen autenticación: `/events` (POST, PATCH y DELETE), `/tickets`, `/payments` y `/check-in`.
-- Payments (SOAP) y Check-in son *stubs*: siempre aprueban.
-
-**Para la demo:** usar Postman o curl con el [guion de la sección 10](#10-guion-de-demo-con-curl-verificado). El paso de órdenes necesita el arreglo de B1.
+- El checkout, los tickets, el check-in y los reembolsos **de la interfaz web** siguen usando `localStorage`; la API ya los soporta.
+- SOAP sigue siendo un mock, porque no hay un servicio legado real.
+- Los HOLD viven en memoria.
 
 ---
 
@@ -65,15 +69,22 @@ EventHub/
 Flujos:
 
 ```text
-HTTP:      React → Vite proxy (/api) → Controller → Service → DAO / Repository → PostgreSQL
-Async:     EventsService / OrdersService ──emit──▶ RabbitMQ (notifications_queue)
-                                                   └──▶ NotificationsController (@EventPattern, mismo proceso)
-                                                        └──▶ NotificationsService → tabla notifications
-SOAP:      PaymentsController → PaymentsService → SoapAdapter → SoapClientService (WSDL placeholder)
-REST ext.: EventsService.createForOrganizer → Nominatim (OpenStreetMap) para lat/lon
+HTTP:    React → Vite proxy (/api) → ValidationPipe → Guards → Controller → Service → DAO / Repository → PostgreSQL
+
+Compra:  POST /orders ──▶ InventoryService.createHold (stateful) ──▶ Order PENDING ──emit──▶ order.created
+         POST /orders/:id/pay ──▶ PaymentsService → SoapAdapter → SoapClientService
+                              ├─ rechazado → libera HOLD, Order CANCELLED (402)
+                              └─ aprobado  → commitHold → Order PAID → EventsService.registerSale
+                                             → TicketsService.emit ──emit──▶ order.paid
+
+Async:   EventsService / OrdersService ──emit──▶ RabbitMQ (notifications_queue)
+                                                └──▶ NotificationsController (@EventPattern, mismo proceso)
+                                                     └──▶ NotificationsService → tabla notifications
+
+REST:    EventsService → Nominatim (OpenStreetMap) para lat/lon al crear un evento o cambiar su ubicación
 ```
 
-La API corre como **aplicación híbrida**: HTTP en `:3000` más un consumidor RMQ (`main.ts`). El productor y el consumidor viven en el mismo proceso.
+La API corre como **aplicación híbrida**: HTTP en `:3000` más un consumidor RMQ (`main.ts`).
 
 ---
 
@@ -92,85 +103,82 @@ pnpm --filter @evenhub/web dev                             # http://localhost:51
 ```bash
 docker compose -f infra/docker-compose.yml up -d postgres rabbitmq
 pnpm install
-# Los defaults de la API (postgres/postgres/eventhub) NO coinciden con el compose (user/password/evenhub):
-export DB_HOST=localhost DB_PORT=5432 DB_USERNAME=user DB_PASSWORD=password DB_DATABASE=evenhub
-export RABBITMQ_URL=amqp://user:password@localhost:5672
+cp apps/api/.env.example apps/api/.env   # los defaults ya coinciden con el compose
 pnpm --filter api start:dev
 pnpm --filter @evenhub/web dev
 ```
 
-En PowerShell: `$env:DB_USERNAME='user'`, etc.
+### Variables de entorno de la API (`apps/api/.env.example`)
 
-### Variables de entorno de la API
-
-| Variable | Default en código | Valor en docker-compose |
+| Variable | Default en código | docker-compose |
 |---|---|---|
 | `DB_HOST` | `localhost` | `postgres` |
 | `DB_PORT` | `5432` | `5432` |
-| `DB_USERNAME` | `postgres` | `user` |
-| `DB_PASSWORD` | `postgres` | `password` |
-| `DB_DATABASE` | `eventhub` | `evenhub` |
+| `DB_USERNAME` | `user` | `user` |
+| `DB_PASSWORD` | `password` | `password` |
+| `DB_DATABASE` | `evenhub` | `evenhub` |
 | `RABBITMQ_URL` | `amqp://user:password@localhost:5672` | `amqp://user:password@rabbitmq:5672` |
-| `JWT_SECRET` | `development-secret` | *(no se define)* |
-| `NODE_ENV` | — | *(no se define; con `production` se desactiva `synchronize` y no hay migraciones)* |
+| `JWT_SECRET` | `development-secret`, con un warning al arrancar. **Obligatorio si `NODE_ENV=production`.** | `${JWT_SECRET:-eventhub-dev-secret-cambiar}` |
+| `PAYMENTS_WSDL_URL` | WSDL público de ejemplo | — |
 | `PORT` | `3000` | `3000` |
 
 Panel de RabbitMQ (solo con la imagen `-management` del compose): http://localhost:15672 (`user` / `password`).
 
+> Si tenés una base de una versión anterior, al arrancar se crean solas las columnas nuevas (`synchronize`). El seed completa `city` y la modalidad "híbrido" en los eventos que ya existían.
+
 ### Usuarios del seed (contraseña de todos: `password`)
 
-| Email | Rol |
-|---|---|
-| `maria@eventhub.com.ar` | attendee |
-| `javier@eventhub.com.ar` | attendee |
-| `lucia@email.com.ar` | attendee |
-| `marcos@email.com.ar` | attendee |
-| `eventos@eventhub.com.ar` | organizer (dueño de los 20 eventos del seed) |
-| `hola@comunidaddigital.ar` | organizer (sin eventos) |
-| `staff@eventhub.com.ar` | staff |
-| `admin@eventhub.com.ar` | admin |
+| Email | Rol | Perfil "Demostración" |
+|---|---|---|
+| `maria@eventhub.com.ar` | attendee | Asistente |
+| `javier@eventhub.com.ar` | attendee | — |
+| `lucia@email.com.ar` | attendee | — |
+| `marcos@email.com.ar` | attendee | — |
+| `eventos@eventhub.com.ar` | organizer (dueño de los 20 eventos del seed) | Organizador |
+| `hola@comunidaddigital.ar` | organizer (sin eventos) | — |
+| `staff@eventhub.com.ar` | staff | Staff |
+| `admin@eventhub.com.ar` | admin | Administrador |
 
-> `POST /auth/register` siempre crea usuarios `attendee`: el campo `role` se ignora (verificado).
+`POST /auth/register` siempre crea usuarios `attendee`: el campo `role` se ignora.
 
 ### Verificación
 
 ```bash
-pnpm --filter api build && pnpm --filter api test && pnpm --filter api lint
+pnpm --filter api exec tsc --noEmit && pnpm --filter api build && pnpm --filter api test && pnpm --filter api lint
 pnpm --filter @evenhub/web exec tsc --noEmit && pnpm --filter @evenhub/web test && pnpm --filter @evenhub/web build
 ```
 
-Resultado al 19/10:
-
-- API: build OK, 8/8 tests y lint con 3 *warnings* (variables sin usar en `payments.service.ts` y `events.service.ts`).
-- Web: `tsc` OK, build OK y 8/8 tests.
-- `test:e2e` necesita PostgreSQL y RabbitMQ. Además, `tsc` sobre `test/` falla porque no encuentra `supertest/types`.
+`test:e2e` necesita PostgreSQL y RabbitMQ levantados.
 
 ---
 
 ## 4. Estado por módulo del backend
 
-| Módulo | Endpoints | Auth | Persistencia | ¿Lo usa la web? | Estado |
-|---|---|---|---|---|---|
-| **Identity** | `POST /auth/register`, `POST /auth/login` | — | `users` | Sí (solo la pestaña de login real) | ✅ Funciona. No valida el body: `{}` da 500. |
-| **Events (público)** | `GET /events`, `GET /events/:id`, `POST /events`, `PATCH /events/:id`, `DELETE /events/:id` | **Ninguna** | `events` | `GET` sí | ⚠️ El GET funciona. POST, PATCH y DELETE están abiertos a cualquiera (S1). |
-| **Events (organizador)** | `GET/POST /organizer/events`, `PATCH /organizer/events/:id`, `POST …/:id/publish`, `POST …/:id/cancel` | JWT + rol `organizer` | `events` | Sí, pero falla (B2–B6) | ⚠️ Funciona por curl si se manda `duration` y el UUID. |
-| **Favorites** | `GET /me/favorites`, `PUT/DELETE /me/favorites/:eventId` | JWT | `favorites` | Sí | ✅ Funciona. Un id inválido da 500 en vez de 404. |
-| **Inventory** | `GET /inventory/:eventId`, `PUT /inventory/:eventId` (admin/organizer), `POST …/holds`, `DELETE …/holds/:holdId`, `POST …/holds/:holdId/commit` | JWT (+ rol en PUT) | `inventory` + HOLD en memoria | No | ⚠️ Funciona, pero arranca en 0 para todo evento (L1) y no verifica que el evento sea del organizador (S8). |
-| **Orders** | `POST /orders`, `GET /orders`, `GET /orders/:id` | JWT | `orders`, `order_items` | No | ❌ 500 por `req.user.id` (B1). Confía en el precio que manda el cliente (S5). |
-| **Payments** | `POST /payments` | **Ninguna** | — | No | ⚠️ Stub: siempre devuelve `true` (S3, L10). |
-| **Tickets** | `POST /tickets`, `GET /tickets/user/:userId`, `PATCH /tickets/:id/cancel` | **Ninguna** | `tickets` | No | ⚠️ Funciona, pero sin auth ni vínculo con órdenes (S2, L2). |
-| **Check-in** | `POST /check-in/:ticketId/scan` | **Ninguna** | — | No | ❌ Stub: siempre `success: true` (S4, L12). |
-| **Notifications** | Consumidor RMQ: `event.created`, `order.created` | — | `notifications` | — | ✅ Funciona. Los destinatarios están hardcodeados (L3). |
+Todas las rutas aceptan, en `:eventId`, tanto el UUID como el `legacyId` del seed (`e1`, `e2`...).
+
+| Módulo | Endpoints | Auth | Estado |
+|---|---|---|---|
+| **Identity** | `POST /auth/register`, `POST /auth/login` | — | ✅ Body validado (email, password de 6 caracteres o más). |
+| **Events (público)** | `GET /events`, `GET /events/:id` | — | ✅ Solo eventos publicados, cancelados o finalizados. |
+| **Events (admin)** | `POST /events` (requiere `organizerId`), `PATCH /events/:id`, `DELETE /events/:id` | JWT + `admin` | ✅ |
+| **Events (organizador)** | `GET/POST /organizer/events`, `PATCH /organizer/events/:id`, `POST …/:id/publish`, `POST …/:id/cancel` | JWT + `organizer` (dueño) | ✅ Siempre se crea como borrador y `duration` se calcula sola. Publicar exige ser borrador y tener tipos de entrada; cancelar dos veces da 409. |
+| **Favorites** | `GET /me/favorites`, `PUT/DELETE /me/favorites/:eventId` | JWT | ✅ |
+| **Inventory** | `GET /inventory/:eventId`, `PUT /inventory/:eventId`, `POST …/holds`, `DELETE …/holds/:holdId`, `POST …/holds/:holdId/commit` | JWT (`PUT`: admin o el organizador dueño) | ✅ Arranca en `capacidad − registrados`. Si el evento no existe da 404. |
+| **Orders** | `POST /orders`, `GET /orders`, `GET /orders/:id`, `POST /orders/:id/pay`, `POST /orders/:id/cancel` | JWT | ✅ Precios del servidor, HOLD de 5 min, pago, emisión de tickets. |
+| **Payments** | `POST /payments` → `{ approved }` | JWT | ⚠️ Adapter SOAP con mock: aprueba si `amount > 0` y la tarjeta pasa Luhn. |
+| **Tickets** | `GET /tickets/me`, `PATCH /tickets/:id/cancel` (dueño o admin), `GET /tickets/user/:userId` (admin), `POST /tickets` (admin) | JWT | ✅ Se emiten al pagar una orden. |
+| **Check-in** | `POST /check-in/:ticketIdOCodigo/scan` con body opcional `{ eventId }` | JWT + `staff`, `organizer` o `admin` | ✅ Devuelve `ENTRADA_VALIDA`, `ENTRADA_YA_UTILIZADA`, `ENTRADA_INVALIDA` o `ENTRADA_EVENTO_INCORRECTO`. |
+| **Notifications** | Consumidor RMQ: `event.created`, `order.created`, `order.paid` | — | ✅ Usa los emails reales del organizador y del comprador. |
 
 ---
 
 ## 5. Integraciones: RabbitMQ, SOAP y geocoding
 
-| Integración | Tipo | Implementación real | Estado |
+| Integración | Tipo | Implementación | Estado |
 |---|---|---|---|
-| **RabbitMQ** | Asincrónica (cola punto a punto `notifications_queue`, durable) | Productores: `EventsService.publishOwned` (`event.created`) y `OrdersService.create` (`order.created`). Consumidor: `NotificationsController`, en el mismo proceso. | ✅ `event.created` verificado de punta a punta. `order.created` también, con el arreglo de B1. |
-| **SOAP (pagos legado)** | Sincrónica | `SoapClientService` crea el cliente contra un WSDL público de ejemplo (`NumberConversion.wso`). `SoapAdapter` implementa `PaymentGateway`. | ⚠️ La llamada real está comentada: devuelve `{status:'OK'}` siempre, incluso sin WSDL. Si el WSDL no responde, loguea un ERROR al arrancar. |
-| **Geocoding REST** | Sincrónica | `fetch` a Nominatim al crear un evento con `location`. | ⚠️ Funciona si hay salida a internet. No manda `User-Agent` (Nominatim lo exige), no tiene timeout y bloquea la creación. Si falla, guarda `lat/lon = null` en silencio. |
+| **RabbitMQ** | Asincrónica, cola punto a punto `notifications_queue` (durable) | Productores: `EventsService.publishOwned` (`event.created`) y `OrdersService` (`order.created`, `order.paid`). Consumidor: `NotificationsController`. | ✅ Verificado de punta a punta. |
+| **SOAP (pagos legado)** | Sincrónica | `SoapClientService` (cliente `soap`, WSDL configurable con `PAYMENTS_WSDL_URL`). `SoapAdapter implements PaymentGateway`. | ⚠️ La llamada real está comentada porque no hay WSDL de pagos. El mock es determinista: aprueba `4111 1111 1111 1111` y rechaza `4111 1111 1111 1112`. Si el WSDL no responde, loguea un *warning* y no un error. |
+| **Geocoding REST** | Sincrónica | `fetch` a Nominatim con `User-Agent` y timeout de 3 s, al crear un evento o cambiar su ubicación. | ✅ Si falla, guarda `lat/lon = null` y loguea un *warning*. |
 
 ---
 
@@ -178,133 +186,125 @@ Resultado al 19/10:
 
 | Patrón | Dónde | Comentario para la defensa |
 |---|---|---|
-| **DAO** | `UserDao`, `EventDao`, `FavoriteDao`, `InventoryDao` | Desacoplan TypeORM de la lógica de negocio. Orders y Tickets usan `Repository` directo, sin DAO. |
+| **DAO** | `UserDao`, `EventDao`, `FavoriteDao`, `InventoryDao` | Desacoplan TypeORM de la lógica de negocio. `EventDao.findOne` resuelve tanto UUID como `legacyId`. |
 | **Strategy** | `HashStrategy` → `ScryptHashStrategy` (token `HASH_STRATEGY`) | Permite cambiar el algoritmo de hash sin tocar `IdentityService`. |
-| **Factory** | `EventFactory.createEvent` | Por ahora solo hace `Object.assign`, pero es el punto único de construcción. |
-| **Adapter** | `SoapAdapter implements PaymentGateway` | Traduce la respuesta SOAP a un `boolean`. La interfaz no se inyecta por DI: se instancia con `new`. |
-| **Publish/Subscribe (Observer)** | `ClientProxy.emit` y `@EventPattern` | Desacopla las notificaciones del flujo principal. |
-| **Inyección de dependencias** | Todo Nest | — |
+| **Factory** | `EventFactory.createEvent` | Es el punto único de construcción de `Event`. |
+| **Adapter** | `SoapAdapter implements PaymentGateway` | Traduce la respuesta SOAP a un `boolean` para `OrdersService`. |
+| **Publish/Subscribe** | `ClientProxy.emit` y `@EventPattern` | Desacopla las notificaciones del flujo principal. |
+| **DTO + validación declarativa** | `ValidationPipe({ whitelist: true })` y DTOs con `class-validator` | El cliente no puede fijar `status`, `featured`, `registered`, `sold` ni precios. |
 
-- **Stateful:** `InventoryService` guarda los HOLD en un `Map`, con un temporizador iniciado en `onModuleInit` y limpiado en `onModuleDestroy`. Los mutadores están serializados con una cola de promesas, que evita sobreventa dentro de la instancia (cubierto por tests). Los HOLD se pierden al reiniciar y no escalan a varias instancias.
-- **Stateless:** `EventsService` consulta siempre PostgreSQL.
-- **Seguridad declarativa:** `JwtAuthGuard` (Bearer, payload en `req.user` con `sub`, `email` y `role`) más `@Roles(...)` / `RolesGuard`. Se aplica en `/organizer/events`, `/inventory`, `/me/favorites` y `/orders`. No se aplica en `/events` (escritura), `/payments`, `/tickets` ni `/check-in`.
+- **Stateful:** `InventoryService` mantiene los HOLD en un `Map`. Un temporizador se inicia en `onModuleInit` y se limpia en `onModuleDestroy`, y las operaciones que modifican el inventario se ejecutan en serie para evitar sobreventa. Los HOLD se pierden al reiniciar la API (limitación conocida).
+- **Stateless:** `EventsService` no guarda estado entre requests.
+- **Seguridad declarativa:** `JwtAuthGuard` (Bearer, con `sub`, `email` y `role` en `req.user`) más `@Roles(...)` / `RolesGuard`. Las verificaciones de "dueño del recurso" se hacen en los services: eventos e inventario del organizador, órdenes, tickets y HOLD del usuario.
 
 ---
 
 ## 7. Frontend: qué usa la API y qué es demo local
 
-| Función | Fuente real |
+| Función | Fuente |
 |---|---|
-| Catálogo de eventos | `GET /api/events`. Si falla, usa el seed local. Los eventos que existen solo en local **se conservan** junto a los de la API (`demoStore.ts:194`). |
-| Login | Pestaña **"Iniciar sesión"**: `POST /api/auth/login` y guarda el JWT. Pestaña **"Demostración"** (la que aparece por defecto): **no habla con la API ni obtiene token**. |
-| Favoritos | API si hay token. Sin token manda `Bearer null` → 401 → se ignora. |
-| Crear, editar, publicar y cancelar eventos | Intenta la API si hay token; si falla, **traga el error y guarda local** (ver B2–B6). |
-| HOLD, checkout, pago, órdenes, tickets, reembolsos, check-in, auditoría | **Solo `localStorage`** (`demoStore.ts`). |
+| Login (ambas pestañas) | `POST /api/auth/login` y guarda el JWT. La pestaña "Demostración" usa las credenciales del seed; sin backend, sigue en modo local. |
+| Catálogo | `GET /api/events`. Sin backend usa el seed local. |
+| Eventos del organizador (incluye borradores) | `GET /api/organizer/events` |
+| Crear, editar, publicar y cancelar eventos | API, esperando la respuesta. Si falla, muestra un toast de error. Sin token, solo local. |
+| Favoritos | API si hay token. |
+| HOLD, checkout, pago, órdenes, tickets, reembolsos, check-in, auditoría | **Todavía `localStorage`** (`demoStore.ts`). La API ya tiene estos endpoints: ver [pendientes](#11-pendientes). |
+
+> Si en un navegador quedaron eventos "fantasma" de pruebas anteriores (creados cuando la API fallaba en silencio), usá **Restablecer demo** en la pantalla de login.
 
 ---
 
-## 8. Errores encontrados
+## 8. Errores encontrados y su estado
 
-Leyenda: ✔ = reproducido con curl o en logs · 📖 = por lectura de código.
+Leyenda:
+
+- ✅ Corregido y verificado (curl o navegador).
+- ⏳ Pendiente.
 
 ### 8.1 Bloqueantes para la demo desde la web
 
-**B1. ✔ Crear o listar órdenes da 500**
+**B1. ✅ Crear o listar órdenes daba 500**
 
-- **Dónde:** `apps/api/src/modules/orders/orders.controller.ts:13`, `:19` y `:25`.
-- **Causa:** se usa `req.user.id`, pero el JWT trae `sub` (`identity.service.ts`). Por eso:
-  - `POST` falla con `null value in column "userId"`.
-  - `GET` falla con `Undefined value encountered in property 'Order.userId' of a where condition`.
-- **Arreglo:** reemplazar `req.user.id` por `req.user.sub` en los 3 métodos. Con eso `order.created` llega bien (verificado).
+- **Causa:** `orders.controller.ts` usaba `req.user.id`, y el JWT trae `sub`.
+- **Arreglo:** se usa `req.user.sub`, y `req.user.email` para la notificación.
 
-**B2. ✔ Crear un evento desde la web da 500 (falta `duration`)**
+**B2. ✅ Crear un evento desde la web daba 500 por falta de `duration`**
 
-- **Dónde:** `apps/web/src/api/events.ts:107` (`toApiEvent`).
-- **Causa:** el front no manda `duration`, y en la entidad la columna es `int NOT NULL`. Error: `null value in column "duration" of relation "events"`.
-- **Arreglo:** calcular `duration` en el backend, en `createForOrganizer` y `updateOwned`, a partir de `date` y `endDate`, como ya hace el seed. Otra opción es mandarla desde `toApiEvent`.
+- **Arreglo:** `duration` es opcional. Si no se envía, el backend la calcula a partir de `date` y `endDate` (60 min si no hay fin), y valida que `endDate` sea posterior a `date`.
 
-**B3. ✔ "Publicar" y "Cancelar" fallan sin avisar y muestran éxito igual**
+**B3. ✅ "Publicar" y "Cancelar" fallaban sin avisar y mostraban éxito igual**
 
-- **Dónde:** `apps/web/src/components/organizer/OrganizerPortal.tsx:54-62`.
-- **Causa:** el código hace `publishEvent(id).catch(() => undefined)`, después actualiza el estado local y muestra el toast "Evento publicado." sin esperar la respuesta.
-- **Lo mismo en el wizard:** `CreateEventWizard.tsx:146` tiene `catch { /* backend offline */ }` y guarda el evento local como si nada.
-- **Por qué parece publicado:** como `LOAD_EVENTS` conserva los eventos que existen solo en local, el evento "publicado" aparece en ese navegador pero no está en la base.
-- **Arreglo:** hacer `await` de la llamada, mostrar un toast de error si falla y actualizar el estado con la respuesta de la API.
+- **Arreglo:** `OrganizerPortal` y `CreateEventWizard` esperan la respuesta de la API, muestran el mensaje del backend si falla y solo actualizan la UI cuando la operación fue exitosa.
 
-**B4. ✔ Editar, publicar o cancelar los 20 eventos del seed da 500 (id `e1` en lugar de UUID)**
+**B4. ✅ Editar, publicar o cancelar los eventos del seed daba 500 (id `e1` en lugar de UUID)**
 
-- **Dónde:** `apps/web/src/api/events.ts` (`mapApiEvent` usa `legacyId ?? id`) y `apps/api/src/modules/events/event.dao.ts` (`findOne` por UUID).
-- **Causa:** el front llama a `/organizer/events/e1/publish` y PostgreSQL responde `invalid input syntax for type uuid: "e1"`.
-- **Arreglo:** que `EventDao.findOne` también resuelva por `legacyId`, como ya hace `FavoritesService`. Otra opción es que el front guarde el UUID para las llamadas a la API.
+- **Arreglo:** `EventDao.findOne` resuelve tanto el UUID como el `legacyId`.
 
-**B5. 📖 El login "Demostración" no tiene JWT, así que nada se persiste**
+**B5. ✅ El login "Demostración" no obtenía JWT, así que nada se guardaba**
 
-- **Dónde:** `LoginPage.tsx:24` (modo por defecto `'demo'`) y `CreateEventWizard.tsx` (`if (accessToken())`).
-- **Causa:** con el login de demostración el wizard ni siquiera intenta llamar a la API. Solo la pestaña de login real obtiene token.
-- **Problema relacionado:** el organizador del seed del front (`eventos@rioplata.com.ar`) no existe en el backend; allá es `eventos@eventhub.com.ar`.
+- **Arreglo:** el login de demostración inicia sesión en la API con el usuario del seed.
+- **Relacionado:** se corrigió el email del organizador del seed del front (`eventos@eventhub.com.ar`), que no coincidía con el del backend.
 
-**B6. ✔ Crear un evento ya "publicado" saltea `/publish`, así que no se emite `event.created`**
+**B6. ✅ Crear un evento ya "publicado" salteaba `/publish`, así que no se emitía `event.created`**
 
-- **Dónde:** `toApiEvent` manda `status: 'published'` y el backend lo acepta en `createForOrganizer` (`status: data.status ?? DRAFT`).
-- **Arreglo:** ignorar `status` en create y update, y obligar a usar `POST /publish`.
+- **Arreglo:** el backend siempre crea borradores. El wizard llama a `/publish` cuando se elige "Publicar".
 
 ### 8.2 Seguridad
 
-| # | Problema | Evidencia |
+| # | Problema | Estado |
 |---|---|---|
-| S1 | ✔ `POST /events`, `PATCH /events/:id` y `DELETE /events/:id` **no tienen guard**. Cualquiera puede crear, modificar o borrar eventos, y elegir el `organizerId`. | Sin token: crear → 201, PATCH → 200, DELETE → 200. |
-| S2 | ✔ `/tickets` no tiene auth. Se pueden emitir tickets para cualquier `userId`, listar los tickets de otro usuario (`GET /tickets/user/:userId`, un IDOR) y cancelar tickets ajenos. | `POST /tickets` sin token → 201. |
-| S3 | ✔ `POST /payments` no tiene auth ni validación. Acepta `amount: -5` y devuelve `true`. El número de tarjeta viaja en el body sin tratamiento. | — |
-| S4 | ✔ `POST /check-in/:ticketId/scan` no tiene auth y valida cualquier string. | `ticketId=cualquiera` → `success: true`. |
-| S5 | ✔ **Orders confía en el cliente:** usa `unitPrice` y `quantity` del body, no verifica que el `ticketType` exista ni que haya stock o un HOLD. | Una orden con `quantity: -3` y `unitPrice: 0.01` quedó con `total: -0.03`. |
-| S6 | ✔ No hay `ValidationPipe` global en `main.ts`, así que los decoradores de `CreateOrderDto` no hacen nada y los bodies no se validan. | `POST /auth/register {}` → 500 (`Cannot read properties of undefined (reading 'trim')`). |
-| S7 | ✔ Asignación masiva en `createForOrganizer` y `updateOwned` (`Object.assign(event, data)`): el organizador puede fijar `featured`, `registered`, `status`, `ticketTypes[].sold`, etc. | Se creó un evento con `featured: true` y `registered: 9999`. |
-| S8 | ✔ `PUT /inventory/:eventId`: **cualquier** organizador puede cambiar el inventario de un evento ajeno, y tampoco se valida que el evento exista. | El organizador 2 modificó el inventario de un evento del organizador 1 → 200. |
-| S9 | 📖 `JWT_SECRET` tiene como default `development-secret` y el compose no lo define. | — |
-| S10 | ✔ `GET /events` y `GET /events/:id` devuelven también los borradores y los cancelados. El front los filtra, pero la API los expone. | — |
+| S1 | `POST`, `PATCH` y `DELETE /events` no tenían guard. | ✅ Ahora son solo para admin (sin token: 401; como asistente: 403). |
+| S2 | `/tickets` no tenía auth: cualquiera emitía tickets o veía los de otro usuario (IDOR). | ✅ `GET /tickets/me` usa el token. Ver los tickets de otro usuario o emitirlos a mano es solo para admin, y cancelar exige ser el dueño o admin. |
+| S3 | `/payments` no tenía auth y aceptaba montos negativos. | ✅ Exige JWT, valida `amount > 0` y el formato de la tarjeta. |
+| S4 | `/check-in` no tenía auth y aceptaba cualquier string. | ✅ Exige JWT y rol `staff`, `organizer` o `admin`, y valida el ticket de verdad. |
+| S5 | Las órdenes confiaban en el precio y la cantidad que mandaba el cliente. | ✅ El precio sale del tipo de entrada del evento. Se valida que la cantidad esté entre 1 y 20, que el tipo exista, que haya stock y que el evento esté publicado. |
+| S6 | No había `ValidationPipe`, así que los DTO no validaban nada. | ✅ Hay `ValidationPipe` global con `whitelist` y DTOs para auth, eventos, inventario, órdenes, pagos, tickets y check-in. |
+| S7 | Asignación masiva: el organizador podía fijar `featured`, `registered`, `status` o `sold`. | ✅ El `whitelist` descarta esos campos y lo vendido se conserva al editar. Tampoco se puede bajar el cupo por debajo de lo vendido. |
+| S8 | Cualquier organizador podía cambiar el inventario de un evento ajeno. | ✅ Solo puede hacerlo el dueño del evento o un admin. |
+| S9 | `JWT_SECRET` tenía un default y el compose no lo definía. | ✅ El compose lo define, la API avisa al arrancar sin él y en producción es obligatorio. |
+| S10 | `GET /events` mostraba los borradores. | ✅ El catálogo público excluye borradores, y `GET /events/:id` de un borrador da 404. |
 
 ### 8.3 Lógica e integración
 
-| # | Problema | Dónde |
+| # | Problema | Estado |
 |---|---|---|
-| L1 | ✔ Al crear un evento no se crea su inventario, así que todo evento arranca con `available: 0` y `POST /holds` da 409 hasta que alguien hace `PUT /inventory`. El inventario tampoco se relaciona con `capacity` ni con `ticketTypes`, y el commit no actualiza `registered` ni `sold`. `GET /inventory/no-existe` responde 200 con 0. | `inventory.service.ts`, `events.service.ts` |
-| L2 | 📖 El flujo de compra está desconectado: Orders, Inventory, Payments y Tickets no se encadenan. La orden queda `pending` para siempre (nadie la pasa a `PAID`) y los tickets se emiten a mano. | `orders.service.ts`, `payments.service.ts`, `tickets.service.ts` |
-| L3 | ✔ Los destinatarios de las notificaciones están hardcodeados: `organizador@eventhub.com` en `publishOwned`, y `order.created` no incluye `userEmail`, así que siempre se usa `user@example.com`. | `events.service.ts:95`, `orders.service.ts:43` |
-| L4 | 📖 `publishOwned` no verifica el estado: re-publicar emite `event.created` otra vez, y un evento cancelado se puede volver a publicar. | `events.service.ts:86` |
-| L5 | ✔ Los ids con formato inválido dan **500** en lugar de 404 o 400: `GET /events/abc`, `PUT /me/favorites/zzz`. | Falta `ParseUUIDPipe` o un manejo del `QueryFailedError`. |
-| L6 | 📖 Se pierde la modalidad "híbrido": el enum `EventModality` no la tiene, el seed la convierte en `in_person` y el front la vuelve `presencial`. | `event.entity.ts`, `event.seed.ts:75`, `api/events.ts` |
-| L7 | 📖 Se pierde la ciudad al mapear (`city: ''` en `api/events.ts:76`), y la lista del organizador muestra "Recinto, " con la coma colgando. | `api/events.ts`, `OrgEvents.tsx` |
-| L8 | 📖 Hack de ids de organizador en el front: los usuarios `organizer` se mapean a `u3` o `u4` según si el nombre empieza con "Río Plata", tanto en `auth.ts:22` como en `api/events.ts:80`. Un tercer organizador se mezcla con `u4`. | `api/auth.ts`, `api/events.ts` |
-| L9 | 📖 Geocoding sin `User-Agent` ni timeout (ver sección 5). | `events.service.ts:52` |
-| L10 | 📖 SOAP es un placeholder: el WSDL no es de pagos y la llamada está comentada, así que siempre aprueba. | `payments.service.ts` |
-| L11 | 📖 Los HOLD están en memoria: se pierden al reiniciar y no funcionan con más de una instancia. Es una limitación de diseño, conviene mencionarla en la defensa. | `inventory.service.ts` |
-| L12 | 📖 Check-in no busca el ticket, no cambia su estado a `SCANNED` y no detecta tickets ya usados. | `check-in.controller.ts` |
+| L1 | El inventario arrancaba en 0 y no se vinculaba con el evento. | ✅ Se inicializa en `capacidad − registrados`, y una venta pagada actualiza `registered` y `sold`. |
+| L2 | El flujo Orders → Inventory → Payments → Tickets estaba desconectado. | ✅ Se encadenó: HOLD, pago, commit, venta y tickets. |
+| L3 | Los destinatarios de las notificaciones estaban hardcodeados. | ✅ Se usan los emails reales del organizador y del comprador. |
+| L4 | Se podía re-publicar un evento (emitiendo `event.created` de nuevo) o publicar uno cancelado. | ✅ Solo se publican borradores. Cancelar un evento ya cancelado o finalizado da 409. |
+| L5 | Los ids inválidos daban 500. | ✅ Dan 404 (eventos y favoritos) o 400 (`ParseUUIDPipe` en órdenes). |
+| L6 | Se perdía la modalidad "híbrido". | ✅ Se agregó `EventModality.HYBRID`, mapeado de ida y vuelta en el front. |
+| L7 | Se perdía la ciudad. | ✅ Se agregó la columna `city`; `location` conserva "dirección, ciudad" para geocodificar. |
+| L8 | Había un hack de ids de organizador según el nombre "Río Plata". | ✅ Los usuarios se mapean por email y los eventos por el nombre del organizador del seed; si no hay coincidencia, se usa el UUID. |
+| L9 | El geocoding no mandaba `User-Agent` ni tenía timeout. | ✅ |
+| L10 | SOAP es un placeholder que siempre aprobaba. | ⏳ Sigue siendo un mock (ahora determinista, con Luhn). Falta un WSDL real de pagos. |
+| L11 | Los HOLD están en memoria. | ⏳ Es una limitación de diseño, conviene mencionarla en la defensa. |
+| L12 | Check-in era un stub. | ✅ |
+| — | **(Nuevo)** El formulario de edición no mostraba las fechas de eventos de la API, porque `datetime-local` no acepta ISO con `Z`. | ✅ Se convierten a hora local y se envían en ISO UTC. |
 
 ### 8.4 Infraestructura y tooling
 
-| # | Problema |
-|---|---|
-| I1 | Los defaults de la API (`postgres/postgres/eventhub`) no coinciden con el compose (`user/password/evenhub`), y no existe un `.env.example`. |
-| I2 | Hay gestores de paquetes mezclados: `pnpm-lock.yaml`, un `package-lock.json` vacío en la raíz y otro `package-lock.json` en `apps/api`, que es el que usa el `Dockerfile` (`npm install`). |
-| I3 | Con `NODE_ENV=production` se desactiva `synchronize` y no hay migraciones, así que no se crearían las tablas. |
-| I4 | `test/app.e2e-spec.ts` no tipa (`supertest/types`) y depende de una base de datos real. |
-| I5 | El nombre del proyecto no es consistente: "EvenHub" en el README, el paquete `@evenhub/web` y la base `evenhub`, contra "EventHub" en el repo. |
+| # | Problema | Estado |
+|---|---|---|
+| I1 | Los defaults de la API no coincidían con el compose y no había `.env.example`. | ✅ Se alinearon y se agregó `apps/api/.env.example`. |
+| I2 | Hay gestores de paquetes mezclados (pnpm y dos `package-lock.json`; el `Dockerfile` usa npm). | ⏳ |
+| I3 | Con `NODE_ENV=production` se desactiva `synchronize` y no hay migraciones. | ⏳ |
+| I4 | `tsc` fallaba en `test/app.e2e-spec.ts` (`supertest/types`). | ✅ (el e2e sigue necesitando una base real). |
+| I5 | El nombre no es consistente: "EvenHub" y "EventHub". | ⏳ |
 
 ---
 
 ## 9. Qué quedó desactualizado en los documentos anteriores
 
-| Documento | Lo que dice | Realidad al 19/10 |
+| Documento | Lo que dice | Realidad |
 |---|---|---|
-| `README.md` | Usuarios demo `maria@eventHub.com`, `org@techmadrid.es`, etc. | Los usuarios son los de la [sección 3](#usuarios-del-seed-contraseña-de-todos-password). |
-| `README.md` | "Integraciones REST/SOAP reales" fuera de alcance. | Existen RabbitMQ (real), SOAP (stub) y geocoding (real). |
-| `ESTADO_PROYECTO.md` | Marca como hecho "[x] Integración en Frontend: consumir todo el flujo protegido de compra". | Falso: la compra sigue siendo local. |
-| `ESTADO_PROYECTO.md` | Marca Check-in como hecho. | Es un stub. |
-| `ESTADO_PROYECTO.md` | Marca como pendientes SOAP, productores y consumidores RabbitMQ y el documento de diseño. | Están implementados (SOAP como stub) y el documento existe (`documento_diseño_api.md`). |
-| `documento_tecnico_eventhub.md` (10/09) | "RabbitMQ no tiene productores ni consumidores", "no existen endpoints de Orders/Payments/Tickets/CheckIn", "Adapter no implementado". | Ya existen. Ver secciones 4–6. |
-| `documento_diseño_api.md` | "Se utilizan Guards para asegurar la compra de un ticket o la administración de eventos". | `/payments`, `/tickets`, `/check-in` y la escritura en `/events` no tienen guard, y Orders da 500. |
-| `ENTREGA_PARCIAL_2.md` | Publica `InventoryService` en la cola `event_notifications`, con un notificador externo. | Publican `EventsService` (al **publicar**) y `OrdersService`, en la cola `notifications_queue`. El consumidor es el mismo proceso NestJS. |
-| `ARCHITECTURE.md` | Prefijo `/api/v1`, OpenAPI, `/health/*`, *worker* separado, outbox. | No está implementado. Las rutas reales son las de la sección 4, sin prefijo (el `/api` lo agrega el proxy de Vite). |
+| `README.md` | Usuarios demo `maria@eventHub.com`, `org@techmadrid.es`, etc.; compras solo locales; integraciones fuera de alcance. | Los usuarios son los de la [sección 3](#usuarios-del-seed-contraseña-de-todos-password). La compra existe por API, aunque la UI todavía no la usa. |
+| `ESTADO_PROYECTO.md` | Marca como hecho "[x] Integración en Frontend: consumir todo el flujo protegido de compra". | Falso: el checkout de la UI sigue siendo local (ver la [sección 7](#7-frontend-qué-usa-la-api-y-qué-es-demo-local)). |
+| `ESTADO_PROYECTO.md` | Marca como pendientes SOAP, RabbitMQ y el documento de diseño. | Están implementados (SOAP como mock) y el documento existe. |
+| `documento_tecnico_eventhub.md` (10/09) | "RabbitMQ no tiene productores ni consumidores", "no existen endpoints de Orders, Payments, Tickets ni CheckIn", "Adapter no implementado". | Ya existen. Ver secciones 4–6. |
+| `documento_diseño_api.md` | Los guards protegen la compra y la administración de eventos. | Ahora sí es cierto, con estas correcciones. |
+| `ENTREGA_PARCIAL_2.md` | Publica `InventoryService` en la cola `event_notifications`, con un notificador externo. | Publican `EventsService` y `OrdersService`, en la cola `notifications_queue`. El consumidor es el mismo proceso NestJS. |
+| `ARCHITECTURE.md` | Prefijo `/api/v1`, OpenAPI, `/health/*`, worker separado, outbox. | No está implementado. Las rutas reales son las de la sección 4, sin prefijo (el `/api` lo agrega el proxy de Vite). |
 | `guia_estudio_defensa.md` | Ejemplo de DAO con "Mongoose/MongoDB". | El proyecto usa TypeORM y PostgreSQL. |
 
 ---
@@ -315,47 +315,55 @@ Requiere `jq`. Si usás Postman, son las mismas requests; guardá los tokens en 
 
 ```bash
 B=http://localhost:3000
+J='Content-Type: application/json'
+login() { curl -s -XPOST $B/auth/login -H "$J" -d "{\"email\":\"$1\",\"password\":\"password\"}" | jq -r .accessToken; }
 
-# 1) Login organizador y asistente
-OTOK=$(curl -s -XPOST $B/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"eventos@eventhub.com.ar","password":"password"}' | jq -r .accessToken)
-TOK=$(curl -s -XPOST $B/auth/login -H 'Content-Type: application/json' \
-  -d '{"email":"maria@eventhub.com.ar","password":"password"}' | jq -r .accessToken)
+# 1) Login de los tres roles
+OTOK=$(login eventos@eventhub.com.ar)   # organizador
+TOK=$(login maria@eventhub.com.ar)      # asistente
+STAFF=$(login staff@eventhub.com.ar)    # staff
 
-# 2) Catálogo
-curl -s $B/events | jq '.[0:3] | map({id, legacyId, title, status})'
+# 2) Catálogo público
+curl -s $B/events | jq 'map({id, legacyId, title, status}) | .[0:3]'
 
 # 3) Seguridad declarativa: 401 sin token, 403 con rol incorrecto
-curl -s -o /dev/null -w '%{http_code}\n' $B/organizer/events                            # 401
-curl -s -o /dev/null -w '%{http_code}\n' $B/organizer/events -H "Authorization: Bearer $TOK"  # 403
+curl -s -o /dev/null -w '%{http_code}\n' -XPOST $B/organizer/events                              # 401
+curl -s -o /dev/null -w '%{http_code}\n' $B/organizer/events -H "Authorization: Bearer $TOK"      # 403
 
-# 4) Crear un evento como borrador (¡incluir duration!) y publicarlo → event.created en RabbitMQ
-EV=$(curl -s -XPOST $B/organizer/events -H "Authorization: Bearer $OTOK" -H 'Content-Type: application/json' \
-  -d '{"title":"Demo EventHub","description":"Evento de demo","category":"taller","modality":"in_person",
-       "date":"2026-12-01T10:00:00.000Z","endDate":"2026-12-01T12:00:00.000Z","duration":120,
-       "venue":"UADE","location":"Lima 775, CABA","capacity":100}' | jq -r .id)
-curl -s -XPOST $B/organizer/events/$EV/publish -H "Authorization: Bearer $OTOK" | jq '{id, status}'
-#   → En el log de la API: "Received event.created" y "Notification persisted"
+# 4) Crear un evento (queda en borrador; duration se calcula sola) y publicarlo → event.created
+EV=$(curl -s -XPOST $B/organizer/events -H "Authorization: Bearer $OTOK" -H "$J" -d '{
+  "title":"Demo EventHub","description":"Evento de demo","category":"taller","modality":"in_person",
+  "date":"2026-12-01T10:00:00.000Z","endDate":"2026-12-01T12:00:00.000Z",
+  "venue":"UADE","location":"Lima 775, CABA","city":"CABA","capacity":100,
+  "ticketTypes":[{"name":"General","price":15000,"totalQuantity":100}]}' | jq -r .id)
+curl -s -XPOST $B/organizer/events/$EV/publish -H "Authorization: Bearer $OTOK" | jq '{id, status, duration}'
+#   → Log de la API: "Received event.created" y "Notification persisted"
 
-# 5) Inventario (stateful): cargar stock, crear un HOLD y confirmarlo
-curl -s -XPUT $B/inventory/$EV -H "Authorization: Bearer $OTOK" -H 'Content-Type: application/json' -d '{"available":100}'
-HOLD=$(curl -s -XPOST $B/inventory/$EV/holds -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
-  -d '{"quantity":2}' | jq -r .id)
-curl -s $B/inventory/$EV -H "Authorization: Bearer $TOK"      # available 98, held 2
-curl -s -XPOST $B/inventory/$EV/holds/$HOLD/commit -H "Authorization: Bearer $TOK" | jq .status   # "committed"
+# 5) Inventario (stateful): arranca en la capacidad
+curl -s $B/inventory/$EV -H "Authorization: Bearer $TOK"           # available 100
 
-# 6) Favoritos (acepta legacyId o UUID)
-curl -s -XPUT $B/me/favorites/e2 -H "Authorization: Bearer $TOK" | jq .   # 409 si ya estaba en favoritos
-curl -s $B/me/favorites -H "Authorization: Bearer $TOK" | jq 'map(.event.title)'
+# 6) Orden: el precio lo pone el servidor y toma un HOLD → order.created
+ORD=$(curl -s -XPOST $B/orders -H "Authorization: Bearer $TOK" -H "$J" \
+  -d "{\"items\":[{\"eventId\":\"$EV\",\"ticketType\":\"General\",\"quantity\":2}]}" | jq -r .id)
+curl -s $B/inventory/$EV -H "Authorization: Bearer $TOK"           # available 98, held 2
 
-# 7) Orden → order.created en RabbitMQ   ⚠️ requiere el arreglo B1 (req.user.sub)
-curl -s -XPOST $B/orders -H "Authorization: Bearer $TOK" -H 'Content-Type: application/json' \
-  -d "{\"items\":[{\"eventId\":\"$EV\",\"ticketType\":\"General\",\"quantity\":2,\"unitPrice\":15000}]}" | jq '{id,total,status}'
+# 7) Pago rechazado (tarjeta inválida): 402, orden cancelada, HOLD liberado
+curl -s -XPOST $B/orders/$ORD/pay -H "Authorization: Bearer $TOK" -H "$J" -d '{"card":"4111111111111112"}' | jq .message
 
-# 8) Pago (adapter SOAP, stub) y emisión de tickets
-curl -s -XPOST $B/payments -H 'Content-Type: application/json' -d '{"amount":30000,"card":"4111111111111111"}'   # true
-curl -s -XPOST $B/tickets -H 'Content-Type: application/json' \
-  -d "{\"orderId\":\"demo\",\"eventId\":\"$EV\",\"userId\":\"demo\",\"quantity\":2}" | jq 'map(.code)'
+# 8) Nueva orden y pago aprobado → tickets emitidos + order.paid
+ORD=$(curl -s -XPOST $B/orders -H "Authorization: Bearer $TOK" -H "$J" \
+  -d "{\"items\":[{\"eventId\":\"$EV\",\"ticketType\":\"General\",\"quantity\":2}]}" | jq -r .id)
+CODE=$(curl -s -XPOST $B/orders/$ORD/pay -H "Authorization: Bearer $TOK" -H "$J" -d '{"card":"4111111111111111"}' \
+  | tee /dev/stderr | jq -r '.tickets[0].code')
+curl -s $B/tickets/me -H "Authorization: Bearer $TOK" | jq 'map({code, status})'
+
+# 9) Check-in con staff: válida → ya utilizada
+curl -s -XPOST $B/check-in/$CODE/scan -H "Authorization: Bearer $STAFF" -H "$J" -d "{\"eventId\":\"$EV\"}" | jq .result
+curl -s -XPOST $B/check-in/$CODE/scan -H "Authorization: Bearer $STAFF" | jq .result
+
+# 10) Favoritos (aceptan legacyId) y estado final del evento
+curl -s -XPUT $B/me/favorites/e2 -H "Authorization: Bearer $TOK" | jq .eventId   # 409 si ya estaba
+curl -s $B/events/$EV | jq '{registered, ticketTypes: [.ticketTypes[] | {name, sold}]}'
 ```
 
 Para mostrar la cola en vivo: http://localhost:15672 → Queues → `notifications_queue`.
@@ -363,16 +371,18 @@ También se puede consultar la tabla: `docker exec -it evenhub_db psql -U user -
 
 ---
 
-## 11. Próximos pasos sugeridos
+## 11. Pendientes
 
-Están ordenados por impacto y esfuerzo.
+Están ordenados por impacto.
 
-1. **B1:** `req.user.id` → `req.user.sub` en `orders.controller.ts`. Es una línea por método.
-2. **B2 y B6:** calcular `duration` en el backend e ignorar `status` en create y update.
-3. **B3:** hacer `await` y mostrar el error en `handlePublish`, `handleDelete` y en el wizard, sin éxito optimista.
-4. **B4:** que `EventDao.findOne` también acepte `legacyId`.
-5. **S1–S4:** poner `@UseGuards(JwtAuthGuard, RolesGuard)` en la escritura de `/events` (o eliminarla, porque ya existe `/organizer/events`), en `/tickets` (usando `req.user.sub` en lugar de `:userId`), en `/payments` y en `/check-in` (rol `staff`).
-6. **S6:** agregar `app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))` en `main.ts` y DTOs para eventos y auth (esto también resuelve S7).
-7. **S5 y L2:** que la orden tome el precio de `event.ticketTypes`, consuma un HOLD y pase a `PAID` cuando el pago se aprueba, y que se emitan los tickets en ese momento.
-8. **L1:** crear el registro de inventario al crear el evento (`available = capacity`).
-9. Reemplazar `README.md` y `ESTADO_PROYECTO.md` con el contenido de este documento, o dejarlos apuntando acá.
+1. **Conectar el checkout de la web con la API:**
+   - `POST /orders` + `POST /orders/:id/pay` en `CheckoutPage`;
+   - `GET /orders` y `GET /tickets/me` en "Mis compras" y "Mis entradas";
+   - `POST /check-in/:code/scan` en `StaffPortal` y `OrgCheckIn`.
+
+   Hoy esas pantallas usan `demoStore.ts`.
+2. **Reembolsos por API:** no existen todavía en el backend (solo en la demo local). Al cancelar un evento, el backend no anula las órdenes pagadas.
+3. **SOAP real:** reemplazar el mock cuando haya un WSDL de pagos (`PAYMENTS_WSDL_URL`).
+4. **Persistir los HOLD** (por ejemplo en PostgreSQL o Redis) para que sobrevivan a reinicios y funcionen con varias instancias.
+5. **Migraciones TypeORM** en lugar de `synchronize` (I3), y unificar en pnpm (I2).
+6. Reemplazar `README.md` y `ESTADO_PROYECTO.md` con el contenido de este documento, o dejarlos apuntando acá.
