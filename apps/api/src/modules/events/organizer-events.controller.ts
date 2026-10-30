@@ -3,7 +3,7 @@ import { Roles } from '../../common/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { UserRole } from '../identity/entities/user.entity.js';
-import { Event } from './entities/event.entity.js';
+import { CreateEventDto, UpdateEventDto } from './dto/event.dto.js';
 import { EventsService } from './events.service.js';
 
 type AuthenticatedRequest = { user?: { sub: string } };
@@ -20,12 +20,12 @@ export class OrganizerEventsController {
   }
 
   @Post()
-  create(@Req() req: AuthenticatedRequest, @Body() body: Partial<Event>) {
+  create(@Req() req: AuthenticatedRequest, @Body() body: CreateEventDto) {
     return this.eventsService.createForOrganizer(req.user!.sub, body);
   }
 
   @Patch(':eventId')
-  update(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Body() body: Partial<Event>) {
+  update(@Req() req: AuthenticatedRequest, @Param('eventId') eventId: string, @Body() body: UpdateEventDto) {
     return this.eventsService.updateOwned(req.user!.sub, eventId, body);
   }
 

@@ -26,6 +26,10 @@ export class Order {
   @OneToMany(() => OrderItem, item => item.order, { cascade: true })
   items: Relation<OrderItem[]>;
 
+  // HOLD de inventario tomados al crear la orden; se confirman al pagar.
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  holds: Array<{ eventId: string; holdId: string; expiresAt: string }>;
+
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   total: number;
 

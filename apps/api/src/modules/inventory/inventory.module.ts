@@ -7,9 +7,10 @@ import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Inventory } from './entities/inventory.entity.js';
 import { InventoryDao } from './inventory.dao.js';
+import { EventsModule } from '../events/events.module.js';
 
 @Module({
-	imports: [IdentityModule, TypeOrmModule.forFeature([Inventory])],
+	imports: [IdentityModule, EventsModule, TypeOrmModule.forFeature([Inventory])],
 	controllers: [InventoryController],
 	providers: [InventoryService, InventoryDao, JwtAuthGuard, RolesGuard],
 	exports: [InventoryService],

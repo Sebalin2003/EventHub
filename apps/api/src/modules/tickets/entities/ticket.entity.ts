@@ -3,7 +3,9 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 export enum TicketStatus {
   ISSUED = 'ISSUED',
   USED = 'USED',
+  SCANNED = 'SCANNED',
   CANCELLED = 'CANCELLED',
+  EMITTED = 'EMITTED',
 }
 
 @Entity('tickets')
@@ -20,14 +22,17 @@ export class Ticket {
   @Column()
   userId: string;
 
-  @Column({ type: 'enum', enum: TicketStatus, default: TicketStatus.ISSUED })
-  status: TicketStatus;
+  @Column({ type: 'varchar', nullable: true })
+  ticketType: string | null;
+
+  @Column({ default: 'ISSUED' })
+  status: string; // ISSUED / EMITTED, CANCELLED, USED / SCANNED
 
   @Column({ unique: true })
   code: string;
 
-  @Column({ nullable: true })
-  scannedAt?: Date;
+  @Column({ type: 'timestamp', nullable: true })
+  scannedAt: Date | null;
 
   @CreateDateColumn()
   createdAt: Date;

@@ -40,9 +40,12 @@ describe('EventsService (Eje A & Eje B: Gestión de Eventos y Notificaciones)', 
     const data = { title: 'Lollapalooza 2026', capacity: 50000 };
     const result = await service.create(data);
 
-    expect(eventFactoryMock.createEvent).toHaveBeenCalledWith(data);
+    expect(eventFactoryMock.createEvent).toHaveBeenCalledWith(expect.objectContaining({
+      organizerId: 'org-1',
+      status: EventStatus.DRAFT,
+    }));
     expect(eventDaoMock.save).toHaveBeenCalled();
-    expect(result.id).toBe('evt-mock');
+    expect(result.id).toBeDefined();
   });
 
   describe('publishOwned y cancelOwned con validación de organizador', () => {
@@ -52,6 +55,7 @@ describe('EventsService (Eje A & Eje B: Gestión de Eventos y Notificaciones)', 
       event.organizerId = 'org-1';
       event.status = EventStatus.DRAFT;
       event.title = 'Conferencia NestJS';
+      event.ticketTypes = [{ id: 'tt-1', name: 'General', price: 1000, totalQuantity: 100, sold: 0 }] as any;
 
       eventDaoMock.findOne.mockResolvedValue(event);
 

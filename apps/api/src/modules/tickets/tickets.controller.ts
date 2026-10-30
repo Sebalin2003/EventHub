@@ -2,24 +2,54 @@ import {
   Controller,
   Post,
   Get,
-  Patch,
   Param,
   Body,
-  UseGuards,
+  Patch,
+  Req,
   Request,
+  UseGuards,
   ForbiddenException,
 } from '@nestjs/common';
-import { TicketsService } from './tickets.service.js';
+import { IsInt, IsOptional, IsString, IsUUID, Max, Min } from 'class-validator';
+import { Roles } from '../../common/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { UserRole } from '../identity/entities/user.entity.js';
+import { TicketsService } from './tickets.service.js';
 
-@UseGuards(JwtAuthGuard)
+export class EmitTicketsDto {
+  @IsString()
+  orderId: string;
+
+  @IsUUID()
+  eventId: string;
+
+  @IsUUID()
+  userId: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  quantity?: number;
+}
+
+type AuthenticatedRequest = { user: { sub: string; role: UserRole } };
+
+@UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('tickets')
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
 
   @Post()
-  emit(@Body() body: { orderId: string; eventId: string; userId: string; quantity: number }) {
-    return this.ticketsService.emit(body.orderId, body.eventId, body.userId, body.quantity || 1);
+  @Roles(UserRole.ADMIN)
+  emit(@Body() body: EmitTicketsDto) {
+    return this.ticketsService.emit(body.orderId, body.eventId, body.userId, body.quantity ?? 1);
+  }
+
+  @Get('me')
+  findMine(@Req() req: AuthenticatedRequest) {
+    return this.ticketsService.findByUserId(req.user.sub);
   }
 
   @Get('user/:userId')
@@ -38,8 +68,7 @@ export class TicketsController {
   }
 
   @Patch(':id/cancel')
-  cancel(@Request() req: any, @Param('id') id: string) {
-    const currentUserId = req.user.sub || req.user.id;
-    return this.ticketsService.cancel(id, currentUserId, req.user.role);
+  cancel(@Req() req: AuthenticatedRequest, @Param('id') id: string) {
+    return this.ticketsService.cancel(id, { sub: req.user.sub, isAdmin: req.user.role === UserRole.ADMIN });
   }
 }

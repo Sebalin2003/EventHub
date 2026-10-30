@@ -13,8 +13,8 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import type { Response as ExpressResponse } from 'express';
-import { OrdersService } from './orders.service.js';
-import { CreateOrderDto } from './dto/create-order.dto.js';
+import { OrdersService, Buyer } from './orders.service.js';
+import { CreateOrderDto, PayOrderDto } from './dto/create-order.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 
 @UseGuards(JwtAuthGuard)
@@ -28,8 +28,11 @@ export class OrdersController {
     @Headers('idempotency-key') idempotencyKey: string | undefined,
     @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })) createOrderDto: CreateOrderDto,
   ) {
-    const userId = req.user.sub || req.user.id;
-    return this.ordersService.create(userId, createOrderDto, idempotencyKey);
+    const buyer: Buyer = {
+      sub: req.user.sub || req.user.id,
+      email: req.user.email || 'user@example.com',
+    };
+    return this.ordersService.create(buyer, createOrderDto, idempotencyKey);
   }
 
   @Get()
@@ -54,12 +57,30 @@ export class OrdersController {
   }
 
   @Patch(':id/pay')
-  async pay(
+  async payPatch(
     @Request() req: any,
     @Param('id') id: string,
     @Headers('if-match') ifMatch?: string,
   ) {
+    return this.handlePay(req, id, ifMatch);
+  }
+
+  @Post(':id/pay')
+  async payPost(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch?: string,
+    @Body() body?: PayOrderDto,
+  ) {
+    return this.handlePay(req, id, ifMatch, body?.card);
+  }
+
+  private async handlePay(req: any, id: string, ifMatch?: string, card?: string) {
     const userId = req.user.sub || req.user.id;
+    const buyer: Buyer = {
+      sub: userId,
+      email: req.user.email || 'user@example.com',
+    };
     const order = await this.ordersService.findOne(id, userId, req.user.role);
 
     // ETag Concurrency validation (412 Precondition Failed)
@@ -72,15 +93,31 @@ export class OrdersController {
       }
     }
 
+    if (card) {
+      return this.ordersService.pay(id, buyer, card);
+    }
     return this.ordersService.payOrder(id, userId);
   }
 
   @Patch(':id/cancel')
-  async cancel(
+  async cancelPatch(
     @Request() req: any,
     @Param('id') id: string,
     @Headers('if-match') ifMatch?: string,
   ) {
+    return this.handleCancel(req, id, ifMatch);
+  }
+
+  @Post(':id/cancel')
+  async cancelPost(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Headers('if-match') ifMatch?: string,
+  ) {
+    return this.handleCancel(req, id, ifMatch);
+  }
+
+  private async handleCancel(req: any, id: string, ifMatch?: string) {
     const userId = req.user.sub || req.user.id;
     const order = await this.ordersService.findOne(id, userId, req.user.role);
 

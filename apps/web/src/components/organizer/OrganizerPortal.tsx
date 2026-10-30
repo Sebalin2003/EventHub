@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Event, Order, UserProfile } from '../../types'
 import OrgDashboard from './OrgDashboard'
 import OrgEvents from './OrgEvents'
@@ -8,7 +8,7 @@ import OrgAttendees from './OrgAttendees'
 import OrgCheckIn from './OrgCheckIn'
 import { useToast } from '../shared/Ui'
 import BrandLogo from '../shared/BrandLogo'
-import { cancelEvent, publishEvent } from '../../api/events'
+import { accessToken, cancelEvent, fetchOrganizerEvents, publishEvent } from '../../api/events'
 
 type OrgTab = 'dashboard' | 'eventos' | 'crear' | 'ventas' | 'asistentes' | 'checkin'
 
@@ -19,6 +19,7 @@ type Props = {
   onLogout: () => void
   onUpsertEvent: (event: Event) => void
   onSetEventStatus: (eventId: string, status: Event['status']) => void
+  onLoadEvents: (events: Event[]) => void
 }
 
 const NAV: { key: OrgTab; label: string }[] = [
@@ -30,10 +31,18 @@ const NAV: { key: OrgTab; label: string }[] = [
   { key: 'crear', label: 'Crear evento' },
 ]
 
-export default function OrganizerPortal({ events, orders, currentUser, onLogout, onUpsertEvent, onSetEventStatus }: Props) {
+export default function OrganizerPortal({ events, orders, currentUser, onLogout, onUpsertEvent, onSetEventStatus, onLoadEvents }: Props) {
   const { notify } = useToast()
   const [tab, setTab] = useState<OrgTab>('dashboard')
   const [editingEvent, setEditingEvent] = useState<Event | null>(null)
+
+  // El catálogo público no incluye borradores: se cargan desde /organizer/events.
+  useEffect(() => {
+    if (!accessToken()) return
+    fetchOrganizerEvents()
+      .then(own => onLoadEvents(own.map(event => ({ ...event, organizerId: currentUser.id }))))
+      .catch(() => notify('No se pudieron cargar tus eventos desde el servidor.', 'error'))
+  }, [currentUser.id])
 
   const myEvents = events.filter(e => e.organizerId === currentUser.id)
   const myOrders = orders.filter(o => myEvents.some(e => e.id === o.eventId))
@@ -50,14 +59,25 @@ export default function OrganizerPortal({ events, orders, currentUser, onLogout,
     setTab('crear')
   }
 
-  function handleDelete(id: string) {
-    cancelEvent(id).catch(() => undefined)
+  // Con sesión real se espera la respuesta del backend; sin token se opera solo sobre la demo local.
+  async function handleDelete(id: string) {
+    try {
+      if (accessToken()) await cancelEvent(id)
+    } catch (error) {
+      notify(`No se pudo cancelar el evento: ${(error as Error).message}`, 'error')
+      return
+    }
     onSetEventStatus(id, 'cancelado')
     notify('Evento cancelado. Las órdenes afectadas fueron enviadas a reembolso.', 'success')
   }
 
-  function handlePublish(id: string) {
-    publishEvent(id).catch(() => undefined)
+  async function handlePublish(id: string) {
+    try {
+      if (accessToken()) await publishEvent(id)
+    } catch (error) {
+      notify(`No se pudo publicar el evento: ${(error as Error).message}`, 'error')
+      return
+    }
     onSetEventStatus(id, 'publicado')
     notify('Evento publicado.', 'success')
   }

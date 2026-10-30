@@ -5,7 +5,19 @@ import { User } from '../../identity/entities/user.entity.js';
 export enum EventModality {
   ONLINE = 'online',
   IN_PERSON = 'in_person',
+  HYBRID = 'hybrid',
 }
+
+export type EventTicketType = {
+  id: string;
+  eventId: string;
+  name: string;
+  description: string;
+  price: number;
+  totalQuantity: number;
+  sold: number;
+  status: 'DISPONIBLE' | 'VENDIDO';
+};
 
 export enum EventStatus {
   DRAFT = 'draft',
@@ -49,6 +61,9 @@ export class Event {
   @Column({ nullable: true })
   location: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  city: string | null;
+
   @Column({ type: 'float', nullable: true })
   lat: number | null;
 
@@ -68,7 +83,7 @@ export class Event {
   organizerName: string | null;
 
   @Column({ type: 'jsonb', default: () => "'[]'" })
-  ticketTypes: Array<Record<string, unknown>>;
+  ticketTypes: EventTicketType[];
 
   @Column({ type: 'int' })
   capacity: number;

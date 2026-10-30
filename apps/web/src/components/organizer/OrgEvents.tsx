@@ -52,7 +52,7 @@ export default function OrgEvents({ events, onEdit, onDelete, onPublish, onNew }
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'var(--color-muted-foreground)' }}>{new Date(ev.date).toLocaleDateString('es', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
                 </div>
                 <h3 style={{ margin: '0 0 0.35rem', fontFamily: 'var(--font-display)', fontSize: '1.05rem', fontWeight: 600, letterSpacing: '-0.02em', color: 'var(--color-primary)' }}>{ev.title}</h3>
-                <p style={{ margin: '0 0 0.75rem', fontSize: '0.78rem', color: 'var(--color-muted-foreground)' }}>{ev.venueName}, {ev.city}</p>
+                <p style={{ margin: '0 0 0.75rem', fontSize: '0.78rem', color: 'var(--color-muted-foreground)' }}>{[ev.venueName, ev.city].filter(Boolean).join(', ')}</p>
                 <div style={{ display: 'flex', gap: '1.5rem' }}>
                   <div>
                     <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'var(--color-muted-foreground)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Vendidos</p>

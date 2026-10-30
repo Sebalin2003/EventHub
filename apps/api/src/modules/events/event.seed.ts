@@ -28,6 +28,12 @@ const events = [
   ['e20', 'Comunidad Dev: Cierre de Año', 'Charlas relámpago y networking para desarrolladores y equipos de producto.', 'networking', 'presencial', '2026-12-04T18:30:00.000Z', '2026-12-04T22:30:00.000Z', 'Complejo Art Media', 'Av. Corrientes 6271', 'CABA', 1000, 720, false, 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=900&h=500&fit=crop&auto=format', [['tt20a', 'Comunidad', 18000, 850, 620], ['tt20b', 'Sponsor lounge', 65000, 150, 100]]],
 ] as const;
 
+const modalities = {
+  presencial: EventModality.IN_PERSON,
+  online: EventModality.ONLINE,
+  hibrido: EventModality.HYBRID,
+} as const;
+
 const users = [
   ['maria@eventhub.com.ar', 'María', 'González', UserRole.ATTENDEE],
   ['javier@eventhub.com.ar', 'Javier', 'Romero', UserRole.ATTENDEE],
@@ -65,19 +71,27 @@ export class EventSeed implements OnModuleInit {
     const organizer = await this.userRepository.findOneOrFail({ where: { email: 'eventos@eventhub.com.ar' } });
 
     for (const [legacyId, title, description, category, modality, date, endDate, venue, location, city, capacity, registered, featured, imageUrl, ticketTypes] of events) {
+      const eventModality = modalities[modality];
       const exists = await this.eventRepository.findOne({ where: { legacyId } });
-      if (exists) continue;
+      if (exists) {
+        // Bases creadas antes de agregar city/hybrid: completar sin pisar otros datos.
+        if (exists.city === null) {
+          await this.eventRepository.update(exists.id, { city, modality: eventModality });
+        }
+        continue;
+      }
       await this.eventRepository.save({
         legacyId,
         title,
         description,
         category,
-        modality: modality === 'online' ? EventModality.ONLINE : EventModality.IN_PERSON,
+        modality: eventModality,
         date: new Date(date),
         endDate: new Date(endDate),
         duration: Math.max(1, (new Date(endDate).getTime() - new Date(date).getTime()) / 60000),
         venue,
-        location: `${location}${city ? `, ${city}` : ''}`,
+        location: [location, city].filter(Boolean).join(', '),
+        city,
         capacity,
         registered,
         featured,
@@ -85,7 +99,7 @@ export class EventSeed implements OnModuleInit {
         organizerId: organizer.id,
         organizerName: `${organizer.firstName} ${organizer.lastName}`,
         status: EventStatus.PUBLISHED,
-        ticketTypes: ticketTypes.map(([id, name, price, totalQuantity, sold]) => ({ id, eventId: legacyId, name, description: name, price, totalQuantity, sold, status: sold >= totalQuantity ? 'VENDIDO' : 'DISPONIBLE' })),
+        ticketTypes: ticketTypes.map(([id, name, price, totalQuantity, sold]) => ({ id, eventId: legacyId, name, description: name, price, totalQuantity, sold, status: sold >= totalQuantity ? 'VENDIDO' as const : 'DISPONIBLE' as const })),
       });
     }
   }

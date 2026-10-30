@@ -27,4 +27,15 @@ export class NotificationsController {
       data?.id || `order-${data?.orderId}`,
     );
   }
+
+  @EventPattern('order.paid')
+  async handleOrderPaid(@Payload() data: any) {
+    this.logger.log(`Received order.paid: ${JSON.stringify(data)}`);
+    await this.notificationsService.sendEmail(
+      data.userEmail || 'user@example.com',
+      'Tus entradas están listas',
+      'order-paid',
+      data,
+    );
+  }
 }

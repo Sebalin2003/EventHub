@@ -1,11 +1,17 @@
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
-import { ValidationPipe, Logger } from '@nestjs/common';
 import { ProblemDetailsFilter } from './common/filters/problem-details.filter.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
+
+  if (!process.env.JWT_SECRET) {
+    if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET is required in production');
+    logger.warn('JWT_SECRET not set; using the development secret');
+  }
+
   const app = await NestFactory.create(AppModule);
 
   // Security: CORS configured with explicit parameters, no wildcard with credentials

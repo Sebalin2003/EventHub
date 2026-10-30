@@ -3,7 +3,7 @@ import type { UserRole, UserProfile } from '../types'
 import { seedUsers } from '../data/seed'
 import { LanguageSelect, useI18n } from '../i18n'
 import BrandLogo from './shared/BrandLogo'
-import { login } from '../api/auth'
+import { login, loginDemo } from '../api/auth'
 
 type Props = {
   onLogin: (user: UserProfile) => void
@@ -24,11 +24,11 @@ export default function LoginPage({ onLogin, onGuest, onReset }: Props) {
   const [mode, setMode] = useState<'login' | 'demo'>('demo')
   const roleCopy = (role: UserRole) => role === 'ASISTENTE' ? [t('attendee'), t('attendeeDesc')] : role === 'ORGANIZADOR' ? [t('organizerRole'), t('organizerDesc')] : role === 'STAFF' ? ['Staff', t('staffDesc')] : [t('adminRole'), t('adminDesc')]
 
-  function handleDemoLogin() {
+  async function handleDemoLogin() {
     if (!selected) { setError(t('selectDemo')); return }
     const demo = ROLE_DEMOS.find(r => r.userId === selected)!
     const user = seedUsers.find(u => u.id === demo.userId)!
-    onLogin(user)
+    onLogin(await loginDemo(user))
   }
 
   async function handleManualLogin(e: React.FormEvent) {

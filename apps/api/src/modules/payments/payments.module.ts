@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
-import { PaymentsService } from './payments.service.js';
+import { PaymentsService, SoapClientService } from './payments.service.js';
 import { PaymentsController } from './payments.controller.js';
+import { IdentityModule } from '../identity/identity.module.js';
+import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 
 @Module({
+  imports: [IdentityModule],
   controllers: [PaymentsController],
-  providers: [PaymentsService],
-  exports: [PaymentsService],
+  providers: [PaymentsService, SoapClientService, JwtAuthGuard],
+  exports: [PaymentsService, SoapClientService],
 })
 export class PaymentsModule {}

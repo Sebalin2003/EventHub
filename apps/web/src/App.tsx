@@ -54,6 +54,7 @@ function EvenHubApp() {
       onLogout={requestLogout}
       onUpsertEvent={event => dispatch({ type: 'UPSERT_EVENT', event, actorLabel: currentUser.name })}
       onSetEventStatus={(eventId, status) => dispatch({ type: 'SET_EVENT_STATUS', eventId, status, actorId: currentUser.id, actorLabel: currentUser.name })}
+      onLoadEvents={events => dispatch({ type: 'LOAD_EVENTS', events })}
     />)
   }
 

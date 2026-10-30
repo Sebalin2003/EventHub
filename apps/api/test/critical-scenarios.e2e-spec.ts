@@ -8,6 +8,7 @@ import { TicketsService } from '../src/modules/tickets/tickets.service.js';
 import { Ticket, TicketStatus } from '../src/modules/tickets/entities/ticket.entity.js';
 import { PaymentsService } from '../src/modules/payments/payments.service.js';
 import { ConflictException, ForbiddenException, PreconditionFailedException, UnauthorizedException } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
 
 describe('Eje A: 5 Escenarios Críticos Automatizados de Punta a Punta (E2E)', () => {
   // Escenario 1: Autenticación, Hashing Seguro y Control de Acceso
@@ -104,7 +105,10 @@ describe('Eje A: 5 Escenarios Críticos Automatizados de Punta a Punta (E2E)', (
           return data;
         }),
       };
-      inventoryService = new InventoryService(inventoryDaoMock);
+      const eventDaoMock = {
+        findOne: vi.fn(async (eventId: string) => ({ id: eventId, capacity: 5, registered: 0, organizerId: 'org-1' })),
+      };
+      inventoryService = new InventoryService(inventoryDaoMock, eventDaoMock as any);
       inventoryService.onModuleInit();
     });
 
@@ -205,7 +209,8 @@ describe('Eje A: 5 Escenarios Críticos Automatizados de Punta a Punta (E2E)', (
       ticketsRepoMock = {
         create: vi.fn((data: any) => {
           const t = new Ticket();
-          Object.assign(t, data, { id: `tkt-${Date.now()}` });
+          const uuid = randomUUID();
+          Object.assign(t, data, { id: uuid, code: data.code || `QR-${uuid.substring(0, 8)}` });
           return t;
         }),
         save: vi.fn(async (t: any) => {
@@ -216,7 +221,15 @@ describe('Eje A: 5 Escenarios Críticos Automatizados de Punta a Punta (E2E)', (
           store.set(t.id, t);
           return t;
         }),
-        findOne: vi.fn(async ({ where }: any) => store.get(where.id) || null),
+        findOne: vi.fn(async ({ where }: any) => {
+          if (where.id) return store.get(where.id) || null;
+          if (where.code) {
+            for (const item of store.values()) {
+              if (item.code === where.code) return item;
+            }
+          }
+          return null;
+        }),
       };
       ticketsService = new TicketsService(ticketsRepoMock);
     });
