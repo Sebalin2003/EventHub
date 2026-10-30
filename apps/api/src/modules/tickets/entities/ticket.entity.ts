@@ -1,4 +1,10 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+
+export enum TicketStatus {
+  ISSUED = 'ISSUED',
+  USED = 'USED',
+  CANCELLED = 'CANCELLED',
+}
 
 @Entity('tickets')
 export class Ticket {
@@ -14,12 +20,18 @@ export class Ticket {
   @Column()
   userId: string;
 
-  @Column({ default: 'EMITTED' })
-  status: string; // EMITTED, CANCELLED, SCANNED
+  @Column({ type: 'enum', enum: TicketStatus, default: TicketStatus.ISSUED })
+  status: TicketStatus;
 
   @Column({ unique: true })
   code: string;
 
+  @Column({ nullable: true })
+  scannedAt?: Date;
+
   @CreateDateColumn()
   createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

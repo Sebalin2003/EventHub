@@ -12,6 +12,9 @@ import { TicketsModule } from './modules/tickets/tickets.module.js';
 import { CheckInModule } from './modules/check-in/check-in.module.js';
 import { FavoritesModule } from './modules/favorites/favorites.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
+import { AiModule } from './modules/ai/ai.module.js';
+import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware.js';
+import { NestModule, MiddlewareConsumer } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -41,9 +44,14 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     TicketsModule, 
     CheckInModule, 
     FavoritesModule, 
-    NotificationsModule
+    NotificationsModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(SecurityHeadersMiddleware).forRoutes('*');
+  }
+}

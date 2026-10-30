@@ -8,6 +8,7 @@ import { IdentityService } from './identity.service.js';
 import { UserDao } from './user.dao.js';
 import { HASH_STRATEGY } from './strategies/hash.strategy.js';
 import { ScryptHashStrategy } from './strategies/scrypt-hash.strategy.js';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard.js';
 
 @Module({
   imports: [
@@ -25,12 +26,13 @@ import { ScryptHashStrategy } from './strategies/scrypt-hash.strategy.js';
   providers: [
     IdentityService,
     UserDao,
+    RateLimiterGuard,
     {
       provide: HASH_STRATEGY,
       useClass: ScryptHashStrategy,
     },
   ],
-  exports: [IdentityService, JwtModule],
+  exports: [IdentityService, JwtModule, RateLimiterGuard],
 })
 export class IdentityModule {}
 

@@ -11,22 +11,20 @@ export class NotificationsController {
   @EventPattern('event.created')
   async handleEventCreated(@Payload() data: any) {
     this.logger.log(`Received event.created: ${JSON.stringify(data)}`);
-    await this.notificationsService.sendEmail(
-      data.organizerEmail || 'admin@eventhub.com',
-      'Evento creado exitosamente',
-      'event-created',
+    return this.notificationsService.processIncomingMessage(
+      'event.created',
       data,
+      data?.id || `event-${data?.eventId}`,
     );
   }
 
   @EventPattern('order.created')
   async handleOrderCreated(@Payload() data: any) {
     this.logger.log(`Received order.created: ${JSON.stringify(data)}`);
-    await this.notificationsService.sendEmail(
-      data.userEmail || 'user@example.com',
-      'Confirmación de tu compra',
-      'order-created',
+    return this.notificationsService.processIncomingMessage(
+      'order.created',
       data,
+      data?.id || `order-${data?.orderId}`,
     );
   }
 }

@@ -1,29 +1,20 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, UseGuards, ValidationPipe } from '@nestjs/common';
 import { IdentityService } from './identity.service.js';
-
-type RegisterBody = {
-  email: string;
-  password: string;
-  firstName: string;
-  lastName: string;
-};
-
-type LoginBody = {
-  email: string;
-  password: string;
-};
+import { RegisterDto, LoginDto } from './dto/auth.dto.js';
+import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard.js';
 
 @Controller('auth')
 export class IdentityController {
   constructor(private readonly identity: IdentityService) {}
 
   @Post('register')
-  register(@Body() body: RegisterBody) {
+  register(@Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })) body: RegisterDto) {
     return this.identity.register(body);
   }
 
   @Post('login')
-  login(@Body() body: LoginBody) {
+  @UseGuards(RateLimiterGuard)
+  login(@Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })) body: LoginDto) {
     return this.identity.login(body.email, body.password);
   }
 }

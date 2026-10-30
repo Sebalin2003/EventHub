@@ -1,12 +1,20 @@
-import { Controller, Post, Body } from '@nestjs/common';
-import { PaymentsService } from './payments.service';
+import { Controller, Post, Get, Body } from '@nestjs/common';
+import { PaymentsService, PaymentRequest } from './payments.service.js';
 
 @Controller('payments')
 export class PaymentsController {
-  constructor(private readonly paymentsService: PaymentsService) { }
+  constructor(private readonly paymentsService: PaymentsService) {}
 
-  @Post()
-  process(@Body() body: { amount: number, card: string }) {
-    return this.paymentsService.processPayment(body.amount, body.card);
+  @Post('process')
+  async processPayment(@Body() body: PaymentRequest) {
+    return this.paymentsService.processPayment(body);
+  }
+
+  @Get('circuit-breaker')
+  getCircuitStatus() {
+    return {
+      status: this.paymentsService.getCircuitState(),
+      timestamp: new Date().toISOString(),
+    };
   }
 }

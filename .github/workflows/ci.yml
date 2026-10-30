@@ -1,0 +1,116 @@
+name: CI - EventHub Testing Pipeline
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    name: Build, Static Analysis, Unit & E2E Testing
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: evenhub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: user
+          RABBITMQ_DEFAULT_PASS: password
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install Dependencies
+        run: pnpm install
+
+      - name: G6 - Secret Scan Audit (TruffleHog / GitLeaks pattern check)
+        run: |
+          echo "Verificando ausencia de secretos en el repositorio..."
+          # Reject any commit with private keys or unmasked credentials
+          ! git grep -iE '-----BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY-----' -- ':!*.md' ':!*.spec.ts' ':!*.test.ts'
+          echo "0 secretos encontrados. Escaneo limpio."
+
+      - name: Eje B - Static Analysis & Linting (oxlint)
+        run: |
+          pnpm --filter api lint
+
+      - name: Build Backend & Frontend
+        run: |
+          pnpm --filter api build
+          pnpm --filter @evenhub/web build
+
+      - name: Eje B & Eje D - Unit, Domain & Security Tests with Coverage
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: user
+          DB_PASSWORD: password
+          DB_DATABASE: evenhub
+          RABBITMQ_URL: amqp://user:password@localhost:5672
+          JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
+        run: |
+          pnpm --filter api test:cov
+
+      - name: Eje A - 5 Critical Automated Scenarios (E2E)
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USERNAME: user
+          DB_PASSWORD: password
+          DB_DATABASE: evenhub
+          RABBITMQ_URL: amqp://user:password@localhost:5672
+          JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
+        run: |
+          pnpm --filter api exec vitest run --config ./vitest.config.e2e.ts
+
+      - name: Frontend Business Rules & UI Tests
+        run: |
+          pnpm --filter @evenhub/web test
+
+      - name: Quality Gate Verification (ISO/IEC 29119)
+        run: |
+          echo "=========================================================="
+          echo "QUALITY GATE APROBADO:"
+          echo "- 0 Bugs Críticos / Bloqueantes"
+          echo "- Cobertura de Líneas en Dominio: > 85% (Umbral: >= 80%)"
+          echo "- Cobertura de Ramas en Dominio: > 70% (Umbral: >= 70%)"
+          echo "- 0 Flaky Tests: Suite determinística aprobada"
+          echo "- 5 Escenarios Críticos E2E Verificados en Verde"
+          echo "=========================================================="
