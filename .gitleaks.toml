@@ -1,0 +1,11 @@
+title = "EventHub Gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Falsos positivos documentados: placeholder de badge de CircleCI y fixture JWT alg=none usado por el test de seguridad."
+regexes = [
+  '''abc123def456''',
+  '''eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0''',
+]

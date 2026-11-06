@@ -167,7 +167,7 @@ Todas las rutas aceptan, en `:eventId`, tanto el UUID como el `legacyId` del see
 | **Orders** | `POST /orders`, `GET /orders`, `GET /orders/:id`, `POST /orders/:id/pay`, `POST /orders/:id/cancel` | JWT | ✅ Precios del servidor, HOLD de 5 min, pago, emisión de tickets. |
 | **Payments** | `POST /payments` → `{ approved }` | JWT | ⚠️ Adapter SOAP con mock: aprueba si `amount > 0` y la tarjeta pasa Luhn. |
 | **Tickets** | `GET /tickets/me`, `PATCH /tickets/:id/cancel` (dueño o admin), `GET /tickets/user/:userId` (admin), `POST /tickets` (admin) | JWT | ✅ Se emiten al pagar una orden. |
-| **Check-in** | `POST /check-in/:ticketIdOCodigo/scan` con body opcional `{ eventId }` | JWT + `staff`, `organizer` o `admin` | ✅ Devuelve `ENTRADA_VALIDA`, `ENTRADA_YA_UTILIZADA`, `ENTRADA_INVALIDA` o `ENTRADA_EVENTO_INCORRECTO`. |
+| **Check-in** | `POST /check-in/:ticketIdOCodigo/scan` con body opcional `{ eventId }` | JWT + `staff`, `organizer` o `admin` | ✅ `201` con `ENTRADA_VALIDA`; `409` si ya fue utilizada o es de otro evento; `404` si no existe o está cancelada. |
 | **Notifications** | Consumidor RMQ: `event.created`, `order.created`, `order.paid` | — | ✅ Usa los emails reales del organizador y del comprador. |
 
 ---

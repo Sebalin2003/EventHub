@@ -18,38 +18,45 @@ Sin embargo, **la aplicación no cumple todavía con la totalidad de los criteri
 
 | Verificación | Resultado |
 |---|---:|
-| Tests unitarios/dominio/seguridad de API | 84 tests pasados |
+| Tests unitarios/dominio/seguridad de API | 89 tests pasados |
 | Tests del frontend | 8 tests pasados |
 | Tests configurados como E2E | 6 tests pasados |
 | Build del backend | Correcto |
 | Build del frontend | Correcto |
+| Typecheck del frontend | Correcto |
 | Oxlint | Correcto, con 3 warnings |
-| Cobertura de líneas total API | 73,75% |
-| Cobertura de ramas total API | 51,04% |
+| Cobertura de líneas total API | 74,19% |
+| Cobertura de ramas total API | 52,29% |
+| Gitleaks v8.28.0 sobre 33 commits | Sin hallazgos (`no leaks found`) |
+| `docker compose up -d --build --wait` | 4 contenedores `healthy` |
+| Smoke HTTP del flujo crítico | Login, evento, publicación, orden, pago, tickets y check-in OK |
 
 Los comandos ejecutados fueron:
 
 ```bash
+docker compose up -d --build --wait
 pnpm --filter api test
 pnpm --filter @evenhub/web test
 pnpm --filter api test:e2e
 pnpm --filter api test:cov
 pnpm --filter api build
 pnpm --filter @evenhub/web build
+pnpm --filter @evenhub/web typecheck
 pnpm --filter api lint
+docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.28.0 detect --source /repo --config /repo/.gitleaks.toml --no-banner --redact --verbose
 ```
 
 ## Evaluación de admisibilidad G1-G9
 
 | Código | Estado | Evidencia y acción necesaria |
 |---|---|---|
-| G1 | Parcial | Existe Docker Compose y el build local funciona. Falta validar en una máquina limpia que API, frontend, PostgreSQL, RabbitMQ y mocks levanten juntos en menos de 15 minutos. |
+| G1 | Cumple (local) | `docker compose up -d --build --wait` levanta PostgreSQL, RabbitMQ, API y web; los cuatro quedan `healthy`. Smoke HTTP OK: `/events`, `/`, proxy `/api/events` y flujo completo de login/compra/check-in. Falta repetirlo en una máquina limpia para la evidencia formal. |
 | G2 | No cumple | No existe el tag `v1.0-testing`. Crear el tag sobre el commit final y publicarlo en el repositorio. |
-| G3 | Parcial | Existe `.github/workflows/ci.yml`, pero falta un run exitoso comprobable sobre el tag requerido. |
+| G3 | Parcial | `.github/workflows/ci.yml` fue reescrito con Gitleaks, typecheck, cobertura real, baseline anti-regresión, E2E y job Docker con smoke HTTP. Falta un run exitoso comprobable sobre el tag requerido. |
 | G4 | No verificable | Hay documentación en el repositorio, pero debe confirmarse la entrega del plan, matriz, informe y defectos en Teams. |
 | G5 | No verificable | Debe comprobarse que cada caso y defecto exista en Jira con estado, responsable y vínculo a la HU. |
-| G6 | Parcial | El workflow busca patrones de claves privadas, pero no reemplaza un escaneo histórico completo con Gitleaks o TruffleHog. |
-| G7 | No verificable | Requiere demostrar en vivo el flujo principal de punta a punta. |
+| G6 | Cumple | Gitleaks v8.28.0 sobre 33 commits: `no leaks found`, con allowlist justificada para dos falsos positivos (placeholder de badge y fixture JWT `alg=none`). El escaneo corre en CI sobre todo el historial. |
+| G7 | No verificable | Requiere demostrar en vivo el flujo principal de punta a punta. El flujo ya fue validado por script contra Docker. |
 | G8 | Parcial | Debe completarse la declaración de IA con herramientas, versiones, prompts, decisiones aceptadas/descartadas y validación manual. |
 | G9 | No verificable | Debe contrastarse el informe con Jira y la ejecución para asegurar que no existan defectos conocidos omitidos. |
 
@@ -113,8 +120,8 @@ También falta evidencia de:
 
 | Criterio | Mínimo | Resultado | Estado |
 |---|---:|---:|---|
-| Cobertura de líneas | 80% | 73,75% | No cumple |
-| Cobertura de ramas | 70% | 51,04% | No cumple |
+| Cobertura de líneas | 80% | 74,19% | No cumple |
+| Cobertura de ramas | 70% | 52,29% | No cumple |
 | Mutation score | 60% | Sin reporte | No cumple |
 | Quality Gate SonarQube/SonarCloud | Aprobado | No configurado | No cumple |
 | Integración con PostgreSQL real | Requerida | Mocks en memoria | No cumple |
@@ -124,7 +131,7 @@ También falta evidencia de:
 | Suite sin flaky tests tres veces | Requerida | Sin evidencia | No verificable |
 | Pipeline menor o igual a 15 minutos | Requerida | Sin run verificable | No verificable |
 
-El workflow de CI imprime un mensaje de “Quality Gate aprobado”, pero no calcula ni valida realmente la cobertura, el mutation score, SonarQube ni las vulnerabilidades. Además, la documentación declara coberturas superiores a las observadas, por lo que debe actualizarse con resultados reales o corregirse la suite.
+El workflow de CI anterior imprimía un mensaje de “Quality Gate aprobado” sin calcular nada. Fue reemplazado por un workflow que ejecuta Gitleaks sobre el historial, typecheck, builds, las suites completas, la cobertura real y un baseline anti-regresión (73% líneas / 51% ramas), además de un job Docker con smoke HTTP. Aun así, el run público sobre el tag sigue pendiente y el baseline no sustituye el umbral del 80%/70%.
 
 ### Acciones necesarias
 
@@ -220,7 +227,7 @@ Las pruebas existentes cubren:
 1. Agregar casos HTTP para mass assignment, XSS, BOLA, BFLA y JWT de otro emisor.
 2. Ejecutar ZAP baseline y scan autenticado.
 3. Ejecutar Trivy, Snyk o Dependency-Check.
-4. Ejecutar Gitleaks o TruffleHog sobre todo el historial.
+4. ~~Ejecutar Gitleaks o TruffleHog sobre todo el historial.~~ Ejecutado con Gitleaks v8.28.0: sin hallazgos.
 5. Revisar logs para evitar PII, tokens y secretos.
 6. Documentar TLS, cookies y configuración de producción.
 
@@ -251,15 +258,28 @@ La declaración de uso de IA debe incluir, para cada herramienta:
 
 Por lo tanto, el Eje E está parcialmente cubierto por código y tests, pero no puede considerarse completamente demostrado sin la declaración formal.
 
+## Defecto detectado durante la validación de G1 (corregido)
+
+El smoke HTTP del flujo crítico contra Docker reveló que un segundo check-in devolvía **HTTP 201** en lugar de **409 Conflict**. El servicio `TicketsService.checkIn` ya detectaba `ENTRADA_YA_UTILIZADA`, pero `CheckInController.scan` devolvía ese resultado dentro de un cuerpo exitoso sin lanzar una excepción.
+
+Corrección aplicada en `apps/api/src/modules/check-in/check-in.controller.ts`:
+
+- `ENTRADA_YA_UTILIZADA` → `409 Conflict`.
+- `ENTRADA_EVENTO_INCORRECTO` → `409 Conflict`.
+- `ENTRADA_INVALIDA` → `404 Not Found`.
+
+Verificado con `check-in.controller.spec.ts` (5 pruebas nuevas) y con el smoke real: `DOBLE CHECK-IN: HTTP 409 (esperado 409)`.
+
 ## Plan priorizado para resolver los criterios
 
 ### Prioridad bloqueante
 
 1. Crear y publicar el tag `v1.0-testing`.
 2. Ejecutar el pipeline sobre ese tag.
-3. Validar `docker compose up --build` desde un entorno limpio.
+3. ~~Validar `docker compose up --build` desde un entorno limpio.~~ Validado localmente con `--wait` y smoke HTTP.
 4. Completar y entregar en Teams la documentación requerida.
 5. Actualizar Jira con casos, defectos, responsables y vínculos a HU.
+6. ~~Ejecutar Gitleaks sobre todo el historial.~~ Ejecutado: 33 commits, sin hallazgos.
 
 ### Prioridad alta
 
@@ -289,6 +309,6 @@ La clasificación actual es:
 | Eje C - integración y resiliencia | Parcial |
 | Eje D - seguridad | Parcial |
 | Eje E - IA | Parcialmente cumplido |
-| G1-G9 | No cumplidas o no verificables en su totalidad |
+| G1-G9 | G1 y G6 cumplidos; G3 parcial; G2, G4, G5, G7, G8 y G9 pendientes de evidencia externa |
 
 La aplicación tiene una base sólida para continuar, pero **no debe presentarse como plenamente conforme a los criterios hasta completar las evidencias externas, corregir la cobertura y demostrar las integraciones reales**.

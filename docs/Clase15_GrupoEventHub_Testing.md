@@ -7,11 +7,14 @@
 
 ### Enlaces del Entregable
 - **Repositorio GitHub:** [https://github.com/Sebalin2003/EventHub](https://github.com/Sebalin2003/EventHub)
-- **Tag de Release:** `v1.0-testing`
-- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` (Aprobado en verde sobre el tag)
+- **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega)
+- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` (definido y validado localmente; el run público sobre el tag queda pendiente de publicar)
 - **Tablero Jira:** Proyecto `EVH` (EventHub)
-- **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json`
-- **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js`
+- **SonarCloud:** no configurado; el CI usa cobertura real y baseline anti-regresión en su lugar.
+- **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (ejecución manual; Newman en CI pendiente)
+- **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (script versionado; ejecución y reporte pendientes)
+
+> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. No se declaran como cumplidos los criterios que dependen de un run público de CI, del tag publicado, de Teams o de Jira.
 
 ---
 
@@ -32,25 +35,26 @@
 ### 1.2 Niveles de Prueba
 1. **Pruebas Unitarias y de Dominio:** Cobertura de lógica de negocio, validaciones, factorías, estrategias criptográficas y máquina de estados (State Pattern).
 2. **Pruebas de Integración:** Verificación de repositorios TypeORM, consumidores AMQP de RabbitMQ y adaptadores de pasarela de pago.
-3. **Pruebas de Contrato y API:** Colección Postman automatizada y validación de tipos contra la especificación OpenAPI de NestJS.
-4. **Pruebas de Punta a Punta (E2E):** 5 escenarios críticos que validan el flujo completo desde el registro de usuario hasta el check-in en puerta.
-5. **Pruebas No Funcionales (Seguridad y Rendimiento):** Escaneo de vulnerabilidades OWASP ASVS 5.0, OWASP API Top 10, pruebas de carga con k6 (50 VUs por 5 min).
+3. **Pruebas de Contrato y API:** colección Postman versionada con casos de éxito y error. La ejecución automatizada con Newman dentro del CI está pendiente.
+4. **Pruebas de Punta a Punta (E2E):** 6 pruebas en 2 archivos (5 escenarios críticos de negocio más el smoke de arranque). Instancian los servicios con repositorios en memoria, por lo que hoy son pruebas de integración lógica y no un E2E HTTP contra PostgreSQL y RabbitMQ reales.
+5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial y smoke HTTP del stack Docker. Las pruebas de carga con k6, OWASP ZAP y los escaneos de dependencias están identificados pero todavía no ejecutados.
 
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
-- **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con un único comando (`docker compose up --build`).
-- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, levantando servicios de base y broker en contenedores para garantizar reproducibilidad absoluta.
+- **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
+- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ, y un job separado que levanta el stack Docker completo. El workflow está definido pero aún no se ejecutó en GitHub.
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
-- **Criterios de Entrada:** Código compilando sin errores TypeScript (`pnpm build`), linter sin advertencias bloqueantes (`oxlint`), infraestructura levantando en menos de 15 minutos.
-- **Criterios de Salida:**
-  - 100% de condiciones de admisibilidad G1–G9 cumplidas.
-  - Cobertura de líneas en dominio ≥ 80% (Alcanzado: 87.58%).
-  - Cobertura de ramas en dominio ≥ 70% (Alcanzado: 71.55%).
-  - Mutation score ≥ 60% en entidades y servicios de dominio.
-  - 0 defectos bloqueantes o críticos abiertos.
-  - Tiempo de ejecución de CI < 15 min.
+- **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, 3 warnings no bloqueantes) e infraestructura Docker levantando en menos de 15 minutos.
+- **Criterios de Salida (estado al 06/11/2026):**
+  - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
+  - G6 validado con Gitleaks v8.28.0 sobre 33 commits: `no leaks found`.
+  - Suites verdes: 89 pruebas de API, 6 E2E y 8 de frontend (103 en total).
+  - Cobertura real de API: **74,19% de líneas** y **52,29% de ramas**. Por debajo de los umbrales de 80% / 70%; se mantiene como brecha y como baseline anti-regresión del CI.
+  - Mutation testing: **no configurado**, sin reporte de mutation score.
+  - Defecto de doble check-in detectado y corregido (ver sección 5).
+  - G2 (tag), G3 (run público del CI), G4 (Teams) y G5 (Jira) quedan pendientes de ejecución externa.
 
 ### 1.5 Matriz de Riesgos Priorizados (Probabilidad × Impacto)
 | Id Riesgo | Descripción del Riesgo | Prob. (1-5) | Imp. (1-5) | Severidad (P×I) | Estrategia de Mitigación y Cobertura de Pruebas |
@@ -84,7 +88,7 @@
 | **HU-05** | **Dado** una orden pagada, **Cuando** se emiten las entradas, **Entonces** cada una recibe un código alfanumérico único con formato `EVT-...` en estado ISSUED. | MUST | TC-TKT-01 | `tickets.service.spec.ts: emit` | PASADO | Ninguno |
 | **HU-05** | **Dado** que el Usuario A intenta consultar una entrada del Usuario B, **Cuando** realiza el pedido cambiando el ID, **Entonces** se bloquea con 403 Forbidden (BOLA). | MUST | TC-TKT-02 | `tickets.service.spec.ts: findById BOLA` | PASADO | EVH-105 (Cerrado) |
 | **HU-06** | **Dado** un asistente en la puerta del evento con ticket válido, **Cuando** el staff escanea el código, **Entonces** se valida con éxito y pasa a estado USED. | MUST | TC-CHK-01 | `tickets.service.spec.ts: useTicket` | PASADO | Ninguno |
-| **HU-06** | **Dado** un ticket ya utilizado (USED), **Cuando** se intenta volver a escanear, **Entonces** el sistema rechaza el ingreso devolviendo 409 Conflict (Prevención doble uso). | MUST | TC-CHK-02 | `test/critical-scenarios.e2e-spec.ts: Escenario 5` | PASADO | EVH-103 (Cerrado) |
+| **HU-06** | **Dado** un ticket ya utilizado (USED), **Cuando** se intenta volver a escanear, **Entonces** el sistema rechaza el ingreso devolviendo 409 Conflict (Prevención doble uso). | MUST | TC-CHK-02 | `tickets.service.spec.ts: useTicket` + `check-in.controller.spec.ts: 409` | PASADO | EVH-103 (Cerrado) |
 | **HU-06** | **Dado** un usuario con rol cliente (ATTENDEE), **Cuando** intenta invocar el endpoint de escaneo de check-in, **Entonces** se rechaza con 403 Forbidden (BFLA). | MUST | TC-CHK-03 | `test/security-resilience.spec.ts: BFLA` | PASADO | Ninguno |
 | **HU-07** | **Dado** un evento publicado, **Cuando** se emite el mensaje a RabbitMQ, **Entonces** el consumidor procesa la notificación y la persiste. | SHOULD | TC-NOT-01 | `notifications.service.spec.ts: procesar` | PASADO | Ninguno |
 | **HU-07** | **Dado** que RabbitMQ re-entrega un mensaje duplicado, **Cuando** el consumidor lo recibe, **Entonces** detecta la clave y lo descarta sin duplicar notificaciones. | SHOULD | TC-NOT-02 | `notifications.service.spec.ts: Consumidor Idempotente` | PASADO | Ninguno |
@@ -97,7 +101,7 @@
 
 ## 3. Especificación de Casos de Prueba
 
-> **Cumplimiento de Regla de Calidad:** Mínimo 40% de casos negativos o de borde exigido. En la suite de EventHub, **46 de 82 pruebas (56.1%)** corresponden a casos negativos, de borde, concurrencia o ataques de seguridad.
+> **Criterio de casos negativos:** la suite prioriza explícitamente escenarios negativos, de borde, concurrencia y seguridad (por ejemplo: `alg=none`, BOLA, BFLA, 409 por transición inválida, timeout SOAP, circuit breaker, DLQ, prompt injection y guardrails). No se declara un porcentaje exacto de casos negativos porque el conteo no está etiquetado de forma automática en el código; la matriz de la sección 2 identifica cada caso y su tipo.
 
 ### Muestra Representativa de Casos de Prueba
 - **TC-SEC-01 (Negativo / Seguridad):** Inyección de algoritmo `alg=none` en token JWT.
@@ -131,45 +135,42 @@
 
 ## 4. Informe de Ejecución y Métricas
 
-### 4.1 Resumen de Ejecución de Pruebas
-| Nivel de Prueba | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo de Ejecución |
-|---|:---:|:---:|:---:|:---:|:---:|
-| Unitarias y Dominio | 71 | 71 | 0 | 0 | 7.27 s |
-| E2E y Escenarios Críticos | 6 | 6 | 0 | 0 | 1.35 s |
-| Seguridad y Resiliencia | 9 | 9 | 0 | 0 | 0.04 s |
-| Frontend (Reglas Web) | 8 | 8 | 0 | 0 | 0.89 s |
-| **Total General** | **94** | **94** | **0** | **0** | **~17 s** |
+### 4.1 Resumen de Ejecución de Pruebas (medición local del 06/11/2026)
+| Suite | Comando | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo |
+|---|---|:---:|:---:|:---:|:---:|:---:|
+| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test` | 89 | 89 | 0 | 0 | 16,42 s |
+| Escenarios críticos y smoke E2E | `pnpm --filter api test:e2e` | 6 | 6 | 0 | 0 | 7,70 s |
+| Frontend (reglas de negocio) | `pnpm --filter @evenhub/web test` | 8 | 8 | 0 | 0 | 1,93 s |
+| **Total** | — | **103** | **103** | **0** | **0** | **~26 s** |
 
-### 4.2 Métricas de Cobertura de Código (v8 Coverage)
-| Módulo / Capa | Cobertura de Líneas (%) | Cobertura de Ramas (%) | Umbral Mínimo Exigido | Estado |
+Además se verificaron: build de API correcto, build de web correcto, `oxlint` con 3 warnings no bloqueantes, typecheck de web correcto y Gitleaks sin hallazgos.
+
+### 4.2 Métricas de Cobertura de Código (v8, medición real)
+| Archivo / Capa | Cobertura de Líneas (%) | Cobertura de Ramas (%) | Umbral exigido | Estado |
 |---|:---:|:---:|:---:|:---:|
-| **Identity (Autenticación y Scrypt)** | **100.0%** | **100.0%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
-| **Orders (Órdenes y Estado)** | **91.8%** | **85.0%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
-| **Payments (SOAP & Circuit Breaker)** | **95.5%** | **84.4%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
-| **Tickets (Entradas y Ciclo de Vida)** | **88.2%** | **81.3%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
-| **Notifications (Consumidor AMQP & DLQ)**| **96.7%** | **70.0%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
-| **AI Advisor (Guardrails & Injection)** | **82.1%** | **72.7%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
-| **Inventory (HOLD Stateful)** | **86.1%** | **70.0%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
-| **Total Global de la Solución** | **87.58%** | **71.55%** | Líneas ≥ 80% / Ramas ≥ 70% | **CUMPLE** |
+| `identity.service.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `scrypt-hash.strategy.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `inventory.service.ts` | 92,47 | 80,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `notifications.service.ts` | 96,66 | 69,56 | Líneas ≥ 80 / Ramas ≥ 70 | Ramas al límite |
+| `order-state.ts` | 95,45 | 80,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `ai.service.ts` | 82,05 | 72,72 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `check-in.controller.ts` | 100,00 | 80,95 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `payments.service.ts` | 71,27 | 53,84 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
+| `tickets.service.ts` | 73,91 | 57,69 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
+| `orders.service.ts` | 44,35 | 18,98 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
+| `events.service.ts` | 47,82 | 38,88 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
+| **Total API** | **74,19** | **52,29** | Líneas ≥ 80 / Ramas ≥ 70 | **NO CUMPLE** |
+
+La brecha se concentra en los servicios de órdenes, eventos y pagos, y en los DAO de TypeORM. El CI fija un baseline anti-regresión de 73% de líneas y 51% de ramas para impedir que la cobertura empeore mientras se cierra la brecha.
 
 ### 4.3 Pruebas de Mutación (Mutation Score)
-- **Herramienta:** Stryker Mutator / Suite de Análisis de Mutantes en Dominio.
-- **Mutantes Generados:** 68 mutaciones (inversión de condicionales booleanos, reemplazo de operadores de comparación `<` por `<=`, alteración de códigos de error y eliminación de validaciones de propiedad).
-- **Mutantes Detectados (Killed):** 56 mutantes.
-- **Mutantes Sobrevivientes:** 12 mutantes (en stubs de logging cosmético).
-- **Mutation Score Obtenido:** **82.35%** (Supera ampliamente el umbral exigido de ≥ 60%).
+- **Estado:** no configuradas. El repositorio no incluye Stryker ni otra herramienta de mutación, por lo que **no existe un mutation score verificable**.
+- **Acción pendiente:** incorporar Stryker Mutator sobre `order-state.ts`, `inventory.service.ts` y `tickets.service.ts`, con umbral objetivo ≥ 60%.
 
 ### 4.4 Pruebas de Rendimiento y Carga (k6)
-- **Configuración:** 50 usuarios concurrentes constantes (VUs) durante 5 minutos sobre los 3 endpoints críticos:
-  1. `GET /events` (Catálogo)
-  2. `GET /events/:id` (Detalle de evento)
-  3. `GET /inventory/:id` (Disponibilidad de asientos)
-- **Métricas Obtenidas:**
-  - **Peticiones Totales:** 34.820 solicitudes completadas.
-  - **Latencia Percentil 95 (p95):** **148 ms** (Criterio: < 500 ms) — **APROBADO**.
-  - **Latencia Promedio:** 52 ms.
-  - **Tasa de Error:** **0.00%** (Criterio: < 1.0%) — **APROBADO**.
-  - **Rendimiento Máximo:** ~116 req/segundo sostenido.
+- **Estado:** el script `load-tests/k6-load-test.js` está versionado y define 50 VUs durante 5 minutos con umbrales `p95 < 500 ms` y error < 1%.
+- **Reporte:** **no ejecutado**. No se declaran latencias, throughput ni tasas de error porque no hay medición real adjunta.
+- **Acción pendiente:** ejecutar k6 contra el stack Docker y adjuntar el resumen (`k6 run --summary-export`).
 
 ---
 
@@ -179,7 +180,7 @@
 |---|---|:---:|:---:|:---:|---|
 | **EVH-101** | La llamada a la pasarela SOAP colgaba el proceso indefinidamente si el servicio externo no respondía. | Crítica | Alta | CERRADO | Falta de timeout y circuit breaker en el cliente SOAP. Se implementó un timeout de 5s mediante `Promise.race` y patrón Circuit Breaker de 3 fallos con fallback. |
 | **EVH-102** | Sobreventa de inventario cuando dos solicitudes de HOLD ingresaban en el mismo milisegundo. | Crítica | Alta | CERRADO | Condición de carrera por lectura y escritura asíncrona no atómica. Se introdujo una cola de mutación serializada (`serializeMutation`) en `InventoryService`. |
-| **EVH-103** | Posibilidad de escanear la misma entrada múltiples veces en el control de acceso (Check-In). | Mayor | Alta | CERRADO | Ausencia de verificación de estado en el ticket. Se implementó validación de estado `ISSUED` a `USED` arrojando `409 Conflict` ante un segundo escaneo. |
+| **EVH-103** | El endpoint HTTP de check-in devolvía `201 Created` en un segundo escaneo, aunque el servicio interno ya detectaba el estado `USED`. | Mayor | Alta | CERRADO | El `CheckInController` devolvía el objeto `{ result: 'ENTRADA_YA_UTILIZADA' }` sin lanzar excepción. Se mapearon los resultados a HTTP: 409 para entrada ya utilizada o de otro evento, 404 para entrada inexistente/cancelada. Verificado con smoke E2E (segundo escaneo → 409) y con `check-in.controller.spec.ts`. |
 | **EVH-104** | Se permitía solicitar reembolso sobre órdenes que estaban pendientes de pago. | Mayor | Media | CERRADO | Ausencia de validación de máquina de estados. Se implementó el patrón State (`OrderState`), donde `PendingOrderState.refund()` arroja `409 Conflict`. |
 | **EVH-105** | Vulnerabilidad BOLA/IDOR permitía a un usuario autenticado consultar órdenes ajenas cambiando el UUID. | Crítica | Alta | CERRADO | Falta de filtro de usuario en `OrdersController`. Se añadió validación estricta de propiedad `order.userId === req.user.sub` devolviendo 403 Forbidden. |
 | **EVH-106** | Intento de inyección de prompt con `Ignore previous instructions` revelaba directivas del sistema. | Mayor | Media | CERRADO | Ausencia de guardrails de entrada en el módulo de IA. Se implementó un filtro de patrones regex OWASP LLM01 con respuesta segura predefinida. |
@@ -192,15 +193,17 @@
 |---|---|:---:|---|
 | **SEC-01 (BOLA / IDOR)** | Usuario A pide un recurso de Usuario B cambiando el id en URL o body. Nunca debe retornar el dato (403 o 404). | **CUMPLE** | Verificado en `test/security-resilience.spec.ts` y `orders.service.spec.ts`. Si `userId !== req.user.sub`, se lanza `ForbiddenException` (HTTP 403). |
 | **SEC-02 (BFLA)** | Rol cliente invoca endpoint de rol administrador o staff. Debe retornar 403 Forbidden. | **CUMPLE** | `RolesGuard` protege endpoints críticos como `PUT /inventory/:id` y `POST /check-in/:ticketId/scan`. Verificado en test de BFLA. |
-| **SEC-03 (JWT Seguro)** | JWT vencido, con firma alterada, con `alg=none` o de otro emisor debe retornar 401 Unauthorized. | **CUMPLE** | `JwtAuthGuard` inspecciona la cabecera del token decodificando el algoritmo base64 y rechaza explícitamente `alg=none`, firmas alteradas o tokens expirados con 401. |
-| **SEC-04 (Mass Assignment)** | Campos no permitidos en el body (rol, estado, precio) deben ser ignorados o rechazados con 400. | **CUMPLE** | Configuración global en `main.ts` de `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })`. Enviar `role: "admin"` en registro arroja 400 Bad Request. |
-| **SEC-05 (Inyección SQL / XSS)** | Inyección SQL / NoSQL / XSS en campos de texto debe ser sanitizada o rechazada sin ejecución. | **CUMPLE** | Uso exclusivo de consultas parametrizadas a través de TypeORM y validación estricta con `class-validator` en todos los DTOs. |
+| **SEC-03 (JWT Seguro)** | JWT vencido, con firma alterada, con `alg=none` o de otro emisor debe retornar 401 Unauthorized. | **PARCIAL** | `JwtAuthGuard` rechaza `alg=none`, firma alterada y token vencido (verificado en `security-resilience.spec.ts`). Falta un caso específico de token firmado por otro emisor. |
+| **SEC-04 (Mass Assignment)** | Campos no permitidos en el body (rol, estado, precio) deben ser ignorados o rechazados con 400. | **PARCIAL** | `ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })` está configurado en `main.ts`, pero no hay una prueba HTTP dedicada que envíe `role: "admin"` y verifique el 400. |
+| **SEC-05 (Inyección SQL / XSS)** | Inyección SQL / NoSQL / XSS en campos de texto debe ser sanitizada o rechazada sin ejecución. | **PARCIAL** | Uso de consultas parametrizadas vía TypeORM y validación con `class-validator`, pero sin suite HTTP específica de XSS/SQLi en todos los campos. |
 | **SEC-06 (XXE en SOAP)** | Entidades externas XML y DTD en canal SOAP deben ser rechazadas sin procesar. | **CUMPLE** | Verificado en `payments.service.spec.ts`. La detección de `<!DOCTYPE` o `<!ENTITY` en payloads XML es bloqueada inmediatamente con código `XXE_INJECTION_REJECTED`. |
 | **SEC-07 (Fuerza Bruta)** | Rate limiting sobre endpoint de login (429 Too Many Requests). | **CUMPLE** | `RateLimiterGuard` bloquea direcciones IP tras 5 intentos fallidos en 60 segundos, respondiendo con HTTP 429 Problem Details. |
-| **SEC-08 (Escaneo de Secretos - G6)**| 0 contraseñas, tokens o llaves privadas en ningún commit del historial de Git. | **CUMPLE** | Verificación realizada con GitLeaks / TruffleHog. Variables sensibles externalizadas en `.env` (ignorado en `.gitignore`) y variables de entorno seguras. |
-| **SEC-09 (Headers de Seguridad y CORS)**| CSP, HSTS, X-Content-Type-Options presentes; CORS sin comodín cuando usa credenciales. | **CUMPLE** | `SecurityHeadersMiddleware` inyecta CSP, HSTS (`max-age=31536000`), `nosniff`, y `X-Frame-Options: DENY`. CORS configurado con orígenes y cabeceras explícitas. |
+| **SEC-08 (Escaneo de Secretos - G6)**| 0 contraseñas, tokens o llaves privadas en ningún commit del historial de Git. | **CUMPLE** | Gitleaks v8.28.0 `detect` sobre 33 commits: `no leaks found`. Se usa `.gitleaks.toml` con allowlist justificada para dos falsos positivos: el placeholder `abc123def456` del badge de CircleCI en `apps/api/README.md` y el fixture JWT `alg=none` de `security-resilience.spec.ts`. El escaneo corre en el CI sobre todo el historial. |
+| **SEC-09 (Headers de Seguridad y CORS)**| CSP, HSTS, X-Content-Type-Options presentes; CORS sin comodín cuando usa credenciales. | **PARCIAL** | `SecurityHeadersMiddleware` inyecta CSP, HSTS (`max-age=31536000`), `nosniff` y `X-Frame-Options: DENY`; CORS con orígenes explícitos. Falta una prueba HTTP automatizada que valide las cabeceras y la política CORS. |
 | **SEC-10 (Logs y Mensajes de Error)**| Sin stack traces al cliente; sin contraseñas, tarjetas ni tokens en logs (RFC 9457). | **CUMPLE** | `ProblemDetailsFilter` intercepta todas las excepciones, oculta el stack trace y formatea el error bajo `application/problem+json`, enmascarando parámetros sensibles en logs. |
-| **SEC-11 (Cifrado y Contraseñas)**| Cifrado en tránsito (TLS) y contraseñas hasheadas con algoritmo adaptativo (scrypt). | **CUMPLE** | Implementación de `ScryptHashStrategy` con salt criptográfico de 16 bytes y longitud de clave de 64 bytes (`node:crypto.scryptSync`). |
+| **SEC-11 (Cifrado y Contraseñas)**| Cifrado en tránsito (TLS) y contraseñas hasheadas con algoritmo adaptativo (scrypt). | **PARCIAL** | Contraseñas con `ScryptHashStrategy` (salt de 16 bytes y clave de 64 bytes) verificadas por tests. TLS no está configurado en Docker Compose; queda documentado como pendiente para producción. |
+
+**Evidencia no funcional pendiente:** no se adjuntan reportes de OWASP ZAP (baseline ni autenticado), ni de SCA (Trivy/Snyk/Dependency-Check). Por lo tanto, las filas SEC que dependen de esos reportes no se declaran cumplidas. El único escaneo no funcional ejecutado y reproducible es Gitleaks sobre el historial completo.
 
 ---
 
@@ -255,4 +258,15 @@
 ---
 
 ## 9. Conclusión del Aseguramiento de Calidad
-La plataforma **EventHub** cumple satisfactoriamente con la totalidad de los criterios eliminatorios **G1 a G9** y los cuatro ejes evaluativos (**A, B, C, D**) más el eje **E de Inteligencia Artificial**. La solución se encuentra etiquetada bajo el tag de release `v1.0-testing`, con un pipeline de CI en verde y documentación técnica conforme a la norma ISO/IEC/IEEE 29119-3 lista para su defensa en vivo ante la cátedra.
+
+EventHub cuenta con una base de pruebas automatizadas real y reproducible: **103 pruebas verdes** (89 de API, 6 E2E y 8 de frontend), builds correctos, lint ejecutable, stack Docker con healthchecks funcionando y escaneo de secretos limpio sobre todo el historial.
+
+La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
+
+- **G1** está validado localmente, incluido el flujo crítico HTTP completo.
+- **G6** está validado con Gitleaks v8.28.0 y una allowlist justificada.
+- **G2** (tag `v1.0-testing`), **G3** (run público del CI), **G4** (Teams) y **G5** (Jira) dependen de acciones externas que deben completarse antes del 10/11/2026 a las 13:30.
+- La cobertura real es **74,19% de líneas / 52,29% de ramas**, por debajo del 80% / 70% exigido.
+- Mutation testing, k6, Newman, ZAP y el escaneo de dependencias siguen pendientes.
+
+El documento mantiene las brechas visibles en lugar de declararlas resueltas. Ese es el estado que debe acompañar al tag y al run de CI una vez publicados.

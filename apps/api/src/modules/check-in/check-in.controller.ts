@@ -1,7 +1,9 @@
 import {
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
+  NotFoundException,
   Post,
   Param,
   Req,
@@ -42,14 +44,27 @@ export class CheckInController {
       throw new ForbiddenException('Not your event');
     }
     const { result, ticket } = await this.tickets.checkIn(ticketId, event?.id);
+
+    // Las transiciones inválidas deben responder con el código HTTP correcto
+    // (409 Conflict / 404 Not Found), no con un 201 que oculte el rechazo.
+    if (result === 'ENTRADA_YA_UTILIZADA') {
+      throw new ConflictException('Transición inválida: la entrada ya fue utilizada');
+    }
+    if (result === 'ENTRADA_EVENTO_INCORRECTO') {
+      throw new ConflictException('La entrada pertenece a otro evento');
+    }
+    if (result === 'ENTRADA_INVALIDA') {
+      throw new NotFoundException('Entrada inexistente o cancelada');
+    }
+
     return {
-      success: result === 'ENTRADA_VALIDA',
+      success: true,
       result,
       ticketId: ticket?.id ?? ticketId,
       code: ticket?.code ?? null,
       eventId: ticket?.eventId ?? null,
       scannedAt: ticket?.scannedAt ?? null,
-      message: result === 'ENTRADA_VALIDA' ? 'Entrada validada correctamente' : result,
+      message: 'Entrada validada correctamente',
     };
   }
 }

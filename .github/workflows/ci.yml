@@ -7,10 +7,18 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-and-test:
     name: Build, Static Analysis, Unit & E2E Testing
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     services:
       postgres:
@@ -47,29 +55,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-
-      - name: Install pnpm
+      - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - name: Install Dependencies
-        run: pnpm install
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
 
-      - name: G6 - Secret Scan Audit (TruffleHog / GitLeaks pattern check)
+      - name: G6 - Secret Scan (Gitleaks, full history)
         run: |
-          echo "Verificando ausencia de secretos en el repositorio..."
-          # Reject any commit with private keys or unmasked credentials
-          ! git grep -iE '-----BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY-----' -- ':!*.md' ':!*.spec.ts' ':!*.test.ts'
-          echo "0 secretos encontrados. Escaneo limpio."
+          docker run --rm -v "$PWD:/repo" -w /repo \
+            zricethezav/gitleaks:v8.28.0 detect \
+            --source /repo \
+            --config /repo/.gitleaks.toml \
+            --no-banner --redact --verbose
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Eje B - Static Analysis & Linting (oxlint)
-        run: |
-          pnpm --filter api lint
+        run: pnpm --filter api lint
+
+      - name: Eje B - Typecheck (web)
+        run: pnpm --filter @evenhub/web typecheck
 
       - name: Build Backend & Frontend
         run: |
@@ -85,8 +97,22 @@ jobs:
           DB_DATABASE: evenhub
           RABBITMQ_URL: amqp://user:password@localhost:5672
           JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
+        run: pnpm --filter api test:cov
+
+      - name: Coverage Report (informativo + baseline anti-regresion)
         run: |
-          pnpm --filter api test:cov
+          node - <<'NODE'
+          const summary = require('./apps/api/coverage/coverage-summary.json').total;
+          const lines = summary.lines.pct;
+          const branches = summary.branches.pct;
+          console.log(`Cobertura real: lineas=${lines}% ramas=${branches}% funciones=${summary.functions.pct}%`);
+          console.log('Objetivo de catedra: lineas >= 80%, ramas >= 70% (todavia pendiente).');
+          if (lines < 73 || branches < 51) {
+            console.error('Regresion de cobertura respecto del baseline (73% lineas / 51% ramas).');
+            process.exit(1);
+          }
+          console.log('Baseline anti-regresion OK.');
+          NODE
 
       - name: Eje A - 5 Critical Automated Scenarios (E2E)
         env:
@@ -97,20 +123,47 @@ jobs:
           DB_DATABASE: evenhub
           RABBITMQ_URL: amqp://user:password@localhost:5672
           JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
-        run: |
-          pnpm --filter api exec vitest run --config ./vitest.config.e2e.ts
+        run: pnpm --filter api test:e2e
 
       - name: Frontend Business Rules & UI Tests
-        run: |
-          pnpm --filter @evenhub/web test
+        run: pnpm --filter @evenhub/web test
 
-      - name: Quality Gate Verification (ISO/IEC 29119)
+      - name: Upload coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-coverage
+          path: apps/api/coverage/
+          if-no-files-found: warn
+
+  docker-reproducibility:
+    name: G1 - Docker Compose reproducibility & smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Build & start full stack
+        run: docker compose up -d --build --wait
+
+      - name: Smoke test HTTP
         run: |
-          echo "=========================================================="
-          echo "QUALITY GATE APROBADO:"
-          echo "- 0 Bugs Críticos / Bloqueantes"
-          echo "- Cobertura de Líneas en Dominio: > 85% (Umbral: >= 80%)"
-          echo "- Cobertura de Ramas en Dominio: > 70% (Umbral: >= 70%)"
-          echo "- 0 Flaky Tests: Suite determinística aprobada"
-          echo "- 5 Escenarios Críticos E2E Verificados en Verde"
-          echo "=========================================================="
+          curl -fsS http://localhost:3000/events > /dev/null
+          curl -fsS http://localhost:5173/ > /dev/null
+          curl -fsS http://localhost:5173/api/events > /dev/null
+          TOKEN=$(curl -fsS -X POST http://localhost:3000/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"maria@eventhub.com.ar","password":"password"}' | jq -r .accessToken)
+          test -n "$TOKEN"
+          test "$TOKEN" != "null"
+          echo "Smoke test G1 OK: API, web, proxy Vite y login."
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans

@@ -9,5 +9,8 @@ export default defineConfig({
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
+    coverage: {
+      reporter: ['text', 'json-summary', 'html', 'clover'],
+    },
   },
 });

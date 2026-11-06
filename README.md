@@ -51,8 +51,10 @@ El estado se almacena de forma versionada en `localStorage`. Recargar la aplicac
 Para levantar el sistema completo (Backend NestJS, Frontend React, base de datos PostgreSQL, broker RabbitMQ y pasarela de pago) en una máquina limpia con un **único comando**:
 
 ```bash
-docker compose up --build
+docker compose up -d --build --wait
 ```
+
+El comando espera a que PostgreSQL, RabbitMQ, la API y la web estén `healthy`. Verificado el 06/11/2026.
 
 - **Frontend Web:** [http://localhost:5173](http://localhost:5173)
 - **Backend API:** [http://localhost:3000](http://localhost:3000)
@@ -75,8 +77,8 @@ pnpm --filter @evenhub/web dev
 # 1. Pruebas unitarias, de dominio y seguridad con reporte de cobertura (Ejes B, D y E)
 pnpm --filter api test:cov
 
-# 2. 5 Escenarios críticos automatizados de punta a punta (Eje A)
-pnpm --filter api exec vitest run --config ./vitest.config.e2e.ts
+# 2. Escenarios críticos automatizados (Eje A)
+pnpm --filter api test:e2e
 
 # 3. Pruebas de reglas de negocio en frontend
 pnpm --filter @evenhub/web test
@@ -84,14 +86,18 @@ pnpm --filter @evenhub/web test
 # 4. Compilación y chequeo estático
 pnpm --filter api build
 pnpm --filter @evenhub/web build
+pnpm --filter @evenhub/web typecheck
 ```
 
-Las pruebas cubren la totalidad de los criterios exigidos:
-- **Eje A:** 5 escenarios críticos E2E automatizados en Gherkin.
-- **Eje B:** Cobertura de líneas > 85%, cobertura de ramas > 70%, State Pattern (409 Conflict) y pruebas de API.
-- **Eje C:** Mapeo de SOAP Faults (sin XML crudo), timeout de 5s, Circuit Breaker, consumidor AMQP idempotente y DLQ.
-- **Eje D:** Seguridad OWASP (BOLA/IDOR, BFLA, JWT alg=none, Mass Assignment, Rate Limiting 429, scrypt hash, RFC 9457 Problem Details).
-- **Eje E:** Testing de Inteligencia Artificial (Prompt Injection, guardrails temáticos, sanitización PII y fallback).
+Estado real de la suite (medido el 06/11/2026):
+- **Eje A:** 6 pruebas E2E configuradas (5 escenarios críticos + smoke). Usan repositorios en memoria; el E2E HTTP real contra PostgreSQL/RabbitMQ sigue pendiente.
+- **Eje B:** 89 pruebas de API y 8 de frontend, todas verdes. Cobertura real: **74,19% de líneas / 52,29% de ramas** (por debajo del 80%/70% exigido). Builds y lint correctos.
+- **Eje C:** mapeo de SOAP Faults (sin XML crudo), timeout de 5s, Circuit Breaker, consumidor AMQP idempotente y DLQ a nivel de servicio. La integración con broker/DB reales y k6 siguen pendientes.
+- **Eje D:** BOLA/IDOR, BFLA, JWT `alg=none`, rate limiting 429, scrypt y RFC 9457 Problem Details cubiertos por tests. Mass assignment, XSS y headers quedan como evidencia parcial.
+- **Eje E:** testing de IA (prompt injection, guardrails temáticos, sanitización PII y fallback).
+- **G6:** Gitleaks v8.28.0 sobre todo el historial, sin hallazgos.
+
+Las brechas y el plan para cerrarlas están en [`INFORME_CUMPLIMIENTO_TESTING.md`](./INFORME_CUMPLIMIENTO_TESTING.md).
 
 ## Estructura principal
 
