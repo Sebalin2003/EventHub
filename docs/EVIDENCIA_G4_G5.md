@@ -15,7 +15,7 @@ Subir en la carpeta del equipo antes del **10/11/2026 a las 13:30**:
 | 3 | `coverage-report.zip` | `apps/api/coverage/` | Generar con `pnpm --filter api test:cov` |
 | 4 | `gitleaks-report.txt` | Salida de Gitleaks | Generar con el comando de abajo |
 | 5 | `docker-compose-smoke.txt` | Salida de `docker compose up -d --build --wait` + smoke | Generar |
-| 6 | `ci-run-url.txt` | URL del run de GitHub Actions sobre el tag | **Pendiente de publicar** |
+| 6 | `ci-run-url.txt` | URL del run de GitHub Actions sobre el tag | Listo: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
 
 Comandos para producir la evidencia:
 
@@ -96,8 +96,8 @@ Pasos de reproducción y causa raíz: sección 5 de `docs/Clase15_GrupoEventHub_
 
 ## 3. Pendientes que no se pueden cerrar desde el repositorio local
 
-- Crear y pushear el tag `v1.0-testing` sobre el commit final.
-- Ejecutar el workflow en GitHub sobre ese tag y guardar la URL del run.
+- ~~Crear y pushear el tag `v1.0-testing` sobre el commit final.~~ Hecho.
+- ~~Ejecutar el workflow en GitHub sobre ese tag y guardar la URL del run.~~ En verde.
 - Completar los campos **Responsable** de Jira.
 - Subir los archivos a Teams.
 - Ejecutar la demo en vivo (G7).

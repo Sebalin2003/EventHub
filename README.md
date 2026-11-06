@@ -4,6 +4,8 @@ Demo frontend de una plataforma para vender entradas y administrar eventos. Mant
 
 > **Estado:** el catálogo de eventos se carga desde el backend NestJS y PostgreSQL cuando están disponibles; compras, tickets, check-in y servicios externos continúan funcionando como demo local.
 
+> **CI:** [run verde sobre el tag `v1.0-testing`](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) — build, lint, typecheck, tests, cobertura, E2E y smoke Docker.
+
 ## Perfiles de demostración
 
 | Perfil | Usuario demo | Funciones |

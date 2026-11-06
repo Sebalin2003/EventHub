@@ -6,13 +6,13 @@ La aplicación cuenta con una base de pruebas automatizadas funcional: las suite
 
 Sin embargo, **la aplicación no cumple todavía con la totalidad de los criterios definidos en `criterios_de_testing.md`**. Los principales incumplimientos son:
 
-- No existe el tag `v1.0-testing`.
+- ~~No existe el tag `v1.0-testing`.~~ Tag creado y publicado sobre el commit final (06/11/2026).
 - La cobertura observada está por debajo de los mínimos exigidos.
 - No hay mutation testing configurado ni reporte de mutation score.
 - Las pruebas denominadas E2E utilizan principalmente servicios y mocks en memoria.
 - No hay evidencia de integración real con PostgreSQL y RabbitMQ en las pruebas.
 - No hay ejecución comprobable de Newman, ZAP, Trivy/Snyk/Dependency-Check ni k6.
-- Varias condiciones G1-G9 dependen de evidencias externas: Teams, Jira, GitHub Actions y demostración presencial.
+- Varias condiciones dependen de evidencias externas: Teams, Jira y demostración presencial.
 
 ## Evidencia ejecutada
 
@@ -27,7 +27,8 @@ Sin embargo, **la aplicación no cumple todavía con la totalidad de los criteri
 | Oxlint | Correcto, con 3 warnings |
 | Cobertura de líneas total API | 74,19% |
 | Cobertura de ramas total API | 52,29% |
-| Gitleaks v8.28.0 sobre 33 commits | Sin hallazgos (`no leaks found`) |
+| Gitleaks v8.28.0 sobre todo el historial | Sin hallazgos (`no leaks found`) |
+| CI sobre el tag `v1.0-testing` | En verde: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
 | `docker compose up -d --build --wait` | 4 contenedores `healthy` |
 | Smoke HTTP del flujo crítico | Login, evento, publicación, orden, pago, tickets y check-in OK |
 
@@ -51,8 +52,8 @@ docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.28.0 detect --s
 | Código | Estado | Evidencia y acción necesaria |
 |---|---|---|
 | G1 | Cumple (local) | `docker compose up -d --build --wait` levanta PostgreSQL, RabbitMQ, API y web; los cuatro quedan `healthy`. Smoke HTTP OK: `/events`, `/`, proxy `/api/events` y flujo completo de login/compra/check-in. Falta repetirlo en una máquina limpia para la evidencia formal. |
-| G2 | No cumple | No existe el tag `v1.0-testing`. Crear el tag sobre el commit final y publicarlo en el repositorio. |
-| G3 | Parcial | `.github/workflows/ci.yml` fue reescrito con Gitleaks, typecheck, cobertura real, baseline anti-regresión, E2E y job Docker con smoke HTTP. Falta un run exitoso comprobable sobre el tag requerido. |
+| G2 | Cumple | Tag `v1.0-testing` creado y publicado sobre el commit final antes del 10/11/2026 13:30. |
+| G3 | Cumple | CI en verde sobre el tag: build, lint, typecheck, tests, cobertura, E2E y job Docker con smoke HTTP. [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml). |
 | G4 | No verificable | Hay documentación en el repositorio, pero debe confirmarse la entrega del plan, matriz, informe y defectos en Teams. |
 | G5 | No verificable | Debe comprobarse que cada caso y defecto exista en Jira con estado, responsable y vínculo a la HU. |
 | G6 | Cumple | Gitleaks v8.28.0 sobre 33 commits: `no leaks found`, con allowlist justificada para dos falsos positivos (placeholder de badge y fixture JWT `alg=none`). El escaneo corre en CI sobre todo el historial. |
@@ -274,12 +275,12 @@ Verificado con `check-in.controller.spec.ts` (5 pruebas nuevas) y con el smoke r
 
 ### Prioridad bloqueante
 
-1. Crear y publicar el tag `v1.0-testing`.
-2. Ejecutar el pipeline sobre ese tag.
-3. ~~Validar `docker compose up --build` desde un entorno limpio.~~ Validado localmente con `--wait` y smoke HTTP.
+1. ~~Crear y publicar el tag `v1.0-testing`.~~ Hecho sobre el commit final.
+2. ~~Ejecutar el pipeline sobre ese tag.~~ En verde: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
+3. ~~Validar `docker compose up --build` desde un entorno limpio.~~ Validado localmente con `--wait` y smoke HTTP, y en el job Docker del CI.
 4. Completar y entregar en Teams la documentación requerida.
 5. Actualizar Jira con casos, defectos, responsables y vínculos a HU.
-6. ~~Ejecutar Gitleaks sobre todo el historial.~~ Ejecutado: 33 commits, sin hallazgos.
+6. ~~Ejecutar Gitleaks sobre todo el historial.~~ Ejecutado: sin hallazgos.
 
 ### Prioridad alta
 
@@ -309,6 +310,6 @@ La clasificación actual es:
 | Eje C - integración y resiliencia | Parcial |
 | Eje D - seguridad | Parcial |
 | Eje E - IA | Parcialmente cumplido |
-| G1-G9 | G1 y G6 cumplidos; G3 parcial; G2, G4, G5, G7, G8 y G9 pendientes de evidencia externa |
+| G1-G9 | G1, G2, G3 y G6 cumplidos; G4, G5, G7, G8 y G9 pendientes de evidencia externa |
 
 La aplicación tiene una base sólida para continuar, pero **no debe presentarse como plenamente conforme a los criterios hasta completar las evidencias externas, corregir la cobertura y demostrar las integraciones reales**.

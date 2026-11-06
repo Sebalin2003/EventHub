@@ -8,13 +8,13 @@
 ### Enlaces del Entregable
 - **Repositorio GitHub:** [https://github.com/Sebalin2003/EventHub](https://github.com/Sebalin2003/EventHub)
 - **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega)
-- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` (definido y validado localmente; el run público sobre el tag queda pendiente de publicar)
+- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (run verde sobre `v1.0-testing`, 06/11/2026)
 - **Tablero Jira:** Proyecto `EVH` (EventHub)
 - **SonarCloud:** no configurado; el CI usa cobertura real y baseline anti-regresión en su lugar.
 - **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (ejecución manual; Newman en CI pendiente)
 - **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (script versionado; ejecución y reporte pendientes)
 
-> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. No se declaran como cumplidos los criterios que dependen de un run público de CI, del tag publicado, de Teams o de Jira.
+> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
 
 ---
 
@@ -42,19 +42,21 @@
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
 - **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
-- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ, y un job separado que levanta el stack Docker completo. El workflow está definido pero aún no se ejecutó en GitHub.
+- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ, y un job separado que levanta el stack Docker completo. Ejecutado en verde sobre el tag `v1.0-testing` el 06/11/2026: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
 - **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, 3 warnings no bloqueantes) e infraestructura Docker levantando en menos de 15 minutos.
 - **Criterios de Salida (estado al 06/11/2026):**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
-  - G6 validado con Gitleaks v8.28.0 sobre 33 commits: `no leaks found`.
+  - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
+  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests y de Docker Compose.
+  - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
   - Suites verdes: 89 pruebas de API, 6 E2E y 8 de frontend (103 en total).
   - Cobertura real de API: **74,19% de líneas** y **52,29% de ramas**. Por debajo de los umbrales de 80% / 70%; se mantiene como brecha y como baseline anti-regresión del CI.
   - Mutation testing: **no configurado**, sin reporte de mutation score.
   - Defecto de doble check-in detectado y corregido (ver sección 5).
-  - G2 (tag), G3 (run público del CI), G4 (Teams) y G5 (Jira) quedan pendientes de ejecución externa.
+  - G4 (Teams), G5 (Jira), G7 (demo), G8 (declaración de IA) y G9 (contraste final) quedan pendientes de ejecución externa.
 
 ### 1.5 Matriz de Riesgos Priorizados (Probabilidad × Impacto)
 | Id Riesgo | Descripción del Riesgo | Prob. (1-5) | Imp. (1-5) | Severidad (P×I) | Estrategia de Mitigación y Cobertura de Pruebas |
@@ -264,8 +266,10 @@ EventHub cuenta con una base de pruebas automatizadas real y reproducible: **103
 La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
 
 - **G1** está validado localmente, incluido el flujo crítico HTTP completo.
+- **G2** está validado: tag `v1.0-testing` publicado sobre el commit final.
+- **G3** está validado: CI en verde sobre el tag ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
 - **G6** está validado con Gitleaks v8.28.0 y una allowlist justificada.
-- **G2** (tag `v1.0-testing`), **G3** (run público del CI), **G4** (Teams) y **G5** (Jira) dependen de acciones externas que deben completarse antes del 10/11/2026 a las 13:30.
+- **G4** (Teams), **G5** (Jira), **G7** (demo), **G8** (declaración de IA) y **G9** (contraste final) dependen de acciones externas que deben completarse antes del 10/11/2026 a las 13:30.
 - La cobertura real es **74,19% de líneas / 52,29% de ramas**, por debajo del 80% / 70% exigido.
 - Mutation testing, k6, Newman, ZAP y el escaneo de dependencias siguen pendientes.
 
