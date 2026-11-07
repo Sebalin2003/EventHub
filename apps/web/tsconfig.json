@@ -19,7 +19,7 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src", "vite.config.ts", "vitest.config.ts"],
   "exclude": [
     "src/components/Attendees.tsx",
     "src/components/CreateEvent.tsx",

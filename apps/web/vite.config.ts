@@ -4,10 +4,6 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
-  test: {
-    // Las specs de Playwright viven en e2e/ y se ejecutan con `test:e2e`, no con Vitest.
-    exclude: ['e2e/**', '**/node_modules/**', '**/dist/**'],
-  },
   server: {
     proxy: {
       '/api': {
