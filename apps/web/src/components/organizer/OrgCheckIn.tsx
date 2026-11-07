@@ -77,7 +77,7 @@ export default function OrgCheckIn({ events, orders }: Props) {
             <div style={{ width: 140, height: 140, border: '3px solid rgba(245,243,238,0.3)', borderRadius: 4, margin: '0 auto 1.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', overflow: 'hidden' }}>
               <div style={{ position: 'absolute', left: 0, right: 0, height: 2, backgroundColor: 'var(--color-accent)', animation: 'scanline 2s linear infinite', top: '50%' }} />
               <style>{`@keyframes scanline { 0%,100%{top:10%} 50%{top:90%} }`}</style>
-              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(245,243,238,0.4)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Listo para escanear</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.65rem', color: 'rgba(245,243,238,0.72)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Listo para escanear</span>
             </div>
             <p style={{ color: 'rgba(245,243,238,0.6)', fontSize: '0.8rem', margin: '0 0 1rem', fontFamily: 'var(--font-mono)' }}>Introduce el ID o código QR</p>
             <form onSubmit={handleScan} style={{ display: 'flex', gap: '0.5rem' }}>

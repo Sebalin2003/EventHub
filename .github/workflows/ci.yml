@@ -136,6 +136,56 @@ jobs:
           path: apps/api/coverage/
           if-no-files-found: warn
 
+  playwright-e2e:
+    name: Eje A - Playwright E2E, Responsive & Accessibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        run: pnpm --filter @evenhub/web exec playwright install --with-deps chromium
+
+      - name: Build & start full stack
+        run: docker compose up -d --build --wait
+
+      - name: Run Playwright suite (5 critical + 3 responsive + 6 a11y)
+        run: pnpm --filter @evenhub/web exec playwright test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          if-no-files-found: warn
+
+      - name: Dump stack logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans
+
   docker-reproducibility:
     name: G1 - Docker Compose reproducibility & smoke test
     runs-on: ubuntu-latest

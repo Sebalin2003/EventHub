@@ -17,8 +17,8 @@ export default function EventCard({ event, onView }: Props) {
         {event.imageUrl && <img src={event.imageUrl} alt="" loading="lazy" />}
         <span className="event-card__category">{event.category}</span>
       </div>
-      <button className="event-card__body" type="button" onClick={onView} aria-label={`${t('viewEvent')} ${event.title}`}>
-        <span className="event-card__date">{new Date(event.date).toLocaleDateString(locale, { day: 'numeric', month: 'short' })} · {event.city}</span>
+      <button className="event-card__body" type="button" onClick={onView}>
+        <span className="sr-only">{t('viewEvent')} </span>        <span className="event-card__date">{new Date(event.date).toLocaleDateString(locale, { day: 'numeric', month: 'short' })} · {event.city}</span>
         <strong>{event.title}</strong>
         <span className="event-card__description">{event.description}</span>
         <span className="event-card__footer">

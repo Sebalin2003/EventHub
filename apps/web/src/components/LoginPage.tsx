@@ -36,7 +36,7 @@ export default function LoginPage({ onLogin, onGuest, onReset }: Props) {
     try {
       onLogin(await login(email, password))
     } catch {
-      setError(t('userNotFound'))
+      setError(t('invalidCredentials'))
     }
   }
 

@@ -98,9 +98,9 @@ export default function StaffPortal({ events, orders, currentUser, checkIns, onC
                   onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.08)')}>
                   <div style={{ flex: 1 }}>
                     <p style={{ margin: 0, fontWeight: 600, fontSize: '0.9rem', color: '#F5F3EE' }}>{ev.title}</p>
-                    <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: 'rgba(245,243,238,0.5)' }}>{new Date(ev.date).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })} · {ev.city}</p>
+                    <p style={{ margin: '0.15rem 0 0', fontSize: '0.75rem', color: 'rgba(245,243,238,0.72)' }}>{new Date(ev.date).toLocaleDateString('es', { weekday: 'short', day: 'numeric', month: 'short' })} · {ev.city}</p>
                   </div>
-                  <span style={{ color: 'var(--color-accent)', fontSize: '1.2rem' }}>→</span>
+                  <span style={{ color: 'var(--color-accent-soft)', fontSize: '1.2rem' }}>→</span>
                 </button>
               ))}
             </div>
@@ -110,9 +110,9 @@ export default function StaffPortal({ events, orders, currentUser, checkIns, onC
             {/* Event header */}
             <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
               <div>
-                <button onClick={() => { setSelectedEventId(''); setLastResult(null) }} style={{ background: 'none', border: 'none', color: 'rgba(245,243,238,0.5)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', cursor: 'pointer', padding: 0, marginBottom: '0.5rem', letterSpacing: '0.05em' }}>← Cambiar evento</button>
+                <button onClick={() => { setSelectedEventId(''); setLastResult(null) }} style={{ background: 'none', border: 'none', color: 'rgba(245,243,238,0.72)', fontFamily: 'var(--font-mono)', fontSize: '0.7rem', cursor: 'pointer', padding: 0, marginBottom: '0.5rem', letterSpacing: '0.05em' }}>← Cambiar evento</button>
                 <h2 style={{ fontFamily: 'var(--font-display)', fontSize: '1.3rem', fontWeight: 600, letterSpacing: '-0.02em', color: '#F5F3EE', margin: 0, lineHeight: 1.2 }}>{ev?.title}</h2>
-                <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'rgba(245,243,238,0.5)' }}>{ev?.venueName} · {ev?.city}</p>
+                <p style={{ margin: '0.2rem 0 0', fontSize: '0.78rem', color: 'rgba(245,243,238,0.72)' }}>{ev?.venueName} · {ev?.city}</p>
               </div>
             </div>
 
@@ -120,11 +120,11 @@ export default function StaffPortal({ events, orders, currentUser, checkIns, onC
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginBottom: '1.5rem' }}>
               <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 'var(--radius)', padding: '1.1rem', textAlign: 'center' }}>
                 <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 700, color: '#7EDEA0', lineHeight: 1 }}>{checkedInIds.size}</p>
-                <p style={{ margin: '0.3rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ingresados</p>
+                <p style={{ margin: '0.3rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.72)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Ingresados</p>
               </div>
               <div style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: 'var(--radius)', padding: '1.1rem', textAlign: 'center' }}>
                 <p style={{ margin: 0, fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 700, color: '#F5F3EE', lineHeight: 1 }}>{eventTickets.length}</p>
-                <p style={{ margin: '0.3rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.45)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total</p>
+                <p style={{ margin: '0.3rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.72)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Total</p>
               </div>
             </div>
 
@@ -143,7 +143,7 @@ export default function StaffPortal({ events, orders, currentUser, checkIns, onC
 
             {/* Scanner input */}
             <form onSubmit={handleScan} style={{ marginBottom: '1.5rem' }}>
-              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,243,238,0.5)', marginBottom: '0.5rem' }}>Escanear código QR o introducir ID</label>
+              <label style={{ display: 'block', fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: 'rgba(245,243,238,0.72)', marginBottom: '0.5rem' }}>Escanear código QR o introducir ID</label>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <input value={scanInput} onChange={e => setScanInput(e.target.value)}
                   placeholder="TKT-xxx..."
@@ -158,12 +158,12 @@ export default function StaffPortal({ events, orders, currentUser, checkIns, onC
             {/* Recent log */}
             {checkIns.length > 0 && (
               <div style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-                <p style={{ margin: 0, padding: '0.6rem 1rem', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.4)', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Últimos accesos</p>
+                <p style={{ margin: 0, padding: '0.6rem 1rem', fontFamily: 'var(--font-mono)', fontSize: '0.62rem', color: 'rgba(245,243,238,0.72)', letterSpacing: '0.08em', textTransform: 'uppercase', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>Últimos accesos</p>
                 {[...checkIns].reverse().slice(0, 5).map(ci => (
                   <div key={ci.id} style={{ padding: '0.75rem 1rem', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 600, color: '#F5F3EE' }}>{ci.attendeeName}</p>
-                      <p style={{ margin: '0.1rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'rgba(245,243,238,0.4)' }}>{ci.ticketId}</p>
+                      <p style={{ margin: '0.1rem 0 0', fontFamily: 'var(--font-mono)', fontSize: '0.68rem', color: 'rgba(245,243,238,0.72)' }}>{ci.ticketId}</p>
                     </div>
                     <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: '#7EDEA0' }}>{new Date(ci.checkedInAt).toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}</p>
                   </div>

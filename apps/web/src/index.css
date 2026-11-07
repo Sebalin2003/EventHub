@@ -12,8 +12,9 @@
   --color-secondary-foreground: #1B2A4A;
   --color-muted: #EBEBEB;
   --color-muted-foreground: #595959;
-  --color-accent: #E86A2C;
+  --color-accent: #B4470F;
   --color-accent-foreground: #FFFFFF;
+  --color-accent-soft: #F3A06B;
   --color-border: #D8D5CE;
   --color-ring: #E86A2C;
   --radius: 4px;
@@ -53,7 +54,7 @@ p { text-wrap: pretty; }
 .button:active:not(:disabled) { transform: translateY(0); }
 .button:disabled { cursor: not-allowed; opacity: .55; }
 .button--primary { color: #fff; background: var(--color-accent); }
-.button--primary:hover:not(:disabled) { background: #CA5420; }
+.button--primary:hover:not(:disabled) { background: #96380C; }
 .button--secondary { color: var(--color-primary-foreground); background: var(--color-primary); }
 .button--ghost { color: var(--color-primary); background: transparent; border: 1px solid var(--color-border); }
 .button--danger { color: #fff; background: #A02020; }
@@ -67,7 +68,7 @@ p { text-wrap: pretty; }
 .brand-lockup__mark { width: 176px; display: block; }
 .brand-lockup__image { width: 100%; height: auto; display: block; object-fit: contain; }
 .brand-lockup__copy { min-width: 0; display: flex; justify-content: flex-end; margin-top: -.2rem; }
-.brand-lockup__copy small { color: var(--color-accent); font: 500 .6rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.brand-lockup__copy small { color: var(--color-accent-soft); font: 500 .6rem var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
 .brand-lockup--admin .brand-lockup__copy small { color: #FF8A8A; }
 .login-brand-bar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1rem 2rem; border-bottom: 1px solid var(--color-border); background: var(--color-primary); }
 .login-brand-actions { display: flex; gap: .5rem; }

@@ -7,14 +7,18 @@
 
 ### Enlaces del Entregable
 - **Repositorio GitHub:** [https://github.com/Sebalin2003/EventHub](https://github.com/Sebalin2003/EventHub)
-- **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega)
-- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (run verde sobre `v1.0-testing`, 06/11/2026)
+- **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega, incluido el Eje A)
+- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (build/tests, Docker y `playwright-e2e`; run verde sobre `v1.0-testing`, 07/11/2026)
+- **Suite E2E / Responsive / Accesibilidad:** `apps/web/e2e/` (Playwright + axe-core, 18 pruebas verdes)
+- **Evidencia Lighthouse:** `docs/evidencias/lighthouse-home-desktop.json` y `docs/evidencias/lighthouse-home-mobile.json` (100/100 en Accessibility)
+- **Manual de usuario:** `docs/MANUAL_USUARIO.md`
+- **Prueba exploratoria:** `docs/PRUEBA_EXPLORATORIA.md`
 - **Tablero Jira:** Proyecto `EVH` (EventHub)
 - **SonarCloud:** no configurado; el CI usa cobertura real y baseline anti-regresión en su lugar.
 - **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (ejecución manual; Newman en CI pendiente)
 - **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (script versionado; ejecución y reporte pendientes)
 
-> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
+> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; el Eje A está implementado y verificado con Playwright, axe y Lighthouse, salvo la prueba del manual y la exploratoria del docente, que se ejecutan en clase. G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
 
 ---
 
@@ -36,26 +40,28 @@
 1. **Pruebas Unitarias y de Dominio:** Cobertura de lógica de negocio, validaciones, factorías, estrategias criptográficas y máquina de estados (State Pattern).
 2. **Pruebas de Integración:** Verificación de repositorios TypeORM, consumidores AMQP de RabbitMQ y adaptadores de pasarela de pago.
 3. **Pruebas de Contrato y API:** colección Postman versionada con casos de éxito y error. La ejecución automatizada con Newman dentro del CI está pendiente.
-4. **Pruebas de Punta a Punta (E2E):** 6 pruebas en 2 archivos (5 escenarios críticos de negocio más el smoke de arranque). Instancian los servicios con repositorios en memoria, por lo que hoy son pruebas de integración lógica y no un E2E HTTP contra PostgreSQL y RabbitMQ reales.
-5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial y smoke HTTP del stack Docker. Las pruebas de carga con k6, OWASP ZAP y los escaneos de dependencias están identificados pero todavía no ejecutados.
+4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. Además se conservan 6 escenarios de integración lógica de API en `apps/api/test/`.
+5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial, smoke HTTP del stack Docker, Lighthouse de accesibilidad (100/100 desktop y mobile) y verificación de responsividad en tres viewports. Las pruebas de carga con k6, OWASP ZAP y los escaneos de dependencias están identificados pero todavía no ejecutados.
 
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
 - **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
-- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ, y un job separado que levanta el stack Docker completo. Ejecutado en verde sobre el tag `v1.0-testing` el 06/11/2026: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
+- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ, job de build/tests y cobertura, job `docker-reproducibility` que levanta el stack y job `playwright-e2e` que construye el stack, instala Chromium, corre la suite E2E/responsive/a11y y publica reportes. Ejecutado en verde sobre el tag `v1.0-testing` el 07/11/2026: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
 - **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, 3 warnings no bloqueantes) e infraestructura Docker levantando en menos de 15 minutos.
-- **Criterios de Salida (estado al 06/11/2026):**
+- **Criterios de Salida (estado al 07/11/2026):**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
-  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests y de Docker Compose.
+  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose y Playwright E2E.
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
-  - Suites verdes: 89 pruebas de API, 6 E2E y 8 de frontend (103 en total).
+  - Suites verdes: 89 pruebas de API, 6 escenarios de integración E2E de API, 8 de frontend y 18 de Playwright contra el stack real (121 en total).
+  - Eje A: 43/43 criterios Gherkin verificados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
   - Cobertura real de API: **74,19% de líneas** y **52,29% de ramas**. Por debajo de los umbrales de 80% / 70%; se mantiene como brecha y como baseline anti-regresión del CI.
   - Mutation testing: **no configurado**, sin reporte de mutation score.
-  - Defecto de doble check-in detectado y corregido (ver sección 5).
+  - Defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) registrados en la sección 5.
+  - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
   - G4 (Teams), G5 (Jira), G7 (demo), G8 (declaración de IA) y G9 (contraste final) quedan pendientes de ejecución externa.
 
 ### 1.5 Matriz de Riesgos Priorizados (Probabilidad × Impacto)
@@ -70,34 +76,175 @@
 
 ---
 
-## 2. Matriz de Trazabilidad (HU → Criterio → Caso de Prueba → Test → Resultado)
+## 2. Eje A — Historias de usuario, prioridad MOSCOW y criterios de aceptación
 
-| HU | Criterio de Aceptación (Gherkin) | Prioridad | Caso de Prueba | Test Automatizado | Resultado | Defecto Asoc. |
-|---|---|:---:|---|---|:---:|:---:|
-| **HU-01** | **Dado** que un usuario accede al catálogo, **Cuando** filtra por categoría o texto, **Entonces** se muestran los eventos que coinciden con los filtros aplicados. | MUST | TC-EVT-01 | `events.service.spec.ts: findAll` | PASADO | Ninguno |
-| **HU-01** | **Dado** que se solicita el detalle de un evento inexistente, **Cuando** se ejecuta la consulta, **Entonces** devuelve código 404 Not Found formateado bajo RFC 9457. | MUST | TC-EVT-02 | `events.service.spec.ts: findOne 404` | PASADO | Ninguno |
-| **HU-01** | **Dado** que un organizador modifica un evento con ETag desactualizado, **Cuando** envía la petición con `If-Match`, **Entonces** se rechaza con 412 Precondition Failed. | MUST | TC-EVT-03 | `test/critical-scenarios.e2e-spec.ts: Escenario 2` | PASADO | Ninguno |
-| **HU-02** | **Dado** un evento con stock disponible, **Cuando** el usuario inicia la compra, **Entonces** se genera un HOLD temporal por 5 minutos y se decrementa el stock efectivo. | MUST | TC-INV-01 | `inventory.service.spec.ts: createHold` | PASADO | Ninguno |
-| **HU-02** | **Dado** un HOLD activo, **Cuando** transcurren más de 5 minutos sin confirmar la compra, **Entonces** el HOLD expira automáticamente y el stock se restituye. | MUST | TC-INV-02 | `inventory.service.spec.ts: expireHolds` | PASADO | Ninguno |
-| **HU-02** | **Dado** un evento con 1 entrada restante, **Cuando** dos usuarios intentan reservarla concurrentemente, **Entonces** el primero obtiene el HOLD y el segundo recibe 409 Conflict. | MUST | TC-INV-03 | `test/critical-scenarios.e2e-spec.ts: Escenario 3` | PASADO | EVH-102 (Cerrado) |
-| **HU-03** | **Dado** un carrito con entradas seleccionadas, **Cuando** se crea la orden con `Idempotency-Key`, **Entonces** se calcula el total exacto y se emite la orden en estado PENDING. | MUST | TC-ORD-01 | `orders.service.spec.ts: create` | PASADO | Ninguno |
-| **HU-03** | **Dado** que el cliente reenvía la orden con la misma `Idempotency-Key`, **Cuando** el backend la procesa, **Entonces** retorna la misma orden previa sin crear una nueva. | MUST | TC-ORD-02 | `orders.service.spec.ts: create idempotency` | PASADO | Ninguno |
-| **HU-03** | **Dado** una orden en estado PENDING, **Cuando** se intenta reembolsar sin haber sido pagada, **Entonces** la máquina de estados arroja 409 Conflict. | MUST | TC-ORD-03 | `order-state.spec.ts: Transiciones Inválidas` | PASADO | EVH-104 (Cerrado) |
-| **HU-04** | **Dado** una orden pendiente, **Cuando** se envía el cobro a la pasarela SOAP con tarjeta válida, **Entonces** retorna transacción aprobada y código de autorización. | MUST | TC-PAY-01 | `payments.service.spec.ts: Flujo Exitoso` | PASADO | Ninguno |
-| **HU-04** | **Dado** un cobro con tarjeta sin fondos, **Cuando** la pasarela SOAP responde Business Fault, **Entonces** se mapea a JSON limpio sin fugar XML al cliente. | MUST | TC-PAY-02 | `payments.service.spec.ts: Business Fault` | PASADO | Ninguno |
-| **HU-04** | **Dado** que la pasarela SOAP externa no responde en 5 segundos, **Cuando** vence el timeout, **Entonces** la operación se aborta de forma segura sin hilos colgados y activa fallback. | MUST | TC-PAY-03 | `payments.service.spec.ts: Timeout 5s` | PASADO | EVH-101 (Cerrado) |
-| **HU-04** | **Dado** 3 fallas consecutivas en la pasarela SOAP, **Cuando** ingresa una nueva solicitud, **Entonces** el Circuit Breaker abre y responde de forma inmediata en modo contingencia. | MUST | TC-PAY-04 | `payments.service.spec.ts: Circuit Breaker` | PASADO | Ninguno |
-| **HU-05** | **Dado** una orden pagada, **Cuando** se emiten las entradas, **Entonces** cada una recibe un código alfanumérico único con formato `EVT-...` en estado ISSUED. | MUST | TC-TKT-01 | `tickets.service.spec.ts: emit` | PASADO | Ninguno |
-| **HU-05** | **Dado** que el Usuario A intenta consultar una entrada del Usuario B, **Cuando** realiza el pedido cambiando el ID, **Entonces** se bloquea con 403 Forbidden (BOLA). | MUST | TC-TKT-02 | `tickets.service.spec.ts: findById BOLA` | PASADO | EVH-105 (Cerrado) |
-| **HU-06** | **Dado** un asistente en la puerta del evento con ticket válido, **Cuando** el staff escanea el código, **Entonces** se valida con éxito y pasa a estado USED. | MUST | TC-CHK-01 | `tickets.service.spec.ts: useTicket` | PASADO | Ninguno |
-| **HU-06** | **Dado** un ticket ya utilizado (USED), **Cuando** se intenta volver a escanear, **Entonces** el sistema rechaza el ingreso devolviendo 409 Conflict (Prevención doble uso). | MUST | TC-CHK-02 | `tickets.service.spec.ts: useTicket` + `check-in.controller.spec.ts: 409` | PASADO | EVH-103 (Cerrado) |
-| **HU-06** | **Dado** un usuario con rol cliente (ATTENDEE), **Cuando** intenta invocar el endpoint de escaneo de check-in, **Entonces** se rechaza con 403 Forbidden (BFLA). | MUST | TC-CHK-03 | `test/security-resilience.spec.ts: BFLA` | PASADO | Ninguno |
-| **HU-07** | **Dado** un evento publicado, **Cuando** se emite el mensaje a RabbitMQ, **Entonces** el consumidor procesa la notificación y la persiste. | SHOULD | TC-NOT-01 | `notifications.service.spec.ts: procesar` | PASADO | Ninguno |
-| **HU-07** | **Dado** que RabbitMQ re-entrega un mensaje duplicado, **Cuando** el consumidor lo recibe, **Entonces** detecta la clave y lo descarta sin duplicar notificaciones. | SHOULD | TC-NOT-02 | `notifications.service.spec.ts: Consumidor Idempotente` | PASADO | Ninguno |
-| **HU-07** | **Dado** un mensaje con carga corrupta o sin destinatario, **Cuando** falla 3 veces seguidas, **Entonces** se enruta a la Dead Letter Queue (DLQ) para auditoría. | SHOULD | TC-NOT-03 | `notifications.service.spec.ts: DLQ` | PASADO | Ninguno |
-| **HU-08** | **Dado** un usuario que consulta al asistente de IA, **Cuando** solicita recomendaciones de espectáculos, **Entonces** recibe sugerencias relevantes del catálogo. | SHOULD | TC-AI-01 | `ai.service.spec.ts: Happy Path` | PASADO | Ninguno |
-| **HU-08** | **Dado** un intento de inyección de prompt («ignore all previous instructions»), **Cuando** se evalúa el prompt, **Entonces** el guardrail de seguridad lo bloquea. | SHOULD | TC-AI-02 | `ai.service.spec.ts: Prompt Injection` | PASADO | Ninguno |
-| **HU-08** | **Dado** una consulta médica o de diagnóstico de salud, **Cuando** ingresa al asistente, **Entonces** el guardrail temático rechaza la consulta y orienta al usuario. | SHOULD | TC-AI-03 | `ai.service.spec.ts: Guardrails Médicos` | PASADO | Ninguno |
+Las historias se priorizan con **MOSCOW** (Must / Should / Could / Won't). Ningún criterio de una HU **Must** falla al cierre: los 43 criterios definidos abajo están verificados. Las actividades que dependen del docente (prueba del manual y prueba exploratoria) se registran aparte y no se declaran ejecutadas.
+
+### 2.1 Historias de usuario del alcance
+
+| HU | Historia de usuario | Rol | Prioridad |
+|---|---|---|---|
+| **HU-01** | Como visitante quiero explorar, filtrar y buscar eventos para encontrar uno que me interese. | Visitante / Asistente | **MUST** |
+| **HU-02** | Como asistente quiero reservar entradas temporalmente para no perderlas mientras completo el pago. | Asistente | **MUST** |
+| **HU-03** | Como asistente quiero crear una orden con el total correcto y sin duplicados al reintentar. | Asistente | **MUST** |
+| **HU-04** | Como asistente quiero pagar con tarjeta y recibir una respuesta clara aunque la pasarela falle. | Asistente | **MUST** |
+| **HU-05** | Como asistente quiero recibir mis entradas digitales y que nadie más pueda consultarlas. | Asistente | **MUST** |
+| **HU-06** | Como staff quiero validar entradas en la puerta y detectar el doble uso. | Staff | **MUST** |
+| **HU-07** | Como organización quiero notificar la publicación de eventos de forma asíncrona y confiable. | Organizador / Sistema | **SHOULD** |
+| **HU-08** | Como asistente quiero recomendaciones del asistente de IA sin exponer datos ni aceptar instrucciones ajenas. | Asistente | **SHOULD** |
+| **HU-09** | Como usuario quiero autenticarme y acceder solo a las funciones de mi rol. | Todos | **MUST** |
+| **HU-10** | Como organizador quiero crear y publicar eventos desde la web. | Organizador | **MUST** |
+| **HU-11** | Como usuario quiero usar la plataforma en móvil, tablet y escritorio con accesibilidad WCAG 2.2 AA. | Todos | **MUST** |
+
+### 2.2 Criterios de aceptación (Gherkin)
+
+#### HU-01 — Catálogo y exploración (MUST)
+- **HU-01-C1 (camino feliz):** Dado un catálogo con eventos publicados, Cuando el visitante filtra por categoría «webinar», Entonces ve exactamente 2 eventos y el contador muestra «2 eventos».
+- **HU-01-C2 (alternativo):** Dado el mismo catálogo, Cuando busca «E-commerce», Entonces ve 1 evento y al abrirlo el detalle muestra la sección «Entradas» y el botón «Elegir entradas».
+- **HU-01-C3 (error):** Dado un identificador inexistente, Cuando se consulta `GET /events/:id`, Entonces responde 404 con formato RFC 9457 y no devuelve datos parciales.
+
+#### HU-02 — Reserva temporal de inventario (MUST)
+- **HU-02-C1 (camino feliz):** Dado un evento con 5 lugares disponibles, Cuando un usuario crea un HOLD de 4 lugares, Entonces la disponibilidad efectiva baja a 1.
+- **HU-02-C2 (alternativo):** Dado un HOLD activo, Cuando transcurren más de 5 minutos sin confirmar el pago, Entonces el HOLD expira y el stock se restituye.
+- **HU-02-C3 (error):** Dado un evento con 1 lugar disponible, Cuando dos usuarios intentan reservarlo concurrentemente, Entonces el primero obtiene el HOLD y el segundo recibe 409 Conflict.
+
+#### HU-03 — Creación de órdenes (MUST)
+- **HU-03-C1 (camino feliz):** Dado un carrito válido, Cuando se crea la orden con `Idempotency-Key`, Entonces el total calculado es exacto y la orden queda en estado PENDING.
+- **HU-03-C2 (alternativo):** Dado que el cliente reenvía el POST con la misma `Idempotency-Key`, Cuando el backend lo procesa, Entonces retorna la misma orden previa y no crea una nueva.
+- **HU-03-C3 (error):** Dado una orden en estado PENDING, Cuando se solicita un reembolso, Entonces la máquina de estados responde 409 Conflict y no modifica la orden.
+
+#### HU-04 — Procesamiento de pagos SOAP (MUST · integración externa)
+- **HU-04-C1 (camino feliz):** Dado una tarjeta válida, Cuando se envía el cobro a la pasarela SOAP, Entonces retorna transacción aprobada con código de autorización.
+- **HU-04-C2 (alternativo):** Dado un cobro con fondos insuficientes, Cuando la pasarela responde Business Fault, Entonces se mapea a JSON limpio sin filtrar XML al cliente.
+- **HU-04-C3 (error):** Dado que la pasarela no responde en 5 segundos, Cuando vence el timeout, Entonces la operación se aborta con `GATEWAY_TIMEOUT` sin dejar hilos colgados.
+- **HU-04-C4 (falla del sistema externo):** Dado 3 fallas técnicas consecutivas de la pasarela, Cuando ingresa una nueva solicitud, Entonces el Circuit Breaker abre y responde de inmediato en modo contingencia.
+- **HU-04-C5 (error de seguridad):** Dado un payload SOAP con `DOCTYPE` o entidades externas, Cuando se procesa, Entonces se rechaza con `XXE_INJECTION_REJECTED`.
+
+#### HU-05 — Emisión y consulta de entradas (MUST)
+- **HU-05-C1 (camino feliz):** Dado una orden pagada, Cuando se emiten 3 entradas, Entonces se generan 3 códigos únicos con formato `EVT-...` en estado ISSUED.
+- **HU-05-C2 (alternativo):** Dado un ticket emitido, Cuando lo consulta su dueño, Entonces responde 200 con los datos del ticket.
+- **HU-05-C3 (error):** Dado el ticket del Usuario B, Cuando el Usuario A lo consulta cambiando el ID, Entonces responde 403 Forbidden (BOLA/IDOR).
+- **HU-05-C4 (camino feliz web):** Dado una compra completada en la web, Cuando el asistente abre «Mis entradas», Entonces la entrada del evento comprado aparece en la lista.
+
+#### HU-06 — Check-in y control de acceso (MUST)
+- **HU-06-C1 (camino feliz):** Dado un ticket activo, Cuando el staff escanea el código, Entonces se valida, pasa a USED y el contador de ingresados aumenta en 1.
+- **HU-06-C2 (error):** Dado un ticket ya utilizado, Cuando se escanea por segunda vez, Entonces responde 409 Conflict y el contador no aumenta.
+- **HU-06-C3 (error):** Dado un código inexistente o un ticket de otro evento, Cuando se valida, Entonces responde 404 Not Found o 409 Conflict según el caso.
+- **HU-06-C4 (error):** Dado un organizador, Cuando escanea una entrada de un evento ajeno, Entonces responde 403 Forbidden.
+
+#### HU-07 — Notificaciones asíncronas (SHOULD · integración RabbitMQ)
+- **HU-07-C1 (camino feliz):** Dado un mensaje válido con destinatario, Cuando el consumidor lo procesa, Entonces responde PROCESSED y persiste la notificación.
+- **HU-07-C2 (alternativo):** Dado un mensaje duplicado, Cuando el consumidor lo recibe, Entonces responde DUPLICATE_SKIPPED sin duplicar registros.
+- **HU-07-C3 (error):** Dado un mensaje sin destinatario que falla 3 veces, Cuando se agotan los reintentos, Entonces se enruta a la Dead Letter Queue y queda auditado.
+- **HU-07-C4 (falla del sistema externo):** Dado que RabbitMQ está caído, Cuando el organizador publica un evento, Entonces la publicación responde 201 y la API se mantiene operativa; al reiniciar el broker, el cliente se reconecta automáticamente.
+
+#### HU-08 — Asistente de IA (SHOULD)
+- **HU-08-C1 (camino feliz):** Dado una consulta sobre rock o tecnología, Cuando se invoca el asistente, Entonces responde con recomendaciones del catálogo.
+- **HU-08-C2 (alternativo):** Dado una consulta médica fuera de dominio, Cuando se evalúa, Entonces se activa el guardrail y responde de forma acotada y segura.
+- **HU-08-C3 (error):** Dado un prompt con «ignore all previous instructions» o DAN mode, Cuando se evalúa, Entonces se bloquea con categoría SECURITY_BLOCKED.
+- **HU-08-C4 (falla del sistema externo):** Dado que el proveedor de IA no responde, Cuando se invoca el asistente, Entonces se activa el fallback determinístico sin romper el flujo.
+
+#### HU-09 — Autenticación y autorización por rol (MUST)
+- **HU-09-C1 (camino feliz):** Dado un perfil de demostración, Cuando el usuario ingresa, Entonces accede al portal correspondiente a su rol.
+- **HU-09-C2 (alternativo):** Dado credenciales reales válidas, Cuando inicia sesión, Entonces se persiste el JWT y se habilitan las opciones privadas.
+- **HU-09-C3 (error):** Dado una contraseña incorrecta, Cuando intenta ingresar, Entonces ve «Credenciales inválidas», no se guarda token y permanece en el login.
+- **HU-09-C4 (error):** Dado un email inexistente, Cuando inicia sesión, Entonces la API responde 401 Unauthorized.
+- **HU-09-C5 (error):** Dado un usuario ATTENDEE, Cuando invoca un endpoint de ADMIN, Entonces responde 403 Forbidden (BFLA).
+
+#### HU-10 — Gestión de eventos del organizador (MUST)
+- **HU-10-C1 (camino feliz):** Dado un organizador autenticado, Cuando completa el asistente de 5 pasos y publica, Entonces el evento aparece en «Mis eventos» con estado «Publicado».
+- **HU-10-C2 (alternativo):** Dado un evento propio, Cuando se publica, Entonces se guarda como publicado y se emite la notificación de negocio.
+- **HU-10-C3 (error):** Dado un evento de otro organizador, Cuando se intenta publicar, Entonces responde 403 Forbidden.
+- **HU-10-C4 (error):** Dado un recurso con ETag desactualizado, Cuando se actualiza con `If-Match`, Entonces responde 412 Precondition Failed.
+
+#### HU-11 — Accesibilidad y adaptabilidad (MUST)
+- **HU-11-C1 (camino feliz):** Dado un viewport de 360, 768 y 1280 px, Cuando se navega por inicio, explorar, detalle, login y portal del organizador, Entonces no aparece scroll horizontal.
+- **HU-11-C2 (alternativo):** Dado un viewport de 360 px, Cuando se navega, Entonces la navegación se ofrece mediante el selector «Navegación principal» y sigue siendo operable.
+- **HU-11-C3 (error):** Dado el sitio en 9 pantallas principales, Cuando se ejecuta axe con WCAG 2.2 AA, Entonces hay 0 violaciones de impacto critical o serious.
+- **HU-11-C4 (camino feliz medido):** Dado el sitio en Chrome headless, Cuando se ejecuta Lighthouse en la categoría Accessibility, Entonces el puntaje es ≥ 90 (medido: 100 en desktop y 100 en mobile).
+
+### 2.3 Matriz de trazabilidad (criterio → evidencia → resultado)
+
+| Criterio | Evidencia ejecutada | Resultado |
+|---|---|:---:|
+| HU-01-C1 | Playwright `critical-flows.spec.ts` A2 | PASA |
+| HU-01-C2 | Playwright `critical-flows.spec.ts` A2 | PASA |
+| HU-01-C3 | `events.service.spec.ts` (findOne 404 RFC 9457) | PASA |
+| HU-02-C1 | `inventory.service.spec.ts` (createHold) + `critical-scenarios.e2e-spec.ts` Esc. 3 | PASA |
+| HU-02-C2 | `inventory.service.spec.ts` (expireHolds) | PASA |
+| HU-02-C3 | `critical-scenarios.e2e-spec.ts` Esc. 3 | PASA |
+| HU-03-C1 | `orders.service.spec.ts` (create: totales y PENDING) | PASA |
+| HU-03-C2 | `orders.service.spec.ts` (idempotencia) + `critical-scenarios.e2e-spec.ts` Esc. 4 | PASA |
+| HU-03-C3 | `order-state.spec.ts` (transición inválida 409) | PASA |
+| HU-04-C1 | `payments.service.spec.ts` (flujo exitoso) | PASA |
+| HU-04-C2 | `payments.service.spec.ts` (Business Fault) | PASA |
+| HU-04-C3 | `payments.service.spec.ts` (timeout 5 s) | PASA |
+| HU-04-C4 | `payments.service.spec.ts` (Circuit Breaker) | PASA |
+| HU-04-C5 | `payments.service.spec.ts` (XXE) | PASA |
+| HU-05-C1 | `tickets.service.spec.ts` (emit) | PASA |
+| HU-05-C2 | `tickets.service.spec.ts` (findById dueño) | PASA |
+| HU-05-C3 | `tickets.service.spec.ts` (findById BOLA 403) | PASA |
+| HU-05-C4 | Playwright `critical-flows.spec.ts` A3 | PASA |
+| HU-06-C1 | `tickets.service.spec.ts` (useTicket) + Playwright A6 | PASA |
+| HU-06-C2 | `check-in.controller.spec.ts` (409) + Playwright A6 | PASA |
+| HU-06-C3 | `check-in.controller.spec.ts` (404 y 409 evento incorrecto) | PASA |
+| HU-06-C4 | `check-in.controller.spec.ts` (403 evento ajeno) | PASA |
+| HU-07-C1 | `notifications.service.spec.ts` (PROCESSED) | PASA |
+| HU-07-C2 | `notifications.service.spec.ts` (DUPLICATE_SKIPPED) | PASA |
+| HU-07-C3 | `notifications.service.spec.ts` (DLQ) | PASA |
+| HU-07-C4 | Prueba de caída de broker 07/11/2026: publicación HTTP 201 con broker detenido; log `Disconnected from RMQ` → `Successfully connected to RMQ broker`; API `healthy` | PASA |
+| HU-08-C1 | `ai.service.spec.ts` (Happy Path) | PASA |
+| HU-08-C2 | `ai.service.spec.ts` (Guardrails médicos) | PASA |
+| HU-08-C3 | `ai.service.spec.ts` (Prompt Injection / DAN) | PASA |
+| HU-08-C4 | `ai.service.spec.ts` (fallback) | PASA |
+| HU-09-C1 | Playwright A1, A3, A4 y A6 (login demo por rol) | PASA |
+| HU-09-C2 | Playwright `critical-flows.spec.ts` A1 | PASA |
+| HU-09-C3 | Playwright `critical-flows.spec.ts` A5 + `identity.service.spec.ts` (401) | PASA |
+| HU-09-C4 | `identity.service.spec.ts` (usuario inexistente 401) | PASA |
+| HU-09-C5 | `security-resilience.spec.ts` (BFLA 403) | PASA |
+| HU-10-C1 | Playwright `critical-flows.spec.ts` A4 | PASA |
+| HU-10-C2 | `events.service.spec.ts` (publishOwned + notificación) | PASA |
+| HU-10-C3 | `events.service.spec.ts` (evento ajeno 403) | PASA |
+| HU-10-C4 | `critical-scenarios.e2e-spec.ts` Esc. 2 (ETag 412) | PASA |
+| HU-11-C1 | Playwright `responsive.spec.ts` (360, 768 y 1280 px) | PASA |
+| HU-11-C2 | Playwright `responsive.spec.ts` (selector mobile) | PASA |
+| HU-11-C3 | Playwright `a11y.spec.ts` (9 pantallas axe WCAG 2.2 AA) | PASA |
+| HU-11-C4 | Lighthouse 13.6.0 Accessibility: 100 desktop / 100 mobile (`docs/evidencias/lighthouse-home-*.json`) | PASA |
+
+**Resultado:** 43 de 43 criterios verificados y pasados (100%). No hay criterios Must fallados.
+
+### 2.4 Escenarios críticos automatizados de punta a punta
+
+Los escenarios corren contra el stack Docker real (web + API + PostgreSQL + RabbitMQ), sin mocks en memoria, con `workers: 1`.
+
+| Escenario | Flujo cubierto | Archivo |
+|---|---|---|
+| **A1** | Login con credenciales reales, JWT persistido y catálogo privado | `apps/web/e2e/critical-flows.spec.ts` |
+| **A2** | Explorar, filtrar por categoría, buscar y abrir el detalle | `apps/web/e2e/critical-flows.spec.ts` |
+| **A3** | Compra completa: selección, HOLD, pago, confirmación y «Mis entradas» | `apps/web/e2e/critical-flows.spec.ts` |
+| **A4** | Organizador crea y publica un evento con el asistente de 5 pasos | `apps/web/e2e/critical-flows.spec.ts` |
+| **A5** | Login rechaza credenciales inválidas sin otorgar sesión | `apps/web/e2e/critical-flows.spec.ts` |
+| **A6** | Staff valida una entrada y detecta el segundo uso | `apps/web/e2e/critical-flows.spec.ts` |
+
+Además, se conservan los 6 escenarios de integración lógica de la API (`apps/api/test/critical-scenarios.e2e-spec.ts`), que se ejecutan en el job de build/tests. Los anteriores no reemplazan a los de Playwright: los nuevos sí atraviesan HTTP, base de datos y navegador reales.
+
+### 2.5 Responsive y accesibilidad
+
+| Verificación | Herramienta | Alcance | Resultado |
+|---|---|---|---|
+| Responsive 360 / 768 / 1280 px | Playwright | Home, explorar, detalle, login, dashboard y eventos del organizador | **PASA** (3/3) |
+| Accesibilidad WCAG 2.2 AA | axe-core 4.14 vía Playwright | Home, explorar, detalle, login, checkout, staff, check-in, admin y dashboard del organizador | **PASA** (0 critical/serious en 9/9) |
+| Puntaje de accesibilidad | Lighthouse 13.6.0 | Home en Chrome headless, desktop y mobile | **100 / 100** |
+
+Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec.ts` y `docs/evidencias/lighthouse-home-desktop.json` / `lighthouse-home-mobile.json`.
+
+### 2.6 Prueba del manual y prueba exploratoria
+
+| Actividad | Estado | Evidencia |
+|---|---|---|
+| Manual de usuario | **Documentado**, pendiente de ejecución del docente | `docs/MANUAL_USUARIO.md` (tareas A1–A6, O1–O3, S1–S3, AD1, T1–T4 y registro final) |
+| Prueba exploratoria interna | **Ejecutada** el 07/11/2026 (~10 min, 6 sondeos) | `docs/PRUEBA_EXPLORATORIA.md`; defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) |
+| Prueba exploratoria del docente | **Pendiente** de la clase | Tabla de registro al final de `docs/PRUEBA_EXPLORATORIA.md` |
 
 ---
 
@@ -132,20 +279,26 @@
   - *Pasos:* Invocar `POST /ai/advisor`.
   - *Resultado Esperado:* Bloqueo por regla OWASP LLM01, categoría `SECURITY_BLOCKED`, respuesta segura predefinida.
   - *Prioridad:* Should | *Automatizado:* Sí (`ai.service.spec.ts`).
+- **TC-E2E-01 (Camino feliz / E2E real):** Compra completa de entradas en el navegador.
+  - *Precondición:* Stack Docker healthy, usuario `maria@eventhub.com.ar` con contraseña `password`.
+  - *Pasos:* Login → Explorar → Detalle de «E-commerce para Emprendimientos» → Elegir entradas → Reservar → completar tarjeta `4242 4242 4242 4242` → Confirmar compra → Ver mis entradas.
+  - *Resultado Esperado:* Pantalla «Compra confirmada», orden creada una sola vez y entrada visible en «Mis entradas».
+  - *Prioridad:* Must | *Automatizado:* Sí (`apps/web/e2e/critical-flows.spec.ts`, escenario A3).
 
 ---
 
 ## 4. Informe de Ejecución y Métricas
 
-### 4.1 Resumen de Ejecución de Pruebas (medición local del 06/11/2026)
+### 4.1 Resumen de Ejecución de Pruebas (medición local del 07/11/2026)
 | Suite | Comando | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo |
 |---|---|:---:|:---:|:---:|:---:|:---:|
 | API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test` | 89 | 89 | 0 | 0 | 16,42 s |
-| Escenarios críticos y smoke E2E | `pnpm --filter api test:e2e` | 6 | 6 | 0 | 0 | 7,70 s |
+| Escenarios críticos y smoke E2E de API | `pnpm --filter api test:e2e` | 6 | 6 | 0 | 0 | 7,70 s |
 | Frontend (reglas de negocio) | `pnpm --filter @evenhub/web test` | 8 | 8 | 0 | 0 | 1,93 s |
-| **Total** | — | **103** | **103** | **0** | **0** | **~26 s** |
+| E2E Playwright (críticos + responsive + a11y) | `pnpm --filter @evenhub/web test:e2e` | 18 | 18 | 0 | 0 | ~2 min |
+| **Total** | — | **121** | **121** | **0** | **0** | — |
 
-Además se verificaron: build de API correcto, build de web correcto, `oxlint` con 3 warnings no bloqueantes, typecheck de web correcto y Gitleaks sin hallazgos.
+Además se verificaron: build de API correcto, build de web correcto, `oxlint` con 3 warnings no bloqueantes, typecheck de web correcto, Gitleaks sin hallazgos y Lighthouse Accessibility 100/100 en desktop y mobile.
 
 ### 4.2 Métricas de Cobertura de Código (v8, medición real)
 | Archivo / Capa | Cobertura de Líneas (%) | Cobertura de Ramas (%) | Umbral exigido | Estado |
@@ -174,6 +327,16 @@ La brecha se concentra en los servicios de órdenes, eventos y pagos, y en los D
 - **Reporte:** **no ejecutado**. No se declaran latencias, throughput ni tasas de error porque no hay medición real adjunta.
 - **Acción pendiente:** ejecutar k6 contra el stack Docker y adjuntar el resumen (`k6 run --summary-export`).
 
+### 4.5 Pruebas E2E, Responsive y Accesibilidad (Eje A)
+| Verificación | Herramienta | Alcance | Resultado |
+|---|---|---|---|
+| Flujos críticos E2E (A1–A6) | Playwright 1.x + Chromium | Login, catálogo, compra completa, alta de evento, credenciales inválidas y check-in | **PASA** (6/6) |
+| Responsive 360 / 768 / 1280 px | Playwright | Inicio, explorar, detalle, login, dashboard y eventos del organizador | **PASA** (3/3) |
+| Accesibilidad WCAG 2.2 AA | axe-core 4.14 vía Playwright | 9 pantallas: home, explorar, detalle, login, checkout, staff, check-in, admin y dashboard | **PASA** (0 critical/serious en 9/9) |
+| Puntaje de accesibilidad | Lighthouse 13.6.0 | Home en Chrome headless, desktop y mobile | **100 / 100** |
+
+Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado en cada corrida) y `docs/evidencias/lighthouse-home-*.json`. El job `playwright-e2e` del CI ejecuta la misma suite contra el stack Docker en cada push y sobre el tag.
+
 ---
 
 ## 5. Registro de Defectos (Jira Tracking)
@@ -186,6 +349,8 @@ La brecha se concentra en los servicios de órdenes, eventos y pagos, y en los D
 | **EVH-104** | Se permitía solicitar reembolso sobre órdenes que estaban pendientes de pago. | Mayor | Media | CERRADO | Ausencia de validación de máquina de estados. Se implementó el patrón State (`OrderState`), donde `PendingOrderState.refund()` arroja `409 Conflict`. |
 | **EVH-105** | Vulnerabilidad BOLA/IDOR permitía a un usuario autenticado consultar órdenes ajenas cambiando el UUID. | Crítica | Alta | CERRADO | Falta de filtro de usuario en `OrdersController`. Se añadió validación estricta de propiedad `order.userId === req.user.sub` devolviendo 403 Forbidden. |
 | **EVH-106** | Intento de inyección de prompt con `Ignore previous instructions` revelaba directivas del sistema. | Mayor | Media | CERRADO | Ausencia de guardrails de entrada en el módulo de IA. Se implementó un filtro de patrones regex OWASP LLM01 con respuesta segura predefinida. |
+| **EVH-107** | El login con contraseña incorrecta mostraba «Usuario no encontrado», un mensaje engañoso que sugería que el email no existía. | Menor | Media | CERRADO | La UI traducía cualquier fallo a `userNotFound`. Se reemplazó por «Credenciales inválidas» / «Invalid credentials» (`invalidCredentials` en `i18n.tsx`) y el escenario Playwright A5 verifica el mensaje y que no se persista el token. |
+| **EVH-108** | Al recargar la página en el paso «Medio de pago», el checkout pierde el contexto y vuelve al inicio. | Menor | Baja | ABIERTO (con workaround) | El paso y el `holdId` viven solo en el estado de React; la reserva sigue activa hasta su TTL de 5 minutos. No hay pérdida de datos ni órdenes duplicadas. Workaround: reabrir el evento y reiniciar la compra, esperar el vencimiento del HOLD o usar **Restablecer demo**. Plan: persistir vista y `holdId` en `sessionStorage` y restaurar el paso al recargar. |
 
 ---
 
@@ -200,7 +365,7 @@ La brecha se concentra en los servicios de órdenes, eventos y pagos, y en los D
 | **SEC-05 (Inyección SQL / XSS)** | Inyección SQL / NoSQL / XSS en campos de texto debe ser sanitizada o rechazada sin ejecución. | **PARCIAL** | Uso de consultas parametrizadas vía TypeORM y validación con `class-validator`, pero sin suite HTTP específica de XSS/SQLi en todos los campos. |
 | **SEC-06 (XXE en SOAP)** | Entidades externas XML y DTD en canal SOAP deben ser rechazadas sin procesar. | **CUMPLE** | Verificado en `payments.service.spec.ts`. La detección de `<!DOCTYPE` o `<!ENTITY` en payloads XML es bloqueada inmediatamente con código `XXE_INJECTION_REJECTED`. |
 | **SEC-07 (Fuerza Bruta)** | Rate limiting sobre endpoint de login (429 Too Many Requests). | **CUMPLE** | `RateLimiterGuard` bloquea direcciones IP tras 5 intentos fallidos en 60 segundos, respondiendo con HTTP 429 Problem Details. |
-| **SEC-08 (Escaneo de Secretos - G6)**| 0 contraseñas, tokens o llaves privadas en ningún commit del historial de Git. | **CUMPLE** | Gitleaks v8.28.0 `detect` sobre 33 commits: `no leaks found`. Se usa `.gitleaks.toml` con allowlist justificada para dos falsos positivos: el placeholder `abc123def456` del badge de CircleCI en `apps/api/README.md` y el fixture JWT `alg=none` de `security-resilience.spec.ts`. El escaneo corre en el CI sobre todo el historial. |
+| **SEC-08 (Escaneo de Secretos - G6)**| 0 contraseñas, tokens o llaves privadas en ningún commit del historial de Git. | **CUMPLE** | Gitleaks v8.28.0 `detect` sobre todo el historial: `no leaks found`. Se usa `.gitleaks.toml` con allowlist justificada para dos falsos positivos: el placeholder `abc123def456` del badge de CircleCI en `apps/api/README.md` y el fixture JWT `alg=none` de `security-resilience.spec.ts`. El escaneo corre en el CI sobre todo el historial. |
 | **SEC-09 (Headers de Seguridad y CORS)**| CSP, HSTS, X-Content-Type-Options presentes; CORS sin comodín cuando usa credenciales. | **PARCIAL** | `SecurityHeadersMiddleware` inyecta CSP, HSTS (`max-age=31536000`), `nosniff` y `X-Frame-Options: DENY`; CORS con orígenes explícitos. Falta una prueba HTTP automatizada que valide las cabeceras y la política CORS. |
 | **SEC-10 (Logs y Mensajes de Error)**| Sin stack traces al cliente; sin contraseñas, tarjetas ni tokens en logs (RFC 9457). | **CUMPLE** | `ProblemDetailsFilter` intercepta todas las excepciones, oculta el stack trace y formatea el error bajo `application/problem+json`, enmascarando parámetros sensibles en logs. |
 | **SEC-11 (Cifrado y Contraseñas)**| Cifrado en tránsito (TLS) y contraseñas hasheadas con algoritmo adaptativo (scrypt). | **PARCIAL** | Contraseñas con `ScryptHashStrategy` (salt de 16 bytes y clave de 64 bytes) verificadas por tests. TLS no está configurado en Docker Compose; queda documentado como pendiente para producción. |
@@ -257,20 +422,24 @@ La brecha se concentra en los servicios de órdenes, eventos y pagos, y en los D
 - **Por qué llegó tarde:** Los desarrolladores asumieron que con la sola presencia del `JwtAuthGuard` la ruta estaba protegida, sin comprobar que el token validaba la identidad pero no la pertenencia del recurso individual solicitado.
 - **Qué prueba lo habría atrapado:** Una prueba de seguridad automatizada en la suite de integración donde un cliente autenticado con `Usuario A` intenta ejecutar `GET /tickets/:id` con el identificador del `Usuario B`, exigiendo un código de estado `403 Forbidden`.
 
+> **Aprendizaje adicional del Eje A:** la sesión exploratoria interna del 07/11/2026 detectó **EVH-107** (mensaje de login engañoso, corregido) y **EVH-108** (pérdida del contexto de checkout al recargar, Menor con workaround). Ambos se documentan en `docs/PRUEBA_EXPLORATORIA.md`; el primero quedó cubierto por el escenario E2E A5.
+
 ---
 
 ## 9. Conclusión del Aseguramiento de Calidad
 
-EventHub cuenta con una base de pruebas automatizadas real y reproducible: **103 pruebas verdes** (89 de API, 6 E2E y 8 de frontend), builds correctos, lint ejecutable, stack Docker con healthchecks funcionando y escaneo de secretos limpio sobre todo el historial.
+EventHub cuenta con una base de pruebas automatizadas real y reproducible: **121 pruebas verdes** (89 de API, 6 de integración E2E de API, 8 de frontend y 18 de Playwright contra el stack Docker real), builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
 
 La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
 
 - **G1** está validado localmente, incluido el flujo crítico HTTP completo.
 - **G2** está validado: tag `v1.0-testing` publicado sobre el commit final.
-- **G3** está validado: CI en verde sobre el tag ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
+- **G3** está validado: CI en verde sobre el tag, incluido el job `playwright-e2e` ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
 - **G6** está validado con Gitleaks v8.28.0 y una allowlist justificada.
+- **Eje A** está verificado: 43/43 criterios Gherkin, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px, axe sin violaciones critical/serious en 9 pantallas y Lighthouse Accessibility 100/100. La **prueba del manual** y la **prueba exploratoria del docente** quedan pendientes de ejecución en clase.
 - **G4** (Teams), **G5** (Jira), **G7** (demo), **G8** (declaración de IA) y **G9** (contraste final) dependen de acciones externas que deben completarse antes del 10/11/2026 a las 13:30.
 - La cobertura real es **74,19% de líneas / 52,29% de ramas**, por debajo del 80% / 70% exigido.
 - Mutation testing, k6, Newman, ZAP y el escaneo de dependencias siguen pendientes.
+- **EVH-108** queda abierto con severidad Menor y workaround documentado.
 
 El documento mantiene las brechas visibles en lugar de declararlas resueltas. Ese es el estado que debe acompañar al tag y al run de CI una vez publicados.

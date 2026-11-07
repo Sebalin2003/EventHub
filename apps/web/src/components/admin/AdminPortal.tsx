@@ -60,14 +60,14 @@ export default function AdminPortal({ users, events, audit, currentUser, onLogou
               display: 'block', width: '100%', textAlign: 'left', padding: '0.7rem 1.25rem',
               border: 'none', background: tab === item.key ? 'rgba(255,255,255,0.08)' : 'none',
               borderLeft: `3px solid ${tab === item.key ? '#FF8A8A' : 'transparent'}`,
-              color: tab === item.key ? '#F5F3EE' : 'rgba(245,243,238,0.5)',
+              color: tab === item.key ? '#F5F3EE' : 'rgba(245,243,238,0.72)',
               fontFamily: 'var(--font-body)', fontSize: '0.85rem', fontWeight: tab === item.key ? 600 : 400, cursor: 'pointer',
             }}>{item.label}</button>
           ))}
         </nav>
         <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
           <p style={{ margin: '0 0 0.25rem', fontSize: '0.82rem', color: 'rgba(245,243,238,0.8)', fontWeight: 600 }}>{currentUser.name}</p>
-          <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 2, padding: '0.35rem 0.75rem', color: 'rgba(245,243,238,0.5)', fontFamily: 'var(--font-body)', fontSize: '0.75rem', cursor: 'pointer', width: '100%', marginTop: '0.5rem' }}>Cerrar sesión</button>
+          <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 2, padding: '0.35rem 0.75rem', color: 'rgba(245,243,238,0.72)', fontFamily: 'var(--font-body)', fontSize: '0.75rem', cursor: 'pointer', width: '100%', marginTop: '0.5rem' }}>Cerrar sesión</button>
         </div>
       </aside>
 

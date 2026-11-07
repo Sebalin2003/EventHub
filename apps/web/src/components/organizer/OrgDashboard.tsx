@@ -10,9 +10,9 @@ type Props = {
 function Stat({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
     <div style={{ backgroundColor: accent ? 'var(--color-primary)' : 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius)', padding: '1.4rem 1.5rem' }}>
-      <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: accent ? 'rgba(245,243,238,0.5)' : 'var(--color-muted-foreground)' }}>{label}</p>
+      <p style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.65rem', letterSpacing: '0.1em', textTransform: 'uppercase', color: accent ? 'rgba(245,243,238,0.65)' : 'var(--color-muted-foreground)' }}>{label}</p>
       <p style={{ margin: '0.5rem 0 0.25rem', fontFamily: 'var(--font-display)', fontSize: '2.2rem', fontWeight: 600, letterSpacing: '-0.03em', color: accent ? '#F5F3EE' : 'var(--color-primary)', lineHeight: 1 }}>{value}</p>
-      {sub && <p style={{ margin: 0, fontSize: '0.78rem', color: accent ? 'rgba(245,243,238,0.55)' : 'var(--color-muted-foreground)' }}>{sub}</p>}
+      {sub && <p style={{ margin: 0, fontSize: '0.78rem', color: accent ? 'rgba(245,243,238,0.7)' : 'var(--color-muted-foreground)' }}>{sub}</p>}
     </div>
   )
 }

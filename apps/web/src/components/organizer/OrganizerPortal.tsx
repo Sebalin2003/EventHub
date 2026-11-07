@@ -105,7 +105,7 @@ export default function OrganizerPortal({ events, orders, currentUser, onLogout,
         </nav>
         <div style={{ padding: '1rem 1.25rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           <p style={{ margin: '0 0 0.25rem', fontSize: '0.82rem', color: 'rgba(245,243,238,0.8)', fontWeight: 600 }}>{currentUser.name}</p>
-          <p style={{ margin: '0 0 0.75rem', fontSize: '0.72rem', color: 'rgba(245,243,238,0.45)' }}>{currentUser.email}</p>
+          <p style={{ margin: '0 0 0.75rem', fontSize: '0.72rem', color: 'rgba(245,243,238,0.72)' }}>{currentUser.email}</p>
           <button onClick={onLogout} style={{ background: 'none', border: '1px solid rgba(255,255,255,0.25)', borderRadius: 2, padding: '0.35rem 0.75rem', color: 'rgba(245,243,238,0.65)', fontFamily: 'var(--font-body)', fontSize: '0.75rem', cursor: 'pointer', width: '100%' }}>Cerrar sesión</button>
         </div>
       </aside>
