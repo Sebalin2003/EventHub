@@ -274,7 +274,7 @@ jobs:
       - name: Build & start full stack
         run: docker compose up -d --build --wait
 
-      - name: Run Playwright suite (5 critical + 3 responsive + 6 a11y)
+      - name: Run Playwright suite (6 critical + 3 responsive + 9 a11y)
         run: pnpm --filter @evenhub/web exec playwright test
 
       - name: Upload Playwright report

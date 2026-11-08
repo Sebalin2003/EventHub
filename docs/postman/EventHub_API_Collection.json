@@ -157,7 +157,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@eventhub.com\",\n  \"password\": \"PasswordSegura2026!\",\n  \"firstName\": \"Admin\",\n  \"lastName\": \"Duplicado\"\n}"
+              "raw": "{\n  \"email\": \"admin@eventhub.com.ar\",\n  \"password\": \"PasswordSegura2026!\",\n  \"firstName\": \"Admin\",\n  \"lastName\": \"Duplicado\"\n}"
             },
             "url": "{{baseUrl}}/auth/register"
           },
