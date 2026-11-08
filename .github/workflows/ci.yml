@@ -88,7 +88,13 @@ jobs:
           pnpm --filter api build
           pnpm --filter @evenhub/web build
 
-      - name: Eje B & Eje D - Unit, Domain & Security Tests with Coverage
+      - name: Eje B - Contrato OpenAPI publicado y versionado
+        run: |
+          pnpm --filter api openapi:export
+          git diff --exit-code docs/contracts/openapi.json
+          echo "Contrato OpenAPI sincronizado con apps/api/src/openapi.ts."
+
+      - name: Eje B & Eje D - Suite 3x sin flaky (unidad + E2E con DB y broker reales)
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -97,24 +103,130 @@ jobs:
           DB_DATABASE: evenhub
           RABBITMQ_URL: amqp://user:password@localhost:5672
           JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
-        run: pnpm --filter api test:cov
+        run: |
+          for run in 1 2 3; do
+            echo "=== Corrida ${run}/3 - unitarias y dominio con cobertura ==="
+            pnpm --filter api test:cov
+            echo "=== Corrida ${run}/3 - E2E e integracion real (PostgreSQL + RabbitMQ) ==="
+            pnpm --filter api test:e2e
+          done
+          echo "3 corridas consecutivas sin fallos: criterio anti-flaky cumplido."
 
-      - name: Coverage Report (informativo + baseline anti-regresion)
+      - name: Coverage Report (baseline anti-regresion 96/85)
         run: |
           node - <<'NODE'
           const summary = require('./apps/api/coverage/coverage-summary.json').total;
           const lines = summary.lines.pct;
           const branches = summary.branches.pct;
           console.log(`Cobertura real: lineas=${lines}% ramas=${branches}% funciones=${summary.functions.pct}%`);
-          console.log('Objetivo de catedra: lineas >= 80%, ramas >= 70% (todavia pendiente).');
-          if (lines < 73 || branches < 51) {
-            console.error('Regresion de cobertura respecto del baseline (73% lineas / 51% ramas).');
+          if (lines < 96 || branches < 85) {
+            console.error('Regresion de cobertura respecto del baseline (96% lineas / 85% ramas).');
             process.exit(1);
           }
-          console.log('Baseline anti-regresion OK.');
+          console.log('Criterio Eje B cumplido: lineas >= 80%, ramas >= 70% (medido: ' + lines + '/' + branches + ').');
           NODE
 
-      - name: Eje A - 5 Critical Automated Scenarios (E2E)
+      - name: Eje B - Levantar API contra PostgreSQL y RabbitMQ del pipeline
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_USERNAME: user
+          DB_PASSWORD: password
+          DB_DATABASE: evenhub
+          RABBITMQ_URL: amqp://user:password@localhost:5672
+          JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
+          PORT: 3000
+        run: |
+          mkdir -p apps/api/reports/newman
+          node apps/api/dist/main.js > apps/api/reports/api-newman.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -fsS http://localhost:3000/events > /dev/null; then
+              echo "API lista para Newman."
+              break
+            fi
+            sleep 1
+          done
+          curl -fsS http://localhost:3000/openapi.json > /dev/null
+
+      - name: Eje B - Postman/Newman (exito y error por endpoint)
+        run: |
+          npx -y newman@6 run docs/postman/EventHub_API_Collection.json \
+            --reporters cli,json \
+            --reporter-json-export apps/api/reports/newman/newman-report.json
+
+      - name: Eje B - Detener API
+        if: always()
+        run: pkill -f "apps/api/dist/main.js" || true
+
+      - name: Frontend Business Rules & UI Tests
+        run: pnpm --filter @evenhub/web test
+
+      - name: Upload coverage & Newman evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-testing-evidence
+          path: |
+            apps/api/coverage/
+            apps/api/reports/
+            apps/api/reports/api-newman.log
+          if-no-files-found: warn
+
+  mutation-testing:
+    name: Eje B - Mutation Testing (Stryker, score >= 60)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: evenhub
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      rabbitmq:
+        image: rabbitmq:3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: user
+          RABBITMQ_DEFAULT_PASS: password
+        ports:
+          - 5672:5672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build API
+        run: pnpm --filter api build
+
+      - name: Run Stryker (break bajo 60%)
         env:
           DB_HOST: localhost
           DB_PORT: 5432
@@ -123,17 +235,14 @@ jobs:
           DB_DATABASE: evenhub
           RABBITMQ_URL: amqp://user:password@localhost:5672
           JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
-        run: pnpm --filter api test:e2e
+        run: pnpm --filter api test:mutation
 
-      - name: Frontend Business Rules & UI Tests
-        run: pnpm --filter @evenhub/web test
-
-      - name: Upload coverage evidence
+      - name: Upload mutation report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: api-coverage
-          path: apps/api/coverage/
+          name: mutation-report
+          path: apps/api/reports/mutation/
           if-no-files-found: warn
 
   playwright-e2e:

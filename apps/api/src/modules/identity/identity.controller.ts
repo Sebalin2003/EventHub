@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards, ValidationPipe } from '@nestjs/common';
+import { Body, Controller, HttpCode, HttpStatus, Post, UseGuards, ValidationPipe } from '@nestjs/common';
 import { IdentityService } from './identity.service.js';
 import { RegisterDto, LoginDto } from './dto/auth.dto.js';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard.js';
@@ -13,6 +13,7 @@ export class IdentityController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   @UseGuards(RateLimiterGuard)
   login(@Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })) body: LoginDto) {
     return this.identity.login(body.email, body.password);

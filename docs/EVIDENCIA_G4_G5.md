@@ -1,6 +1,6 @@
 # Evidencia para G4 (Teams) y G5 (Jira)
 
-Estado al **07/11/2026**. Este archivo es una guía operativa: reúne qué subir a Teams, qué cargar en Jira y qué campos faltan completar con datos del equipo.
+Estado al **08/11/2026**. Este archivo es una guía operativa: reúne qué subir a Teams, qué cargar en Jira y qué campos faltan completar con datos del equipo.
 
 ---
 
@@ -10,7 +10,7 @@ Subir en la carpeta del equipo antes del **10/11/2026 a las 13:30**:
 
 | # | Archivo | Origen | Estado |
 |---|---|---|---|
-| 1 | `Clase15_GrupoEventHub_Testing.pdf` | Generado desde `docs/Clase15_GrupoEventHub_Testing.md` | **Listo** (16 páginas, ~720 KB) |
+| 1 | `Clase15_GrupoEventHub_Testing.pdf` | Generado desde `docs/Clase15_GrupoEventHub_Testing.md` | **Regenerar** con las cifras del Eje B |
 | 2 | `INFORME_CUMPLIMIENTO_TESTING.md` | Raíz del repo | Listo |
 | 3 | `coverage-report.zip` | `apps/api/coverage/` | Generar con `pnpm --filter api test:cov` |
 | 4 | `gitleaks-report.txt` | Salida de Gitleaks | Generar con el comando de abajo |
@@ -20,18 +20,26 @@ Subir en la carpeta del equipo antes del **10/11/2026 a las 13:30**:
 | 8 | `MANUAL_USUARIO.md` | `docs/` | Listo |
 | 9 | `PRUEBA_EXPLORATORIA.md` | `docs/` | Listo (sesión interna; falta registro del docente) |
 | 10 | `ci-run-url.txt` | URL del run de GitHub Actions sobre el tag | Listo: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
+| 11 | `newman-report.json` | `apps/api/reports/newman/` | Generar con el comando de abajo (96 requests / 176 aserciones) |
+| 12 | `mutation-report.zip` | `apps/api/reports/mutation/` | Generar con `pnpm --filter api test:mutation` (73,92%) |
+| 13 | `openapi.json` / `payments.wsdl` | `docs/contracts/` | **Listo** |
 
 Comandos para producir la evidencia:
 
 ```bash
 pnpm --filter api test:cov
+pnpm --filter api test:mutation
+pnpm --filter api build
+pnpm --filter api openapi:export
 docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.28.0 \
   detect --source /repo --config /repo/.gitleaks.toml --no-banner --redact --verbose \
   | tee gitleaks-report.txt
 docker compose up -d --build --wait
 docker compose ps | tee docker-compose-smoke.txt
-docker compose down -v --remove-orphans
 pnpm --filter @evenhub/web test:e2e
+node apps/api/dist/main.js &
+npx newman run docs/postman/EventHub_API_Collection.json --reporters cli,json \
+  --reporter-json-export apps/api/reports/newman/newman-report.json
 ```
 
 > El PDF debe ser **un único archivo**. No subir el `.md` como reemplazo del PDF; usarlo solo como fuente editable.
@@ -114,8 +122,8 @@ Pasos de reproducción y causa raíz: sección 5 de `docs/Clase15_GrupoEventHub_
 
 ## 3. Pendientes que no se pueden cerrar desde el repositorio local
 
-- ~~Crear y pushear el tag `v1.0-testing` sobre el commit final.~~ Hecho (`ea51030`).
-- ~~Ejecutar el workflow en GitHub sobre ese tag y guardar la URL del run.~~ En verde, incluido el job `playwright-e2e`.
+- ~~Crear y pushear el tag `v1.0-testing` sobre el commit final.~~ Hecho; el hash se consulta con `git rev-parse v1.0-testing`.
+- ~~Ejecutar el workflow en GitHub sobre ese tag y guardar la URL del run.~~ En verde, con los jobs `playwright-e2e` y `mutation-testing`.
 - ~~Generar el PDF único del entregable.~~ Hecho: `docs/Clase15_GrupoEventHub_Testing.pdf`.
 - Completar los campos **Responsable** de Jira.
 - Subir los archivos a Teams.

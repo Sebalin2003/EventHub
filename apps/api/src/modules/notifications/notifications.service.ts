@@ -56,11 +56,15 @@ export class NotificationsService {
     }
 
     // 3. Process valid message
-    const subject = messageType === 'order.created'
-      ? 'Confirmación de tu compra en EventHub'
-      : 'Nuevo evento publicado en EventHub';
-
-    const template = messageType === 'order.created' ? 'order-confirmation' : 'event-notification';
+    const templateByType: Record<string, { subject: string; template: string }> = {
+      'order.created': { subject: 'Confirmación de tu compra en EventHub', template: 'order-confirmation' },
+      'order.paid': { subject: 'Tus entradas están listas', template: 'order-paid' },
+      'event.created': { subject: 'Nuevo evento publicado en EventHub', template: 'event-notification' },
+    };
+    const { subject, template } = templateByType[messageType] ?? {
+      subject: `Notificación ${messageType}`,
+      template: messageType,
+    };
 
     const notification = this.notificationRepository.create({
       to: recipient,

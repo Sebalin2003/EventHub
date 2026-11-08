@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions
+  xmlns="http://schemas.xmlsoap.org/wsdl/"
+  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+  xmlns:tns="urn:eventhub:payments"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  name="PaymentGateway"
+  targetNamespace="urn:eventhub:payments">
+
+  <types>
+    <xsd:schema targetNamespace="urn:eventhub:payments" elementFormDefault="qualified">
+      <xsd:element name="ProcessPayment">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="orderId" type="xsd:string"/>
+            <xsd:element name="amount" type="xsd:decimal"/>
+            <xsd:element name="cardNumber" type="xsd:string"/>
+            <xsd:element name="cardHolder" type="xsd:string" minOccurs="0"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+
+      <xsd:element name="ProcessPaymentResponse">
+        <xsd:complexType>
+          <xsd:sequence>
+            <xsd:element name="approved" type="xsd:boolean"/>
+            <xsd:element name="transactionId" type="xsd:string"/>
+            <xsd:element name="authCode" type="xsd:string"/>
+            <xsd:element name="code" type="xsd:string"/>
+          </xsd:sequence>
+        </xsd:complexType>
+      </xsd:element>
+    </xsd:schema>
+  </types>
+
+  <message name="ProcessPaymentRequest">
+    <part name="parameters" element="tns:ProcessPayment"/>
+  </message>
+
+  <message name="ProcessPaymentResponse">
+    <part name="parameters" element="tns:ProcessPaymentResponse"/>
+  </message>
+
+  <portType name="PaymentGatewayPortType">
+    <operation name="ProcessPayment">
+      <input message="tns:ProcessPaymentRequest"/>
+      <output message="tns:ProcessPaymentResponse"/>
+    </operation>
+  </portType>
+
+  <binding name="PaymentGatewayBinding" type="tns:PaymentGatewayPortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http"/>
+    <operation name="ProcessPayment">
+      <soap:operation soapAction="urn:eventhub:payments/ProcessPayment"/>
+      <input><soap:body use="literal"/></input>
+      <output><soap:body use="literal"/></output>
+    </operation>
+  </binding>
+
+  <service name="PaymentGatewayService">
+    <port name="PaymentGatewayPort" binding="tns:PaymentGatewayBinding">
+      <soap:address location="http://localhost:4100/payments"/>
+    </port>
+  </service>
+</definitions>

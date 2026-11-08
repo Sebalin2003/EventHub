@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, Get, Body, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
 import { IsNumber, IsPositive, Matches } from 'class-validator';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { PaymentsService, PaymentRequest } from './payments.service.js';
@@ -17,6 +17,7 @@ export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post('process')
+  @HttpCode(HttpStatus.OK)
   async processPayment(@Body() body: PaymentRequest) {
     return this.paymentsService.processPayment(body);
   }

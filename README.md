@@ -4,7 +4,7 @@ Demo frontend de una plataforma para vender entradas y administrar eventos. Mant
 
 > **Estado:** el catálogo de eventos se carga desde el backend NestJS y PostgreSQL cuando están disponibles; compras, tickets, check-in y servicios externos continúan funcionando como demo local.
 
-> **CI:** [run verde sobre el tag `v1.0-testing`](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) — build, lint, typecheck, tests, cobertura, E2E y smoke Docker.
+> **CI:** [run verde sobre el tag `v1.0-testing`](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) — build, lint, typecheck, 3 corridas de tests, cobertura, contratos, Newman, E2E, smoke Docker y mutation testing.
 
 ## Perfiles de demostración
 
@@ -79,22 +79,29 @@ pnpm --filter @evenhub/web dev
 # 1. Pruebas unitarias, de dominio y seguridad con reporte de cobertura (Ejes B, D y E)
 pnpm --filter api test:cov
 
-# 2. Escenarios críticos automatizados (Eje A)
+# 2. E2E e integración real con PostgreSQL y RabbitMQ (Eje B y Eje C)
 pnpm --filter api test:e2e
 
 # 3. Pruebas de reglas de negocio en frontend
 pnpm --filter @evenhub/web test
 
-# 4. Compilación y chequeo estático
+# 4. Mutation testing de la capa de dominio
+pnpm --filter api test:mutation
+
+# 5. Contrato OpenAPI publicado y colección Postman
+pnpm --filter api openapi:export
+npx newman run docs/postman/EventHub_API_Collection.json
+
+# 6. Compilación y chequeo estático
 pnpm --filter api build
 pnpm --filter @evenhub/web build
 pnpm --filter @evenhub/web typecheck
 ```
 
-Estado real de la suite (medido el 06/11/2026):
-- **Eje A:** 6 pruebas E2E configuradas (5 escenarios críticos + smoke). Usan repositorios en memoria; el E2E HTTP real contra PostgreSQL/RabbitMQ sigue pendiente.
-- **Eje B:** 89 pruebas de API y 8 de frontend, todas verdes. Cobertura real: **74,19% de líneas / 52,29% de ramas** (por debajo del 80%/70% exigido). Builds y lint correctos.
-- **Eje C:** mapeo de SOAP Faults (sin XML crudo), timeout de 5s, Circuit Breaker, consumidor AMQP idempotente y DLQ a nivel de servicio. La integración con broker/DB reales y k6 siguen pendientes.
+Estado real de la suite (medido el 08/11/2026):
+- **Eje A:** 18 pruebas Playwright contra el stack Docker (6 críticas, 3 responsive y 9 de accesibilidad), axe sin violaciones critical/serious y Lighthouse 100/100. Además, 28 tests E2E de API.
+- **Eje B:** 220 pruebas de API y 8 de frontend, todas verdes. Cobertura real: **96,21% de líneas / 85,34% de ramas**. Mutation score **73,92%** con Stryker. Integración real con PostgreSQL y RabbitMQ (13 tests), contratos OpenAPI/WSDL, Newman con 96 requests / 176 aserciones y 3 corridas consecutivas sin fallos.
+- **Eje C:** mapeo de SOAP Faults (sin XML crudo), timeout de 5s, Circuit Breaker, consumidor AMQP idempotente y DLQ a nivel de servicio. La idempotencia HTTP, ETag y el consumo real de mensajes ya se verifican contra contenedores; DLQ real y k6 siguen pendientes.
 - **Eje D:** BOLA/IDOR, BFLA, JWT `alg=none`, rate limiting 429, scrypt y RFC 9457 Problem Details cubiertos por tests. Mass assignment, XSS y headers quedan como evidencia parcial.
 - **Eje E:** testing de IA (prompt injection, guardrails temáticos, sanitización PII y fallback).
 - **G6:** Gitleaks v8.28.0 sobre todo el historial, sin hallazgos.

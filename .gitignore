@@ -13,3 +13,7 @@ test-results/
 *.tsbuildinfo
 .DS_Store
 Thumbs.db
+
+# Artefactos de mutation testing (Stryker)
+.stryker-tmp/
+reports/

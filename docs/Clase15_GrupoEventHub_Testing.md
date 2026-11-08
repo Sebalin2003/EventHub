@@ -14,11 +14,13 @@
 - **Manual de usuario:** `docs/MANUAL_USUARIO.md`
 - **Prueba exploratoria:** `docs/PRUEBA_EXPLORATORIA.md`
 - **Tablero Jira:** Proyecto `EVH` (EventHub)
-- **SonarCloud:** no configurado; el CI usa cobertura real y baseline anti-regresión en su lugar.
-- **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (ejecución manual; Newman en CI pendiente)
+- **SonarCloud:** no configurado por falta de cuenta/token; el CI usa cobertura real, baseline anti-regresión y mutation testing en su lugar.
+- **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (96 requests / 176 aserciones, ejecutada con Newman 6 en CI)
+- **Contratos:** `docs/contracts/openapi.json` (OpenAPI 3.1) y `docs/contracts/payments.wsdl`, validados en E2E
+- **Mutation testing:** `apps/api/stryker.conf.json` (Stryker 10.1.1 + Vitest, score 73,92%)
 - **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (script versionado; ejecución y reporte pendientes)
 
-> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; el Eje A está implementado y verificado con Playwright, axe y Lighthouse, salvo la prueba del manual y la exploratoria del docente, que se ejecutan en clase. G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
+> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; el Eje A está implementado y verificado con Playwright, axe y Lighthouse, salvo la prueba del manual y la exploratoria del docente, que se ejecutan en clase. El Eje B está cerrado en cobertura, mutación, integración real, contratos, Newman y estabilidad, con la única excepción del Quality Gate de Sonar. G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
 
 ---
 
@@ -38,31 +40,35 @@
 
 ### 1.2 Niveles de Prueba
 1. **Pruebas Unitarias y de Dominio:** Cobertura de lógica de negocio, validaciones, factorías, estrategias criptográficas y máquina de estados (State Pattern).
-2. **Pruebas de Integración:** Verificación de repositorios TypeORM, consumidores AMQP de RabbitMQ y adaptadores de pasarela de pago.
-3. **Pruebas de Contrato y API:** colección Postman versionada con casos de éxito y error. La ejecución automatizada con Newman dentro del CI está pendiente.
-4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. Además se conservan 6 escenarios de integración lógica de API en `apps/api/test/`.
+2. **Pruebas de Integración:** verificación de repositorios TypeORM y suite dedicada contra PostgreSQL y RabbitMQ reales (`integration-real-deps.e2e-spec.ts`, 13 tests), además de consumidores AMQP y adaptadores de pasarela de pago.
+3. **Pruebas de Contrato y API:** OpenAPI 3.1 publicado en `GET /openapi.json`, WSDL de pagos y colección Postman versionada con casos de éxito y error por endpoint. La colección se ejecuta con Newman dentro del CI contra la API levantada con PostgreSQL y RabbitMQ reales.
+4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. La suite de API suma 28 tests E2E, incluida la integración real con DB y broker.
 5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial, smoke HTTP del stack Docker, Lighthouse de accesibilidad (100/100 desktop y mobile) y verificación de responsividad en tres viewports. Las pruebas de carga con k6, OWASP ZAP y los escaneos de dependencias están identificados pero todavía no ejecutados.
 
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
 - **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
-- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ, job de build/tests y cobertura, job `docker-reproducibility` que levanta el stack y job `playwright-e2e` que construye el stack, instala Chromium, corre la suite E2E/responsive/a11y y publica reportes. Ejecutado en verde sobre el tag `v1.0-testing` el 07/11/2026: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
+- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ. El job `build-and-test` ejecuta Gitleaks, lint, typecheck, builds, validación de contrato OpenAPI, 3 corridas de suite, baseline de cobertura y Newman. Los jobs paralelos cubren Docker Compose, Playwright E2E/responsive/a11y y mutation testing. Ejecutado en verde sobre el tag `v1.0-testing` el 07/11/2026: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
 - **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, 3 warnings no bloqueantes) e infraestructura Docker levantando en menos de 15 minutos.
-- **Criterios de Salida (estado al 07/11/2026):**
+- **Criterios de Salida (estado al 08/11/2026):**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
-  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose y Playwright E2E.
+  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose, Playwright E2E y mutation testing.
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
-  - Suites verdes: 89 pruebas de API, 6 escenarios de integración E2E de API, 8 de frontend y 18 de Playwright contra el stack real (121 en total).
+  - Suites verdes: 220 pruebas de API, 28 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (274 en total).
   - Eje A: 43/43 criterios Gherkin verificados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
-  - Cobertura real de API: **74,19% de líneas** y **52,29% de ramas**. Por debajo de los umbrales de 80% / 70%; se mantiene como brecha y como baseline anti-regresión del CI.
-  - Mutation testing: **no configurado**, sin reporte de mutation score.
+  - Cobertura real de API: **96,21% de líneas** y **85,34% de ramas**. Umbrales de 80% / 70% configurados en Vitest y baseline anti-regresión de 96% / 85% en CI.
+  - Mutation testing: **73,92%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
+  - Integración real: 13 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks.
+  - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
+  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; medición local de 2,44 minutos.
   - Defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) registrados en la sección 5.
   - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
   - G4 (Teams), G5 (Jira), G7 (demo), G8 (declaración de IA) y G9 (contraste final) quedan pendientes de ejecución externa.
+  - Quality Gate de Sonar: **no configurado** por falta de cuenta/token; no se declara cumplido.
 
 ### 1.5 Matriz de Riesgos Priorizados (Probabilidad × Impacto)
 | Id Riesgo | Descripción del Riesgo | Prob. (1-5) | Imp. (1-5) | Severidad (P×I) | Estrategia de Mitigación y Cobertura de Pruebas |
@@ -306,21 +312,24 @@ Además se verificaron: build de API correcto, build de web correcto, `oxlint` c
 | `identity.service.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `scrypt-hash.strategy.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `inventory.service.ts` | 92,47 | 80,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| `notifications.service.ts` | 96,66 | 69,56 | Líneas ≥ 80 / Ramas ≥ 70 | Ramas al límite |
+| `notifications.service.ts` | 96,66 | 71,42 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `order-state.ts` | 95,45 | 80,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| `ai.service.ts` | 82,05 | 72,72 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `ai.service.ts` | 82,50 | 72,72 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `check-in.controller.ts` | 100,00 | 80,95 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| `payments.service.ts` | 71,27 | 53,84 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
-| `tickets.service.ts` | 73,91 | 57,69 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
-| `orders.service.ts` | 44,35 | 18,98 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
-| `events.service.ts` | 47,82 | 38,88 | Líneas ≥ 80 / Ramas ≥ 70 | NO CUMPLE |
-| **Total API** | **74,19** | **52,29** | Líneas ≥ 80 / Ramas ≥ 70 | **NO CUMPLE** |
+| `payments.service.ts` | 95,09 | 87,93 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `tickets.service.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `orders.service.ts` | 100,00 | 91,13 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `events.service.ts` | 98,91 | 97,22 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| **Total API** | **96,21** | **85,34** | Líneas ≥ 80 / Ramas ≥ 70 | **CUMPLE** |
 
-La brecha se concentra en los servicios de órdenes, eventos y pagos, y en los DAO de TypeORM. El CI fija un baseline anti-regresión de 73% de líneas y 51% de ramas para impedir que la cobertura empeore mientras se cierra la brecha.
+La cobertura se elevó con tests reales sobre las ramas de negocio de órdenes, eventos, pagos, tickets, DAOs y factorías, sin excluir archivos del cálculo. El CI fija un baseline anti-regresión de 96% de líneas y 85% de ramas.
 
 ### 4.3 Pruebas de Mutación (Mutation Score)
-- **Estado:** no configuradas. El repositorio no incluye Stryker ni otra herramienta de mutación, por lo que **no existe un mutation score verificable**.
-- **Acción pendiente:** incorporar Stryker Mutator sobre `order-state.ts`, `inventory.service.ts` y `tickets.service.ts`, con umbral objetivo ≥ 60%.
+- **Herramienta:** Stryker Mutator 10.1.1 con runner de Vitest (`apps/api/stryker.conf.json`).
+- **Alcance:** `orders/state`, `orders.service.ts`, `payments.service.ts` y `tickets.service.ts`.
+- **Resultado:** **73,92% de mutation score** (mínimo exigido 60%, umbral `break: 60`). 460 mutantes killed, 2 timeout, 153 survived y 10 sin cobertura.
+- **Reporte:** `apps/api/reports/mutation/` (HTML + JSON), publicado como artefacto `mutation-report` del pipeline.
+- **Ejecución:** job `mutation-testing` en GitHub Actions, en paralelo al job principal.
 
 ### 4.4 Pruebas de Rendimiento y Carga (k6)
 - **Estado:** el script `load-tests/k6-load-test.js` está versionado y define 50 VUs durante 5 minutos con umbrales `p95 < 500 ms` y error < 1%.
@@ -428,18 +437,18 @@ Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado e
 
 ## 9. Conclusión del Aseguramiento de Calidad
 
-EventHub cuenta con una base de pruebas automatizadas real y reproducible: **121 pruebas verdes** (89 de API, 6 de integración E2E de API, 8 de frontend y 18 de Playwright contra el stack Docker real), builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
+EventHub cuenta con una base de pruebas automatizadas real y reproducible: **274 pruebas verdes** (220 de API, 28 E2E de API incluida la integración real con DB y broker, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 96,21% de líneas / 85,34% de ramas, mutation score de 73,92%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
 
 La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
 
 - **G1** está validado localmente, incluido el flujo crítico HTTP completo.
 - **G2** está validado: tag `v1.0-testing` publicado sobre el commit final.
-- **G3** está validado: CI en verde sobre el tag, incluido el job `playwright-e2e` ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
+- **G3** está validado: CI en verde sobre el tag, incluidos `playwright-e2e` y `mutation-testing` ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
 - **G6** está validado con Gitleaks v8.28.0 y una allowlist justificada.
 - **Eje A** está verificado: 43/43 criterios Gherkin, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px, axe sin violaciones critical/serious en 9 pantallas y Lighthouse Accessibility 100/100. La **prueba del manual** y la **prueba exploratoria del docente** quedan pendientes de ejecución en clase.
+- **Eje B** está verificado en todos sus criterios salvo el Quality Gate de Sonar (sin cuenta/token): cobertura 96,21% / 85,34%, mutation score 73,92%, 13 tests de integración real, contratos OpenAPI/WSDL, 96 requests de Newman y 3 corridas consecutivas sin fallos.
 - **G4** (Teams), **G5** (Jira), **G7** (demo), **G8** (declaración de IA) y **G9** (contraste final) dependen de acciones externas que deben completarse antes del 10/11/2026 a las 13:30.
-- La cobertura real es **74,19% de líneas / 52,29% de ramas**, por debajo del 80% / 70% exigido.
-- Mutation testing, k6, Newman, ZAP y el escaneo de dependencias siguen pendientes.
+- k6, ZAP, el escaneo de dependencias y el Quality Gate de Sonar siguen pendientes.
 - **EVH-108** queda abierto con severidad Menor y workaround documentado.
 
 El documento mantiene las brechas visibles en lugar de declararlas resueltas. Ese es el estado que debe acompañar al tag y al run de CI una vez publicados.

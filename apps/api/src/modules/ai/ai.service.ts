@@ -1,9 +1,20 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { IsBoolean, IsOptional, IsString } from 'class-validator';
 
 export class AiAdvisorRequest {
+  @IsString()
   prompt: string;
+
+  @IsOptional()
+  @IsString()
   userId?: string;
+
+  @IsOptional()
+  @IsString()
   categoryPreference?: string;
+
+  @IsOptional()
+  @IsBoolean()
   simulateTimeout?: boolean;
 }
 

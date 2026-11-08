@@ -3,6 +3,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller.js';
 import { AppService } from './app.service.js';
+import { OpenApiController } from './openapi.controller.js';
 import { IdentityModule } from './modules/identity/identity.module.js';
 import { EventsModule } from './modules/events/events.module.js';
 import { InventoryModule } from './modules/inventory/inventory.module.js';
@@ -47,7 +48,7 @@ import { NestModule, MiddlewareConsumer } from '@nestjs/common';
     NotificationsModule,
     AiModule,
   ],
-  controllers: [AppController],
+  controllers: [AppController, OpenApiController],
   providers: [AppService],
 })
 export class AppModule implements NestModule {

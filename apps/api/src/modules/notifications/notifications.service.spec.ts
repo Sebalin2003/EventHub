@@ -23,8 +23,21 @@ describe('NotificationsService (Eje C: Broker, Idempotencia y DLQ)', () => {
       expect(service.getProcessedCount()).toBe(1);
     });
 
-    it('debe descartar mensajes duplicados sin reprocesar ni duplicar registros', async () => {
-      const payload = { orderId: 'ord-100', userEmail: 'cliente@eventhub.com', total: 5000 };
+    it('persiste order.paid con su propia plantilla y asunto', async () => {
+      const res = await service.processIncomingMessage(
+        'order.paid',
+        { orderId: 'ord-paid', userEmail: 'cliente@eventhub.com' },
+        'msg-paid',
+      );
+
+      expect(res.status).toBe('PROCESSED');
+      expect(repo.create).toHaveBeenCalledWith(expect.objectContaining({
+        template: 'order-paid',
+        subject: 'Tus entradas están listas',
+      }));
+    });
+
+    it('debe descartar mensajes duplicados sin reprocesar ni duplicar registros', async () => {      const payload = { orderId: 'ord-100', userEmail: 'cliente@eventhub.com', total: 5000 };
 
       // Primer mensaje
       await service.processIncomingMessage('order.created', payload, 'msg-repeat');

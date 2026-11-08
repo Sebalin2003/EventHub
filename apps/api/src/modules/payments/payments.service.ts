@@ -1,11 +1,24 @@
 import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
+import { IsBoolean, IsNumber, IsOptional, IsPositive, IsString, Matches } from 'class-validator';
 import * as soap from 'soap';
 
 export class PaymentRequest {
+  @IsString()
   orderId: string;
+
+  @IsNumber()
+  @IsPositive()
   amount: number;
+
+  @Matches(/^[\d ]{12,23}$/, { message: 'cardNumber must contain 12 to 19 digits' })
   cardNumber: string;
+
+  @IsOptional()
+  @IsString()
   cardHolder?: string;
+
+  @IsOptional()
+  @IsBoolean()
   simulateTimeout?: boolean;
 }
 
@@ -57,11 +70,27 @@ export class SoapClientService implements OnModuleInit {
   }
 
   async sendSoapPayment(amount: number, card: string): Promise<{ status: 'OK' | 'ERROR' }> {
-    if (!this.client) {
-      this.logger.warn('SOAP Client is not initialized. Returning mock response.');
+    // Validacion local: mantiene la disponibilidad aun si el WSDL externo no responde.
+    if (!(amount > 0 && isValidCard(card))) {
+      return { status: 'ERROR' };
     }
+
+    const client: any = this.client;
+    const call = client?.processPaymentAsync ?? client?.ProcessPaymentAsync;
+
+    // Fallback explicito para entornos sin pasarela (tests unitarios / demo offline).
+    if (!call) {
+      this.logger.warn('SOAP Client is not initialized. Returning mock response.');
+      return { status: 'OK' };
+    }
+
     try {
-      return { status: amount > 0 && isValidCard(card) ? 'OK' : 'ERROR' };
+      const [response] = await call.call(client, {
+        orderId: `direct-${Date.now()}`,
+        amount,
+        cardNumber: card.replace(/\s+/g, ''),
+      });
+      return { status: response?.approved === false || response?.code === 'REJECTED' ? 'ERROR' : 'OK' };
     } catch (error) {
       this.logger.error('Error during SOAP call', error);
       return { status: 'ERROR' };
