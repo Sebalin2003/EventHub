@@ -7,8 +7,8 @@
 
 ### Enlaces del Entregable
 - **Repositorio GitHub:** [https://github.com/Sebalin2003/EventHub](https://github.com/Sebalin2003/EventHub)
-- **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega, incluido el Eje A)
-- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (build/tests, Docker y `playwright-e2e`; run verde sobre `v1.0-testing`, 07/11/2026)
+- **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega, incluidos el Eje A y el Eje B)
+- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (build/tests, mutación, Docker y `playwright-e2e`; 4 jobs en verde sobre `v1.0-testing`, 08/11/2026, duración total 5 min 06 s)
 - **Suite E2E / Responsive / Accesibilidad:** `apps/web/e2e/` (Playwright + axe-core, 18 pruebas verdes)
 - **Evidencia Lighthouse:** `docs/evidencias/lighthouse-home-desktop.json` y `docs/evidencias/lighthouse-home-mobile.json` (100/100 en Accessibility)
 - **Manual de usuario:** `docs/MANUAL_USUARIO.md`
@@ -48,7 +48,7 @@
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
 - **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
-- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ. El job `build-and-test` ejecuta Gitleaks, lint, typecheck, builds, validación de contrato OpenAPI, 3 corridas de suite, baseline de cobertura y Newman. Los jobs paralelos cubren Docker Compose, Playwright E2E/responsive/a11y y mutation testing. Ejecutado en verde sobre el tag `v1.0-testing` el 07/11/2026: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
+- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ. El job `build-and-test` ejecuta Gitleaks, lint, typecheck, builds, validación de contrato OpenAPI, 3 corridas de suite, baseline de cobertura y Newman. Los jobs paralelos cubren Docker Compose, Playwright E2E/responsive/a11y y mutation testing. Ejecutado en verde sobre el tag `v1.0-testing` el 08/11/2026 en 5 min 06 s: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
@@ -56,7 +56,7 @@
 - **Criterios de Salida (estado al 08/11/2026):**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
-  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose, Playwright E2E y mutation testing.
+  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose, Playwright E2E y mutation testing; duración total del run 5 min 06 s.
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
   - Suites verdes: 220 pruebas de API, 28 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (274 en total).
   - Eje A: 43/43 criterios Gherkin verificados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
@@ -64,7 +64,7 @@
   - Mutation testing: **73,92%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
   - Integración real: 13 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks.
   - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
-  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; medición local de 2,44 minutos.
+  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; medición local de 2,44 minutos y run completo de CI en 5 min 06 s.
   - Defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) registrados en la sección 5.
   - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
   - G4 (Teams), G5 (Jira), G7 (demo), G8 (declaración de IA) y G9 (contraste final) quedan pendientes de ejecución externa.
@@ -295,14 +295,14 @@ Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec
 
 ## 4. Informe de Ejecución y Métricas
 
-### 4.1 Resumen de Ejecución de Pruebas (medición local del 07/11/2026)
+### 4.1 Resumen de Ejecución de Pruebas (medición local del 08/11/2026)
 | Suite | Comando | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo |
 |---|---|:---:|:---:|:---:|:---:|:---:|
-| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test` | 89 | 89 | 0 | 0 | 16,42 s |
-| Escenarios críticos y smoke E2E de API | `pnpm --filter api test:e2e` | 6 | 6 | 0 | 0 | 7,70 s |
+| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 220 | 220 | 0 | 0 | 21,82 s |
+| Escenarios críticos e integración real (PostgreSQL + RabbitMQ) | `pnpm --filter api test:e2e` | 28 | 28 | 0 | 0 | 11,84 s |
 | Frontend (reglas de negocio) | `pnpm --filter @evenhub/web test` | 8 | 8 | 0 | 0 | 1,93 s |
 | E2E Playwright (críticos + responsive + a11y) | `pnpm --filter @evenhub/web test:e2e` | 18 | 18 | 0 | 0 | ~2 min |
-| **Total** | — | **121** | **121** | **0** | **0** | — |
+| **Total** | — | **274** | **274** | **0** | **0** | — |
 
 Además se verificaron: build de API correcto, build de web correcto, `oxlint` con 3 warnings no bloqueantes, typecheck de web correcto, Gitleaks sin hallazgos y Lighthouse Accessibility 100/100 en desktop y mobile.
 

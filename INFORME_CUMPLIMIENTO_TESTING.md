@@ -7,11 +7,11 @@ La aplicación cuenta con una base de pruebas automatizadas funcional: las suite
 El **Eje A está cerrado técnicamente** y el **Eje B quedó resuelto en todos los criterios verificables desde el repositorio**: cobertura por encima del umbral, mutation score superior al mínimo, integración con PostgreSQL y RabbitMQ reales, contratos OpenAPI/WSDL validados, colección Postman ejecutada con Newman y tres corridas consecutivas sin flaky. Quedan brechas que dependen de evidencia externa o de infraestructura que no está disponible en este entorno:
 
 - **Quality Gate de SonarQube/SonarCloud**: no hay cuenta ni token, por lo que no se declara cumplido.
-- ~~No existe el tag `v1.0-testing`.~~ Tag creado y publicado sobre el commit final (07/11/2026), reubicado para incluir el Eje A y el Eje B.
+- ~~No existe el tag `v1.0-testing`.~~ Tag creado y publicado sobre el commit final (08/11/2026), reubicado para incluir el Eje A y el Eje B.
 - La prueba del manual de usuario y la prueba exploratoria del docente siguen pendientes de ejecución en clase.
 - **EVH-108** (recarga en checkout, severidad Menor) queda abierto con workaround documentado.
 - Varias condiciones dependen de evidencias externas: Teams, Jira y demostración presencial.
-- El pipeline completo en GitHub Actions debe volver a ejecutarse sobre el tag final para confirmar en el runner la duración total y el verde con los nuevos pasos; la medición local de las tres corridas de suite fue de 2,44 minutos.
+- ~~El pipeline completo en GitHub Actions debe volver a ejecutarse sobre el tag final para confirmar en el runner la duración total y el verde con los nuevos pasos.~~ Ejecutado el 08/11/2026: los cuatro jobs terminaron en verde y la duración total del run fue de **5 min 06 s** (`build-and-test` 1 min 44 s; `mutation-testing` 5 min 04 s).
 
 ## Evidencia ejecutada
 
@@ -36,7 +36,7 @@ El **Eje A está cerrado técnicamente** y el **Eje B quedó resuelto en todos l
 | Typecheck del frontend | Correcto |
 | Oxlint | Correcto, con 3 warnings |
 | Gitleaks v8.28.0 sobre todo el historial | Sin hallazgos (`no leaks found`) |
-| CI sobre el tag `v1.0-testing` (incluye job `playwright-e2e`) | En verde: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
+| CI sobre el tag `v1.0-testing` (4 jobs: build/tests, mutación, Playwright y Docker) | En verde el 08/11/2026, duración total 5 min 06 s: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
 | `docker compose up -d --build --wait` | 4 contenedores `healthy` |
 | Smoke HTTP del flujo crítico | Login, evento, publicación, orden, pago, tickets y check-in OK |
 | Caída y recuperación de RabbitMQ | Publicación HTTP 201 con broker detenido; reconexión automática y API `healthy` |
@@ -127,7 +127,7 @@ La evidencia principal se encuentra en:
 - **Contratos**: OpenAPI 3.1 generado desde `apps/api/src/openapi.ts` y publicado en `GET /openapi.json`; el archivo `docs/contracts/openapi.json` se exporta y el CI verifica que no haya diferencias. `test/contract.e2e-spec.ts` valida respuestas reales contra los schemas con Ajv 2020-12 y `test/soap-contract.e2e-spec.ts` valida el WSDL de pagos contra un servidor SOAP real.
 - **Transiciones inválidas**: `refund`/`cancel` sobre estados no permitidos y doble check-in devuelven **409** con `application/problem+json`; ETag desactualizado devuelve **412**. Verificado en tests unitarios, E2E y en la colección Newman.
 - **Suite estable**: tres corridas consecutivas completas (unidad con cobertura + E2E) terminaron sin fallos: **220×3 tests unitarios** y **28×3 tests E2E**. Medición local: **2,44 minutos** para las tres corridas.
-- El job `build-and-test` mantiene un timeout de 15 minutos y ejecuta Gitleaks, lint, typecheck, builds, contrato, 3 corridas de suite, baseline de cobertura y Newman. La mutación corre en un job paralelo con timeout de 20 minutos.
+- El job `build-and-test` mantiene un timeout de 15 minutos y ejecuta Gitleaks, lint, typecheck, builds, contrato, 3 corridas de suite, baseline de cobertura y Newman. La mutación corre en un job paralelo con timeout de 20 minutos. En el run del 08/11/2026 el job principal tardó **1 min 44 s** y la mutación **5 min 04 s**, con una duración total de **5 min 06 s**.
 
 ### Incumplimientos
 
@@ -142,7 +142,7 @@ La evidencia principal se encuentra en:
 | API con casos de éxito y error | Requerida | 96 requests / 176 aserciones con Newman, 0 fallos | Cumple |
 | Pruebas de contrato OpenAPI/WSDL | Requerida | OpenAPI 3.1 + WSDL validados en E2E | Cumple |
 | Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos | Cumple |
-| Pipeline menor o igual a 15 minutos | Requerida | `build-and-test` con timeout de 15 min; 3 corridas locales en 2,44 min. La duración total debe confirmarse en el runner | Parcial |
+| Pipeline menor o igual a 15 minutos | Requerida | Run completo en 5 min 06 s (`build-and-test` 1:44, `mutation-testing` 5:04) | Cumple |
 
 ### Brecha pendiente
 
@@ -344,4 +344,4 @@ La clasificación actual es:
 | Eje E - IA | Parcialmente cumplido |
 | G1-G9 | G1, G2, G3 y G6 cumplidos; G4, G5, G7, G8 y G9 pendientes de evidencia externa |
 
-La aplicación tiene una base sólida, el Eje A y el Eje B están cerrados a nivel técnico y el pipeline está preparado para ejecutar toda la evidencia. **No debe presentarse como plenamente conforme hasta completar las evidencias externas (Teams, Jira, Sonar, demo y prueba del manual) y confirmar el verde del pipeline sobre el tag final.**
+La aplicación tiene una base sólida, el Eje A y el Eje B están cerrados a nivel técnico y el pipeline completo se ejecutó en verde sobre el tag final el 08/11/2026 en 5 min 06 s. **No debe presentarse como plenamente conforme hasta completar las evidencias externas (Teams, Jira, Sonar, demo y prueba del manual).**
