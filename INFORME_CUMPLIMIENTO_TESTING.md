@@ -17,17 +17,17 @@ El **Eje A está cerrado técnicamente**, el **Eje B quedó resuelto en todos lo
 
 | Verificación | Resultado |
 |---|---:|
-| Tests unitarios/dominio/seguridad de API | 227 tests pasados |
+| Tests unitarios/dominio/seguridad de API | 253 tests pasados |
 | Tests del frontend | 8 tests pasados |
 | Escenarios críticos de integración E2E de API (5 archivos) | 37 tests pasados |
 | Integración real contra PostgreSQL + RabbitMQ | 17 tests pasados |
 | Contrato SOAP contra servidor real (WSDL, Faults y timeout) | 9 tests pasados |
-| Cobertura de líneas API | 93,66% |
-| Cobertura de ramas API | 77,83% |
-| Mutation score (Stryker 10.1.1 + Vitest) | 73,92% (460 killed, 2 timeout, 153 survived, 10 no coverage) |
+| Cobertura de líneas API | 96,52% |
+| Cobertura de ramas API | 84,60% |
+| Mutation score (Stryker 10.1.1 + Vitest) | 76,23% (617 killed, 2 timeout, 184 survived, 9 no coverage) |
 | Colección Postman ejecutada con Newman 6 | 96 requests / 176 aserciones, 0 fallos |
 | Contratos OpenAPI 3.1 y WSDL | Validados contra el contrato publicado |
-| Corridas consecutivas de la suite (unidad + E2E) | 3/3 sin fallos (220×3 y 28×3 en la medición previa; 227 y 37 en la final) |
+| Corridas consecutivas de la suite (unidad + E2E) | 3/3 sin fallos (220×3 y 28×3 en la medición previa; 253 y 37 en la final) |
 | Carga k6 (50 VUs, 5 min, 3 endpoints) | p95 = 16,41 ms; error rate = 0,00%; 6.695 iteraciones |
 | E2E Playwright contra el stack Docker (críticos + responsive + a11y) | 18 tests pasados |
 | Responsive 360 / 768 / 1280 px | 3/3 PASA |
@@ -122,28 +122,28 @@ La evidencia principal se encuentra en:
 
 ### Cumplimientos observados
 
-- **Cobertura de líneas 93,66% y de ramas 77,83%** (91,46% de sentencias) sobre la capa de API, medidas con Vitest y `coverage-summary.json`. Los umbrales `lines: 80` y `branches: 70` están configurados en `apps/api/vitest.config.ts`, y el CI fija un baseline de 90% / 75% para detectar regresiones.
-- **Mutation testing con score 73,92%** (mínimo 60%) mediante Stryker 10.1.1 con runner de Vitest, acotado a `orders/state`, `orders.service`, `payments.service` y `tickets.service`. Resultado: 460 mutantes killed, 2 timeout, 153 survived y 10 sin cobertura. El umbral `break: 60` está en `apps/api/stryker.conf.json`.
+- **Cobertura de líneas 96,52% y de ramas 84,60%** (94,43% de sentencias) sobre la capa de API, medidas con Vitest y `coverage-summary.json`. Los umbrales `lines: 80` y `branches: 70` están configurados en `apps/api/vitest.config.ts`, y el CI fija un baseline de 90% / 75% para detectar regresiones.
+- **Mutation testing con score 76,23%** (mínimo 60%) mediante Stryker 10.1.1 con runner de Vitest, acotado a `orders/state`, `orders.service`, `payments.service` y `tickets.service`. Resultado: 617 mutantes killed, 2 timeout, 184 survived y 9 sin cobertura. El umbral `break: 60` está en `apps/api/stryker.conf.json`.
 - **Integración real con PostgreSQL y RabbitMQ**: `apps/api/test/integration-real-deps.e2e-spec.ts` levanta el `AppModule` completo contra los contenedores reales (sin mocks) y cubre login, catálogo, orden con idempotencia, ETag, `409`/`412`, pago, emisión de tickets, check-in, favoritos, IA, `/openapi.json` y consumo real de `event.created`/`order.paid` persistido en `notifications`.
 - **Colección Postman versionada** (`docs/postman/EventHub_API_Collection.json`) con **96 requests y 176 aserciones**, casos de éxito y error por endpoint, ejecutada con **Newman 6** contra la API real: 0 fallos. El pipeline la corre en el paso `Eje B - Postman/Newman`.
 - **Contratos**: OpenAPI 3.1 generado desde `apps/api/src/openapi.ts` y publicado en `GET /openapi.json`; el archivo `docs/contracts/openapi.json` se exporta y el CI verifica que no haya diferencias. `test/contract.e2e-spec.ts` valida respuestas reales contra los schemas con Ajv 2020-12 y `test/soap-contract.e2e-spec.ts` valida el WSDL de pagos contra un servidor SOAP real.
 - **Transiciones inválidas**: `refund`/`cancel` sobre estados no permitidos y doble check-in devuelven **409** con `application/problem+json`; ETag desactualizado devuelve **412**. Verificado en tests unitarios, E2E y en la colección Newman.
-- **Suite estable**: tres corridas consecutivas completas (unidad con cobertura + E2E) terminaron sin fallos en la medición previa (220×3 unitarios y 28×3 E2E). La medición final de cierre es 227 unitarios y 37 E2E, todos verdes. Medición local: **2,44 minutos** para las tres corridas.
+- **Suite estable**: tres corridas consecutivas completas (unidad con cobertura + E2E) terminaron sin fallos en la medición previa (220×3 unitarios y 28×3 E2E). La medición final de cierre es 253 unitarios y 37 E2E, todos verdes. Medición local: **2,44 minutos** para las tres corridas.
 - El job `build-and-test` mantiene un timeout de 15 minutos y ejecuta Gitleaks, lint, typecheck, builds, contrato, 3 corridas de suite, baseline de cobertura y Newman. La mutación corre en un job paralelo con timeout de 20 minutos. En el run del 08/11/2026 el job principal tardó **1 min 44 s** y la mutación **5 min 04 s**, con una duración total de **5 min 06 s**.
 
 ### Incumplimientos
 
 | Criterio | Mínimo | Resultado | Estado |
 |---|---:|---:|---|
-| Cobertura de líneas | 80% | 93,66% | Cumple |
-| Cobertura de ramas | 70% | 77,83% | Cumple |
-| Mutation score | 60% | 73,92% | Cumple |
+| Cobertura de líneas | 80% | 96,52% | Cumple |
+| Cobertura de ramas | 70% | 84,60% | Cumple |
+| Mutation score | 60% | 76,23% | Cumple |
 | Quality Gate SonarQube/SonarCloud | Aprobado | No configurado (sin cuenta ni token) | No cumple |
 | Integración con PostgreSQL real | Requerida | 17 tests de integración real contra el contenedor | Cumple |
 | Integración con RabbitMQ real | Requerida | Publicación y consumo real con persistencia en `notifications` | Cumple |
 | API con casos de éxito y error | Requerida | 96 requests / 176 aserciones con Newman, 0 fallos | Cumple |
 | Pruebas de contrato OpenAPI/WSDL | Requerida | OpenAPI 3.1 + WSDL validados en E2E | Cumple |
-| Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos (medición previa); 227 y 37 verdes en el cierre | Cumple |
+| Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos (medición previa); 253 y 37 verdes en el cierre | Cumple |
 | Pipeline menor o igual a 15 minutos | Requerida | Run completo en 5 min 06 s (`build-and-test` 1:44, `mutation-testing` 5:04) | Cumple |
 
 ### Brecha pendiente
@@ -152,8 +152,8 @@ El único criterio del Eje B que no puede declararse cumplido desde este entorno
 
 ### Acciones necesarias
 
-1. ~~Incorporar tests para las ramas no cubiertas.~~ Hecho: 93,66% líneas / 77,83% ramas.
-2. ~~Configurar mutation testing sobre la capa de dominio.~~ Hecho: Stryker con score 73,92%.
+1. ~~Incorporar tests para las ramas no cubiertas.~~ Hecho: 96,52% líneas / 84,60% ramas.
+2. ~~Configurar mutation testing sobre la capa de dominio.~~ Hecho: Stryker con score 76,23%.
 3. Configurar el Quality Gate real de SonarQube/SonarCloud con token del repositorio.
 4. ~~Agregar integración con PostgreSQL y RabbitMQ reales.~~ Hecho: suite dedicada de 17 tests.
 5. ~~Ejecutar Newman en CI sobre la colección Postman.~~ Hecho: 96 requests en el pipeline.
@@ -303,8 +303,8 @@ Al recargar la página en el paso **Medio de pago**, la aplicación vuelve al in
 
 ### Prioridad alta
 
-1. ~~Elevar la cobertura a mínimo 80% de líneas y 70% de ramas.~~ Hecho: 93,66% / 77,83%.
-2. ~~Agregar mutation testing con score mínimo de 60%.~~ Hecho: 73,92%.
+1. ~~Elevar la cobertura a mínimo 80% de líneas y 70% de ramas.~~ Hecho: 96,52% / 84,60%.
+2. ~~Agregar mutation testing con score mínimo de 60%.~~ Hecho: 76,23%.
 3. ~~Ejecutar Newman en CI.~~ Hecho: 96 requests / 176 aserciones.
 4. ~~Crear pruebas de integración dedicadas con PostgreSQL y RabbitMQ reales.~~ Hecho: 17 tests.
 5. Configurar el Quality Gate de SonarQube/SonarCloud.

@@ -17,7 +17,7 @@
 - **SonarCloud:** no configurado por falta de cuenta/token; el CI usa cobertura real, baseline anti-regresión y mutation testing en su lugar.
 - **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (96 requests / 176 aserciones, ejecutada con Newman 6 en CI)
 - **Contratos:** `docs/contracts/openapi.json` (OpenAPI 3.1) y `docs/contracts/payments.wsdl`, validados en E2E
-- **Mutation testing:** `apps/api/stryker.conf.json` (Stryker 10.1.1 + Vitest, score 73,92%)
+- **Mutation testing:** `apps/api/stryker.conf.json` (Stryker 10.1.1 + Vitest, score 76,23%)
 - **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (50 VUs, 5 min y 3 endpoints críticos; ejecutado con `grafana/k6`, reporte en `docs/evidencias/k6-summary.json`)
 
 > **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; el Eje A está implementado y verificado con Playwright, axe y Lighthouse, salvo la prueba del manual y la exploratoria del docente, que se ejecutan en clase. El Eje B está cerrado en cobertura, mutación, integración real, contratos, Newman y estabilidad, con la única excepción del Quality Gate de Sonar. El **Eje C está cerrado** con SOAP real, timeout y circuit breaker, outbox, caída/recovery del broker, consumidor idempotente, DLQ real con reproceso, compensación, idempotencia HTTP, ETag/412, Problem Details y carga k6 medida. G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
@@ -58,10 +58,10 @@
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
   - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose, Playwright E2E, mutation testing y carga k6; duración total del run dentro de los 15 minutos.
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
-  - Suites verdes: 227 pruebas de API, 37 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (290 en total).
+  - Suites verdes: 253 pruebas de API, 37 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (316 en total).
   - Eje A: 43/43 criterios Gherkin verificados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
-  - Cobertura real de API: **93,66% de líneas** y **77,83% de ramas** (91,46% de sentencias). Umbrales de 80% / 70% configurados en Vitest y baseline anti-regresión de 90% / 75% en CI.
-  - Mutation testing: **73,92%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
+  - Cobertura real de API: **96,52% de líneas** y **84,60% de ramas** (94,43% de sentencias). Umbrales de 80% / 70% configurados en Vitest y baseline anti-regresión de 90% / 75% en CI.
+  - Mutation testing: **76,23%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
   - Integración real: 17 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks, más 9 tests contra un servidor SOAP real.
   - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
   - Eje C: caída y recuperación de RabbitMQ sin pérdida (`docs/evidencias/broker-recovery.json`), DLQ real con `x-death` y reproceso, consumidor idempotente, compensación y outbox transaccional. Carga k6: **p95 = 16,41 ms**, **error rate = 0,00%** y 6.695 iteraciones (`docs/evidencias/k6-summary.json`).
@@ -299,12 +299,12 @@ Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec
 ### 4.1 Resumen de Ejecución de Pruebas (medición local del 08/11/2026)
 | Suite | Comando | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo |
 |---|---|:---:|:---:|:---:|:---:|:---:|
-| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 227 | 227 | 0 | 0 | 28,06 s |
+| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 253 | 253 | 0 | 0 | 16,75 s |
 | Escenarios críticos, integración real (PostgreSQL + RabbitMQ) y SOAP | `pnpm --filter api test:e2e` | 37 | 37 | 0 | 0 | 13,93 s |
 | Frontend (reglas de negocio) | `pnpm --filter @evenhub/web test` | 8 | 8 | 0 | 0 | 1,93 s |
 | E2E Playwright (críticos + responsive + a11y) | `pnpm --filter @evenhub/web test:e2e` | 18 | 18 | 0 | 0 | ~2 min |
 | Carga k6 (50 VUs, 5 min, 3 endpoints) | `grafana/k6 run load-tests/k6-load-test.js` | 6.695 iteraciones | 6.695 | 0 | 0 | 5 min 02 s |
-| **Total** | — | **290 pruebas + 6.695 iteraciones** | **todas** | **0** | **0** | — |
+| **Total** | — | **316 pruebas + 6.695 iteraciones** | **todas** | **0** | **0** | — |
 
 Además se verificaron: build de API correcto, build de web correcto, `oxlint` con 3 warnings no bloqueantes, typecheck de web correcto, Gitleaks sin hallazgos y Lighthouse Accessibility 100/100 en desktop y mobile.
 
@@ -318,20 +318,20 @@ Además se verificaron: build de API correcto, build de web correcto, `oxlint` c
 | `order-state.ts` | 95,45 | 80,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `ai.service.ts` | 82,50 | 72,72 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `check-in.controller.ts` | 100,00 | 80,95 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| `payments.service.ts` | 78,94 | 55,23 | Umbral global | Las ramas de SOAP real se ejercitan en `soap-contract.e2e-spec.ts` |
+| `payments.service.ts` | 100,00 | 93,33 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `tickets.service.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `orders.service.ts` | 98,42 | 90,12 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `events.service.ts` | 97,91 | 95,94 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `outbox.service.ts` | 97,22 | 70,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `broker-topology.service.ts` | 92,85 | 47,36 | Umbral global | Las ramas 406 se ejercitan contra RabbitMQ real |
-| **Total API** | **93,66** | **77,83** | Líneas ≥ 80 / Ramas ≥ 70 | **CUMPLE** |
+| **Total API** | **96,52** | **84,60** | Líneas ≥ 80 / Ramas ≥ 70 | **CUMPLE** |
 
-La cobertura se elevó con tests reales sobre las ramas de negocio de órdenes, eventos, pagos, tickets, DAOs y factorías, sin excluir archivos del cálculo. La incorporación de los módulos de resiliencia (outbox y topología DLQ) amplió el denominador y explica la variación respecto de la medición anterior. El CI fija un baseline anti-regresión de 90% de líneas y 75% de ramas, por encima de los umbrales de la cátedra.
+La cobertura se elevó con tests reales sobre las ramas de negocio de órdenes, eventos, pagos, tickets, DAOs y factorías, sin excluir archivos del cálculo. Los tests unitarios de `SoapClientService` (validación, respuestas de la pasarela, Faults v1.1/v1.2, sanitización y timeout) llevaron `payments.service.ts` a 100% de líneas y 93,33% de ramas. El CI fija un baseline anti-regresión de 90% de líneas y 75% de ramas, por encima de los umbrales de la cátedra.
 
 ### 4.3 Pruebas de Mutación (Mutation Score)
 - **Herramienta:** Stryker Mutator 10.1.1 con runner de Vitest (`apps/api/stryker.conf.json`).
 - **Alcance:** `orders/state`, `orders.service.ts`, `payments.service.ts` y `tickets.service.ts`.
-- **Resultado:** **73,92% de mutation score** (mínimo exigido 60%, umbral `break: 60`). 460 mutantes killed, 2 timeout, 153 survived y 10 sin cobertura.
+- **Resultado:** **76,23% de mutation score** (mínimo exigido 60%, umbral `break: 60`). 617 mutantes killed, 2 timeout, 184 survived y 9 sin cobertura.
 - **Reporte:** `apps/api/reports/mutation/` (HTML + JSON), publicado como artefacto `mutation-report` del pipeline.
 - **Ejecución:** job `mutation-testing` en GitHub Actions, en paralelo al job principal.
 
@@ -443,7 +443,7 @@ Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado e
 
 ## 9. Conclusión del Aseguramiento de Calidad
 
-EventHub cuenta con una base de pruebas automatizadas real y reproducible: **290 pruebas verdes** (227 de API, 37 E2E de API incluida la integración real con DB/broker y el contrato SOAP, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 93,66% de líneas / 77,83% de ramas, mutation score de 73,92%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, prueba de carga k6 con p95 de 16,41 ms y 0,00% de errores, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
+EventHub cuenta con una base de pruebas automatizadas real y reproducible: **316 pruebas verdes** (253 de API, 37 E2E de API incluida la integración real con DB/broker y el contrato SOAP, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 96,52% de líneas / 84,60% de ramas, mutation score de 76,23%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, prueba de carga k6 con p95 de 16,41 ms y 0,00% de errores, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
 
 La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
 
@@ -452,7 +452,7 @@ La entrega **todavía no puede declararse conforme a la totalidad de los criteri
 - **G3** está validado: CI en verde sobre el tag, incluidos `playwright-e2e` y `mutation-testing` ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
 - **G6** está validado con Gitleaks v8.28.0 y una allowlist justificada.
 - **Eje A** está verificado: 43/43 criterios Gherkin, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px, axe sin violaciones critical/serious en 9 pantallas y Lighthouse Accessibility 100/100. La **prueba del manual** y la **prueba exploratoria del docente** quedan pendientes de ejecución en clase.
-- **Eje B** está verificado en todos sus criterios salvo el Quality Gate de Sonar (sin cuenta/token): cobertura 93,66% / 77,83%, mutation score 73,92%, 17 tests de integración real, contratos OpenAPI/WSDL, 96 requests de Newman y 3 corridas consecutivas sin fallos.
+- **Eje B** está verificado en todos sus criterios salvo el Quality Gate de Sonar (sin cuenta/token): cobertura 96,52% / 84,60%, mutation score 76,23%, 17 tests de integración real, contratos OpenAPI/WSDL, 96 requests de Newman y 3 corridas consecutivas sin fallos.
 - **Eje C** está cerrado con evidencia reproducible: SOAP real con Fault de negocio, Fault técnico y timeout de 5 s sin XML crudo, circuit breaker con fallback, outbox transaccional, caída y recuperación de RabbitMQ sin pérdida, consumidor idempotente, DLQ real con `x-death` y reproceso, compensación de pago rechazado, idempotencia HTTP, ETag/412, Problem Details y k6 con 50 VUs (p95 16,41 ms, 0,00% errores).
 - **G4** (Teams), **G5** (Jira), **G7** (demo), **G8** (declaración de IA) y **G9** (contraste final) dependen de acciones externas que deben completarse antes del 10/11/2026 a las 13:30.
 - ZAP, el escaneo de dependencias y el Quality Gate de Sonar siguen pendientes.
