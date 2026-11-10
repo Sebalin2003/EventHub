@@ -1,11 +1,19 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ClientProxy, Transport } from '@nestjs/microservices';
+import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservices';
+import * as amqp from 'amqplib';
 import { firstValueFrom } from 'rxjs';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { ProblemDetailsFilter } from '../src/common/filters/problem-details.filter.js';
+import { OutboxService } from '../src/common/broker/outbox.service.js';
+import { OutboxMessage } from '../src/common/broker/outbox-message.entity.js';
+import {
+  NOTIFICATIONS_DLQ,
+  NOTIFICATIONS_DLX,
+  NOTIFICATIONS_QUEUE,
+} from '../src/common/broker/broker.constants.js';
 import { validateContract } from './support/openapi-validator.js';
 
 /**
@@ -27,6 +35,8 @@ const API = () => app.getHttpServer();
 
 let app: INestApplication;
 let dataSource: DataSource;
+let amqpConnection: any;
+let amqpChannel: any;
 let attendeeToken: string;
 let staffToken: string;
 let attendeeEmail: string;
@@ -61,8 +71,13 @@ describe.sequential('Eje B - Integracion con PostgreSQL y RabbitMQ reales', () =
       transport: Transport.RMQ,
       options: {
         urls: [process.env.RABBITMQ_URL!],
-        queue: 'notifications_queue',
-        queueOptions: { durable: true },
+        queue: NOTIFICATIONS_QUEUE,
+        noAck: false,
+        queueOptions: {
+          durable: true,
+          deadLetterExchange: NOTIFICATIONS_DLX,
+          deadLetterRoutingKey: NOTIFICATIONS_DLQ,
+        },
       },
     });
 
@@ -71,9 +86,17 @@ describe.sequential('Eje B - Integracion con PostgreSQL y RabbitMQ reales', () =
     await app.listen(0);
 
     dataSource = app.get(DataSource);
+
+    amqpConnection = await amqp.connect(process.env.RABBITMQ_URL!, { timeout: 5000 });
+    amqpChannel = await amqpConnection.createChannel();
+    await amqpChannel.assertExchange(NOTIFICATIONS_DLX, 'direct', { durable: true });
+    await amqpChannel.assertQueue(NOTIFICATIONS_DLQ, { durable: true });
+    await amqpChannel.bindQueue(NOTIFICATIONS_DLQ, NOTIFICATIONS_DLX, NOTIFICATIONS_DLQ);
   }, 120000);
 
   afterAll(async () => {
+    await amqpChannel?.close().catch(() => undefined);
+    await amqpConnection?.close().catch(() => undefined);
     await app?.close();
   }, 120000);
 
@@ -282,6 +305,138 @@ describe.sequential('Eje B - Integracion con PostgreSQL y RabbitMQ reales', () =
     });
 
     expect(paid.id).toBeDefined();
+  }, 30000);
+
+  it('publica eventos por el outbox transaccional y los marca como SENT', async () => {
+    const outbox = app.get(OutboxService);
+    const marker = `outbox-${Date.now()}@eventhub.com.ar`;
+
+    const message = await outbox.enqueue('event.created', {
+      id: `outbox-${Date.now()}`,
+      eventId: 'e1',
+      organizerEmail: marker,
+      title: 'Evento enviado por outbox',
+    });
+
+    const flush = await outbox.flush();
+    expect(flush.sent + flush.pending).toBeGreaterThanOrEqual(0);
+
+    const stored = await waitFor(async () => {
+      await outbox.flush();
+      const [row] = await dataSource.query(
+        'SELECT id, topic, status, "sentAt" FROM outbox_messages WHERE id = $1',
+        [message.id],
+      );
+      return row?.status === 'SENT' ? row : null;
+    }, 20000);
+
+    expect(stored.topic).toBe('event.created');
+    expect(stored.status).toBe('SENT');
+    expect(stored.sentAt).not.toBeNull();
+
+    const notification = await waitFor(async () => {
+      const rows = await dataSource.query(
+        'SELECT id FROM notifications WHERE "to" = $1 ORDER BY "createdAt" DESC LIMIT 1',
+        [marker],
+      );
+      return rows[0] ?? null;
+    });
+    expect(notification.id).toBeDefined();
+  }, 30000);
+
+  it('procesa una sola vez un mensaje duplicado en el consumidor real', async () => {
+    const client = app.get<ClientProxy>('NOTIFICATIONS_SERVICE');
+    const marker = `duplicado-${Date.now()}@eventhub.com.ar`;
+    const messageId = `dup-${Date.now()}`;
+
+    await firstValueFrom(client.emit('event.created', { id: messageId, eventId: 'e1', organizerEmail: marker }));
+    await waitFor(async () => {
+      const rows = await dataSource.query('SELECT id FROM notifications WHERE "to" = $1', [marker]);
+      return rows.length === 1 ? rows[0] : null;
+    });
+
+    // Se publica exactamente el mismo mensaje (mismo id) una segunda vez.
+    await firstValueFrom(client.emit('event.created', { id: messageId, eventId: 'e1', organizerEmail: marker }));
+    await new Promise(resolve => setTimeout(resolve, 1500));
+
+    const rows = await dataSource.query('SELECT id FROM notifications WHERE "to" = $1', [marker]);
+    expect(rows).toHaveLength(1);
+  }, 30000);
+
+  it('enruta un mensaje invalido a la DLQ real de RabbitMQ y permite reprocesarlo', async () => {
+    const client = app.get<ClientProxy>('NOTIFICATIONS_SERVICE');
+    const messageId = `dlq-${Date.now()}`;
+    const poisonPayload = { id: messageId, eventId: 'e1' };
+
+    await amqpChannel.purgeQueue(NOTIFICATIONS_DLQ);
+
+    // El servicio reintenta 3 veces y luego el controlador hace nack sin requeue.
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await firstValueFrom(client.emit('event.created', poisonPayload));
+      await new Promise(resolve => setTimeout(resolve, 400));
+    }
+
+    const dead = await waitFor(async () => {
+      const message = await amqpChannel.get(NOTIFICATIONS_DLQ, { noAck: true });
+      if (!message) return null;
+      const content = JSON.parse(message.content.toString());
+      const payload = content?.data ?? content;
+      return payload?.id === messageId ? message : null;
+    }, 20000);
+
+    expect(dead).not.toBeNull();
+    expect(dead.fields.exchange).toBe(NOTIFICATIONS_DLX);
+    expect(dead.properties.headers['x-death']).toBeDefined();
+    expect(dead.properties.headers['x-death'][0].queue).toBe(NOTIFICATIONS_QUEUE);
+
+    // Reproceso: el mismo mensaje, ahora con destinatario valido, se procesa.
+    const marker = `reproceso-${Date.now()}@eventhub.com.ar`;
+    await firstValueFrom(client.emit('event.created', { ...poisonPayload, organizerEmail: marker }));
+
+    const reprocessed = await waitFor(async () => {
+      const rows = await dataSource.query(
+        'SELECT id FROM notifications WHERE "to" = $1 ORDER BY "createdAt" DESC LIMIT 1',
+        [marker],
+      );
+      return rows[0] ?? null;
+    });
+    expect(reprocessed.id).toBeDefined();
+  }, 45000);
+
+  it('compensa la orden y libera el hold cuando el pago es rechazado', async () => {
+    const created = await request(API())
+      .post('/orders')
+      .set('Authorization', `Bearer ${attendeeToken}`)
+      .set('Idempotency-Key', `comp-${Date.now()}`)
+      .send({ items: [{ eventId: 'e1', ticketType: 'tt1a', quantity: 1 }] })
+      .expect(201);
+
+    const declined = await request(API())
+      .post(`/orders/${created.body.id}/pay`)
+      .set('Authorization', `Bearer ${attendeeToken}`)
+      .send({ card: '4111 1111 0340 01' })
+      .expect(402);
+
+    expect(declined.body.status).toBe(402);
+
+    const [order] = await dataSource.query('SELECT status FROM orders WHERE id = $1', [created.body.id]);
+    expect(order.status).toBe('cancelled');
+
+    const tickets = await dataSource.query('SELECT id FROM tickets WHERE "orderId" = $1', [created.body.id]);
+    expect(tickets).toHaveLength(0);
+
+    const paidMessages = await dataSource.query(
+      "SELECT id FROM outbox_messages WHERE topic = 'order.paid' AND payload->>'orderId' = $1",
+      [created.body.id],
+    );
+    expect(paidMessages).toHaveLength(0);
+
+    // El hold fue liberado: un segundo intento de pago ya no encuentra la orden pendiente.
+    await request(API())
+      .post(`/orders/${created.body.id}/pay`)
+      .set('Authorization', `Bearer ${attendeeToken}`)
+      .send({ card: '4111 1111 1111 1111' })
+      .expect(409);
   }, 30000);
 
   it('expone el contrato OpenAPI publicado en /openapi.json', async () => {

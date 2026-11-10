@@ -54,6 +54,28 @@ export function isValidCard(card: string): boolean {
   return sum % 10 === 0;
 }
 
+export type SoapFaultType = 'NONE' | 'BUSINESS_FAULT' | 'TECHNICAL_FAULT' | 'TIMEOUT';
+
+export interface SoapGatewayResult {
+  status: 'OK' | 'ERROR';
+  faultType: SoapFaultType;
+  code: string;
+  reason: string;
+  transactionId?: string;
+  authCode?: string;
+}
+
+const SOAP_TIMEOUT_MS = 5000;
+
+/** Quita cualquier XML crudo del mensaje antes de exponerlo al cliente. */
+export function sanitizeSoapMessage(message: unknown): string {
+  return String(message ?? '')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 200);
+}
+
 @Injectable()
 export class SoapClientService implements OnModuleInit {
   private readonly logger = new Logger(SoapClientService.name);
@@ -62,39 +84,159 @@ export class SoapClientService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      this.client = await soap.createClientAsync(this.wsdlUrl);
+      this.client = await soap.createClientAsync(this.wsdlUrl, {
+        wsdl_options: { timeout: SOAP_TIMEOUT_MS },
+      });
       this.logger.log('SOAP Client initialized successfully');
     } catch (error) {
       this.logger.warn(`SOAP WSDL unavailable (${(error as Error).message.split('\n')[0]}). Using mock gateway.`);
     }
   }
 
-  async sendSoapPayment(amount: number, card: string): Promise<{ status: 'OK' | 'ERROR' }> {
-    // Validacion local: mantiene la disponibilidad aun si el WSDL externo no responde.
-    if (!(amount > 0 && isValidCard(card))) {
-      return { status: 'ERROR' };
+  /** Indica si hay una pasarela SOAP real negociada por WSDL. */
+  isAvailable(): boolean {
+    const client: any = this.client;
+    return Boolean(client?.processPaymentAsync ?? client?.ProcessPaymentAsync);
+  }
+
+  /**
+   * Llama a la pasarela SOAP real con timeout de 5s y clasifica los Faults.
+   * Nunca propaga XML crudo ni stack traces: devuelve un resultado tipado.
+   */
+  async requestPayment(input: {
+    orderId: string;
+    amount: number;
+    cardNumber: string;
+    cardHolder?: string;
+  }): Promise<SoapGatewayResult> {
+    const card = input.cardNumber.replace(/\s+/g, '');
+
+    if (!(input.amount > 0 && isValidCard(card))) {
+      return {
+        status: 'ERROR',
+        faultType: 'BUSINESS_FAULT',
+        code: 'INVALID_CARD',
+        reason: 'Los datos de la tarjeta no son válidos.',
+      };
     }
 
     const client: any = this.client;
     const call = client?.processPaymentAsync ?? client?.ProcessPaymentAsync;
 
-    // Fallback explicito para entornos sin pasarela (tests unitarios / demo offline).
     if (!call) {
-      this.logger.warn('SOAP Client is not initialized. Returning mock response.');
-      return { status: 'OK' };
+      return {
+        status: 'ERROR',
+        faultType: 'TECHNICAL_FAULT',
+        code: 'GATEWAY_UNAVAILABLE',
+        reason: 'La pasarela de pagos no está configurada.',
+      };
     }
 
+    let timer: NodeJS.Timeout | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error('SOAP_GATEWAY_TIMEOUT')), SOAP_TIMEOUT_MS);
+      if (typeof timer.unref === 'function') timer.unref();
+    });
+
     try {
-      const [response] = await call.call(client, {
-        orderId: `direct-${Date.now()}`,
-        amount,
-        cardNumber: card.replace(/\s+/g, ''),
-      });
-      return { status: response?.approved === false || response?.code === 'REJECTED' ? 'ERROR' : 'OK' };
-    } catch (error) {
-      this.logger.error('Error during SOAP call', error);
-      return { status: 'ERROR' };
+      const [response] = await Promise.race([
+        call.call(client, {
+          orderId: input.orderId,
+          amount: input.amount,
+          cardNumber: card,
+          cardHolder: input.cardHolder,
+        }),
+        timeout,
+      ]);
+
+      const approved = response?.approved !== false && response?.code !== 'REJECTED';
+      if (!approved) {
+        return {
+          status: 'ERROR',
+          faultType: 'BUSINESS_FAULT',
+          code: response?.code || 'REJECTED',
+          reason: 'La pasarela rechazó la operación.',
+        };
+      }
+
+      return {
+        status: 'OK',
+        faultType: 'NONE',
+        code: response?.code || 'APPROVED',
+        reason: 'Pago aprobado por la pasarela SOAP.',
+        transactionId: response?.transactionId,
+        authCode: response?.authCode,
+      };
+    } catch (error: any) {
+      if (error?.message === 'SOAP_GATEWAY_TIMEOUT') {
+        this.logger.error(`SOAP timeout after ${SOAP_TIMEOUT_MS}ms for order ${input.orderId}`);
+        return {
+          status: 'ERROR',
+          faultType: 'TIMEOUT',
+          code: 'GATEWAY_TIMEOUT',
+          reason: 'La pasarela de pagos superó el tiempo máximo de espera (5s).',
+        };
+      }
+      const classified = this.classifyFault(error);
+      this.logger.warn(
+        `SOAP ${classified.faultType}: ${classified.faultCode} for order ${input.orderId}`,
+      );
+      return {
+        status: 'ERROR',
+        faultType: classified.faultType,
+        code: classified.faultType === 'BUSINESS_FAULT' ? 'SOAP_BUSINESS_FAULT' : 'SOAP_FAULT_TECHNICAL',
+        reason: classified.reason,
+      };
+    } finally {
+      if (timer) clearTimeout(timer);
     }
+  }
+
+  /** Mapea el Fault SOAP (v1.1 o v1.2) a negocio o técnico sin filtrar XML. */
+  private classifyFault(error: any): {
+    faultType: Exclude<SoapFaultType, 'NONE' | 'TIMEOUT'>;
+    faultCode: string;
+    reason: string;
+  } {
+    const fault =
+      error?.root?.Envelope?.Body?.Fault ??
+      error?.body?.Fault ??
+      error?.Fault ??
+      undefined;
+
+    const faultCode = String(
+      fault?.faultcode ?? fault?.Code?.Value ?? fault?.Code?.Subcode?.value ?? error?.code ?? 'SOAP_FAULT',
+    );
+    const faultString = sanitizeSoapMessage(
+      fault?.faultstring ?? fault?.Reason?.Text ?? error?.message ?? 'Fault SOAP sin detalle',
+    );
+
+    // Fault de negocio: el cliente envió datos inválidos o la operación fue rechazada.
+    const isBusiness = /Sender|Client|Business|Insufficient|Invalid|Expired|Rejected/i.test(
+      `${faultCode} ${faultString}`,
+    );
+
+    return {
+      faultType: isBusiness ? 'BUSINESS_FAULT' : 'TECHNICAL_FAULT',
+      faultCode: sanitizeSoapMessage(faultCode),
+      reason: faultString || 'La pasarela SOAP devolvió un fault.',
+    };
+  }
+
+  async sendSoapPayment(amount: number, card: string): Promise<{ status: 'OK' | 'ERROR' }> {
+    const result = await this.requestPayment({
+      orderId: `direct-${Date.now()}`,
+      amount,
+      cardNumber: card,
+    });
+
+    // Compatibilidad con entornos sin pasarela real (tests unitarios / demo offline).
+    if (result.code === 'GATEWAY_UNAVAILABLE') {
+      this.logger.warn('SOAP Client is not initialized. Returning mock response.');
+      return { status: isValidCard(card) && amount > 0 ? 'OK' : 'ERROR' };
+    }
+
+    return { status: result.status };
   }
 }
 
@@ -277,6 +419,38 @@ export class PaymentsService {
         reason: 'Falla temporal en el sistema central del procesador de pagos.',
         fallback: true,
         faultType: 'TECHNICAL_FAULT',
+      };
+    }
+
+    // Escenarios reales: si hay una pasarela SOAP negociada por WSDL, se usa.
+    if (this.soapClient?.isAvailable()) {
+      const gateway = await this.soapClient.requestPayment({
+        orderId: payment.orderId,
+        amount: payment.amount,
+        cardNumber: card,
+        cardHolder: payment.cardHolder,
+      });
+
+      if (gateway.status === 'OK') {
+        this.logger.log(
+          `SOAP Payment approved by gateway: ${gateway.transactionId} for amount $${payment.amount}`,
+        );
+        return {
+          success: true,
+          transactionId: gateway.transactionId ?? `SOAP-TX-${Date.now()}`,
+          authCode: gateway.authCode,
+          code: gateway.code,
+          reason: gateway.reason,
+          faultType: 'NONE',
+        };
+      }
+
+      return {
+        success: false,
+        code: gateway.code,
+        reason: gateway.reason,
+        fallback: gateway.faultType === 'TECHNICAL_FAULT' || gateway.faultType === 'TIMEOUT',
+        faultType: gateway.faultType,
       };
     }
 

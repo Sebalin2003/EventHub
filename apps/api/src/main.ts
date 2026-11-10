@@ -3,6 +3,12 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module.js';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ProblemDetailsFilter } from './common/filters/problem-details.filter.js';
+import {
+  NOTIFICATIONS_DLQ,
+  NOTIFICATIONS_DLX,
+  NOTIFICATIONS_QUEUE,
+  rabbitMqUrl,
+} from './common/broker/broker.constants.js';
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
@@ -47,10 +53,13 @@ async function bootstrap() {
     app.connectMicroservice<MicroserviceOptions>({
       transport: Transport.RMQ,
       options: {
-        urls: [process.env.RABBITMQ_URL || 'amqp://user:password@localhost:5672'],
-        queue: 'notifications_queue',
+        urls: [rabbitMqUrl()],
+        queue: NOTIFICATIONS_QUEUE,
+        noAck: false,
         queueOptions: {
           durable: true,
+          deadLetterExchange: NOTIFICATIONS_DLX,
+          deadLetterRoutingKey: NOTIFICATIONS_DLQ,
         },
       },
     });

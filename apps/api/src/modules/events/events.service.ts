@@ -18,6 +18,7 @@ import { AdminCreateEventDto, CreateEventDto, TicketTypeDto, UpdateEventDto } fr
 import { Event, EventStatus, EventTicketType } from './entities/event.entity.js';
 import { EventDao } from './event.dao.js';
 import { EventFactory } from './event.factory.js';
+import { OutboxService } from '../../common/broker/outbox.service.js';
 
 const GEOCODING_TIMEOUT_MS = 3000;
 
@@ -33,6 +34,7 @@ export class EventsService implements OnModuleInit {
     private readonly eventFactory: EventFactory,
     @Optional() @InjectRepository(User) userRepository?: Repository<User>,
     @Optional() @Inject('NOTIFICATIONS_SERVICE') client?: ClientProxy,
+    @Optional() private readonly outbox?: OutboxService,
   ) {
     if (userRepository && (userRepository as any).emit && !client) {
       this.client = userRepository as any;
@@ -135,13 +137,17 @@ export class EventsService implements OnModuleInit {
       ? await this.userRepository.findOne({ where: { id: organizerId } })
       : null;
 
-    if (this.client) {
-      this.client.emit('event.created', {
-        eventId: saved.id,
-        title: saved.title,
-        date: saved.date,
-        organizerEmail: organizer?.email,
-      });
+    const payload = {
+      eventId: saved.id,
+      title: saved.title,
+      date: saved.date,
+      organizerEmail: organizer?.email,
+    };
+
+    if (this.outbox) {
+      await this.outbox.enqueue('event.created', payload);
+    } else if (this.client) {
+      this.client.emit('event.created', payload);
     }
 
     return saved;

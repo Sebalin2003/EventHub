@@ -14,6 +14,7 @@ import { CheckInModule } from './modules/check-in/check-in.module.js';
 import { FavoritesModule } from './modules/favorites/favorites.module.js';
 import { NotificationsModule } from './modules/notifications/notifications.module.js';
 import { AiModule } from './modules/ai/ai.module.js';
+import { OutboxModule } from './common/broker/outbox.module.js';
 import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware.js';
 import { NestModule, MiddlewareConsumer } from '@nestjs/common';
 
@@ -37,6 +38,7 @@ import { NestModule, MiddlewareConsumer } from '@nestjs/common';
       }),
       inject: [ConfigService],
     }),
+    OutboxModule,
     IdentityModule, 
     EventsModule, 
     InventoryModule, 

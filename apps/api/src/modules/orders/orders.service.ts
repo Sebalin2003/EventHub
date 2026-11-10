@@ -23,6 +23,7 @@ import { EventStatus } from '../events/entities/event.entity.js';
 import { InventoryService } from '../inventory/inventory.service.js';
 import { PaymentsService } from '../payments/payments.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
+import { OutboxService } from '../../common/broker/outbox.service.js';
 
 export type Buyer = { sub: string; email: string };
 
@@ -43,7 +44,24 @@ export class OrdersService {
     @Optional() private readonly inventory?: InventoryService,
     @Optional() private readonly payments?: PaymentsService,
     @Optional() private readonly tickets?: TicketsService,
+    @Optional() private readonly outbox?: OutboxService,
   ) {}
+
+  /**
+   * Publica por outbox cuando esta disponible (no se pierde si el broker cae).
+   * En tests unitarios sin outbox conserva el emit directo historico.
+   */
+  private async publish(topic: string, payload: Record<string, unknown>) {
+    if (this.outbox) {
+      await this.outbox.enqueue(topic, payload);
+      return;
+    }
+    try {
+      this.rabbitClient.emit(topic, payload);
+    } catch (err) {
+      this.logger.warn(`Failed to emit ${topic} to broker: ${err}`);
+    }
+  }
 
   async create(
     buyerOrUserId: string | Buyer,
@@ -133,19 +151,15 @@ export class OrdersService {
 
     const savedOrder = await this.orderRepo.save(order);
 
-    // Emit order.created event to RabbitMQ
-    try {
-      this.rabbitClient.emit('order.created', {
-        orderId: savedOrder.id,
-        userId,
-        userEmail,
-        total: Number(savedOrder.total),
-        status: savedOrder.status,
-        expiresAt: holds[0]?.expiresAt,
-      });
-    } catch (err) {
-      this.logger.warn(`Failed to emit order.created to broker: ${err}`);
-    }
+    // Publicacion confiable: outbox transaccional o emit directo como fallback.
+    await this.publish('order.created', {
+      orderId: savedOrder.id,
+      userId,
+      userEmail,
+      total: Number(savedOrder.total),
+      status: savedOrder.status,
+      expiresAt: holds[0]?.expiresAt,
+    });
 
     this.logger.log(`Order created: ${savedOrder.id} for user ${userId}`);
     return savedOrder;
@@ -191,17 +205,13 @@ export class OrdersService {
       }
     }
 
-    try {
-      this.rabbitClient.emit('order.paid', {
-        orderId: order.id,
-        userId,
-        userEmail: buyer.email,
-        total: Number(order.total),
-        ticketCodes: tickets.map(ticket => ticket.code),
-      });
-    } catch (err) {
-      this.logger.warn(`Failed to emit order.paid: ${err}`);
-    }
+    await this.publish('order.paid', {
+      orderId: order.id,
+      userId,
+      userEmail: buyer.email,
+      total: Number(order.total),
+      ticketCodes: tickets.map(ticket => ticket.code),
+    });
 
     this.logger.log(`Order paid: ${order.id} (${tickets.length} tickets)`);
     return { ...order, tickets };

@@ -11,9 +11,17 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { TicketsModule } from '../tickets/tickets.module.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { OutboxModule } from '../../common/broker/outbox.module.js';
+import {
+  NOTIFICATIONS_DLQ,
+  NOTIFICATIONS_DLX,
+  NOTIFICATIONS_QUEUE,
+  rabbitMqUrl,
+} from '../../common/broker/broker.constants.js';
 
 @Module({
   imports: [
+    OutboxModule,
     IdentityModule,
     EventsModule,
     InventoryModule,
@@ -25,10 +33,13 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
         name: 'NOTIFICATIONS_SERVICE',
         transport: Transport.RMQ,
         options: {
-          urls: [process.env.RABBITMQ_URL || 'amqp://user:password@localhost:5672'],
-          queue: 'notifications_queue',
+          urls: [rabbitMqUrl()],
+          queue: NOTIFICATIONS_QUEUE,
+          persistent: true,
           queueOptions: {
             durable: true,
+            deadLetterExchange: NOTIFICATIONS_DLX,
+            deadLetterRoutingKey: NOTIFICATIONS_DLQ,
           },
         },
       },

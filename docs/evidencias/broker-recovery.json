@@ -1,0 +1,75 @@
+{
+  "test": "Eje C - caida y recuperacion del broker sin perdida de mensajes",
+  "startedAt": "2026-11-09T15:12:49.005Z",
+  "apiUrl": "http://localhost:3000",
+  "brokerContainer": "eventhub_broker",
+  "steps": [
+    {
+      "name": "API disponible antes de la prueba",
+      "at": "2026-11-09T15:12:49.077Z",
+      "status": 200
+    },
+    {
+      "name": "Login real contra PostgreSQL",
+      "at": "2026-11-09T15:12:49.160Z"
+    },
+    {
+      "name": "RabbitMQ detenido",
+      "at": "2026-11-09T15:12:51.748Z",
+      "container": "eventhub_broker"
+    },
+    {
+      "name": "Orden creada con el broker caido",
+      "at": "2026-11-09T15:12:51.797Z",
+      "orderId": "3289f15c-9d4d-49f9-bb88-5ae85771cdbd",
+      "httpStatus": 201
+    },
+    {
+      "name": "El evento queda persistido en el outbox como PENDING",
+      "at": "2026-11-09T15:12:51.837Z",
+      "id": "2f574819-783a-47e5-b783-b3741d42eb5b",
+      "status": "PENDING",
+      "attempts": 0
+    },
+    {
+      "name": "RabbitMQ levantado y healthy",
+      "at": "2026-11-09T15:13:04.415Z"
+    },
+    {
+      "name": "El dispatcher publica el evento solo y lo marca SENT",
+      "at": "2026-11-09T15:13:06.468Z",
+      "recoveryMs": 14631
+    },
+    {
+      "name": "El consumidor proceso el mensaje y persistio la notificacion",
+      "at": "2026-11-09T15:13:06.474Z",
+      "id": "52029a69-7521-495b-8cb8-a5bb4ffe4ab0",
+      "to": "maria@eventhub.com.ar",
+      "template": "order-confirmation"
+    }
+  ],
+  "brokerStoppedAt": "2026-11-09T15:12:51.748Z",
+  "orderId": "3289f15c-9d4d-49f9-bb88-5ae85771cdbd",
+  "httpStatusWithBrokerDown": 201,
+  "outboxWhileDown": {
+    "id": "2f574819-783a-47e5-b783-b3741d42eb5b",
+    "status": "PENDING",
+    "attempts": 0
+  },
+  "brokerStartedAt": "2026-11-09T15:12:52.436Z",
+  "outboxAfterRecovery": {
+    "id": "2f574819-783a-47e5-b783-b3741d42eb5b",
+    "status": "SENT",
+    "attempts": 7,
+    "sentAt": "2026-11-09T15:13:06.078Z"
+  },
+  "recoveryMs": 14631,
+  "notification": {
+    "id": "52029a69-7521-495b-8cb8-a5bb4ffe4ab0",
+    "to": "maria@eventhub.com.ar",
+    "template": "order-confirmation"
+  },
+  "result": "PASS",
+  "messageLoss": false,
+  "finishedAt": "2026-11-09T15:13:06.479Z"
+}

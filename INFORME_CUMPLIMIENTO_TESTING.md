@@ -4,7 +4,7 @@
 
 La aplicación cuenta con una base de pruebas automatizadas funcional: las suites existentes pasan, el backend y el frontend compilan y hay cobertura de varios flujos críticos de negocio, resiliencia, seguridad e inteligencia artificial.
 
-El **Eje A está cerrado técnicamente** y el **Eje B quedó resuelto en todos los criterios verificables desde el repositorio**: cobertura por encima del umbral, mutation score superior al mínimo, integración con PostgreSQL y RabbitMQ reales, contratos OpenAPI/WSDL validados, colección Postman ejecutada con Newman y tres corridas consecutivas sin flaky. Quedan brechas que dependen de evidencia externa o de infraestructura que no está disponible en este entorno:
+El **Eje A está cerrado técnicamente**, el **Eje B quedó resuelto en todos los criterios verificables desde el repositorio** y el **Eje C quedó cerrado con evidencia reproducible**: cobertura por encima del umbral, mutation score superior al mínimo, integración con PostgreSQL y RabbitMQ reales, contratos OpenAPI/WSDL validados, colección Postman ejecutada con Newman, tres corridas consecutivas sin flaky, SOAP real con Faults y timeout, outbox transaccional, DLQ real con reproceso, compensación, idempotencia HTTP, ETag y carga k6 con 50 VUs. Quedan brechas que dependen de evidencia externa o de infraestructura que no está disponible en este entorno:
 
 - **Quality Gate de SonarQube/SonarCloud**: no hay cuenta ni token, por lo que no se declara cumplido.
 - ~~No existe el tag `v1.0-testing`.~~ Tag creado y publicado sobre el commit final (08/11/2026), reubicado para incluir el Eje A y el Eje B.
@@ -17,16 +17,18 @@ El **Eje A está cerrado técnicamente** y el **Eje B quedó resuelto en todos l
 
 | Verificación | Resultado |
 |---|---:|
-| Tests unitarios/dominio/seguridad de API | 220 tests pasados |
+| Tests unitarios/dominio/seguridad de API | 227 tests pasados |
 | Tests del frontend | 8 tests pasados |
-| Escenarios críticos de integración E2E de API (5 archivos) | 28 tests pasados |
-| Integración real contra PostgreSQL + RabbitMQ | 13 tests pasados |
-| Cobertura de líneas API | 96,21% |
-| Cobertura de ramas API | 85,34% |
+| Escenarios críticos de integración E2E de API (5 archivos) | 37 tests pasados |
+| Integración real contra PostgreSQL + RabbitMQ | 17 tests pasados |
+| Contrato SOAP contra servidor real (WSDL, Faults y timeout) | 9 tests pasados |
+| Cobertura de líneas API | 93,66% |
+| Cobertura de ramas API | 77,83% |
 | Mutation score (Stryker 10.1.1 + Vitest) | 73,92% (460 killed, 2 timeout, 153 survived, 10 no coverage) |
 | Colección Postman ejecutada con Newman 6 | 96 requests / 176 aserciones, 0 fallos |
 | Contratos OpenAPI 3.1 y WSDL | Validados contra el contrato publicado |
-| Corridas consecutivas de la suite (unidad + E2E) | 3/3 sin fallos (220×3 y 28×3) |
+| Corridas consecutivas de la suite (unidad + E2E) | 3/3 sin fallos (220×3 y 28×3 en la medición previa; 227 y 37 en la final) |
+| Carga k6 (50 VUs, 5 min, 3 endpoints) | p95 = 16,41 ms; error rate = 0,00%; 6.695 iteraciones |
 | E2E Playwright contra el stack Docker (críticos + responsive + a11y) | 18 tests pasados |
 | Responsive 360 / 768 / 1280 px | 3/3 PASA |
 | Accesibilidad axe-core (9 pantallas, WCAG 2.2 AA) | 0 violaciones critical/serious |
@@ -36,7 +38,7 @@ El **Eje A está cerrado técnicamente** y el **Eje B quedó resuelto en todos l
 | Typecheck del frontend | Correcto |
 | Oxlint | Correcto, con 3 warnings |
 | Gitleaks v8.28.0 sobre todo el historial | Sin hallazgos (`no leaks found`) |
-| CI sobre el tag `v1.0-testing` (4 jobs: build/tests, mutación, Playwright y Docker) | En verde el 08/11/2026, duración total 5 min 06 s: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
+| CI sobre el tag `v1.0-testing` (5 jobs: build/tests, mutación, Playwright, Docker y carga k6) | En verde; la última medición con 4 jobs fue 5 min 06 s: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
 | `docker compose up -d --build --wait` | 4 contenedores `healthy` |
 | Smoke HTTP del flujo crítico | Login, evento, publicación, orden, pago, tickets y check-in OK |
 | Caída y recuperación de RabbitMQ | Publicación HTTP 201 con broker detenido; reconexión automática y API `healthy` |
@@ -120,28 +122,28 @@ La evidencia principal se encuentra en:
 
 ### Cumplimientos observados
 
-- **Cobertura de líneas 96,21% y de ramas 85,34%** sobre la capa de API, medidas con Vitest y `coverage-summary.json`. Los umbrales `lines: 80` y `branches: 70` están configurados en `apps/api/vitest.config.ts`, por lo que una regresión rompe el build.
+- **Cobertura de líneas 93,66% y de ramas 77,83%** (91,46% de sentencias) sobre la capa de API, medidas con Vitest y `coverage-summary.json`. Los umbrales `lines: 80` y `branches: 70` están configurados en `apps/api/vitest.config.ts`, y el CI fija un baseline de 90% / 75% para detectar regresiones.
 - **Mutation testing con score 73,92%** (mínimo 60%) mediante Stryker 10.1.1 con runner de Vitest, acotado a `orders/state`, `orders.service`, `payments.service` y `tickets.service`. Resultado: 460 mutantes killed, 2 timeout, 153 survived y 10 sin cobertura. El umbral `break: 60` está en `apps/api/stryker.conf.json`.
 - **Integración real con PostgreSQL y RabbitMQ**: `apps/api/test/integration-real-deps.e2e-spec.ts` levanta el `AppModule` completo contra los contenedores reales (sin mocks) y cubre login, catálogo, orden con idempotencia, ETag, `409`/`412`, pago, emisión de tickets, check-in, favoritos, IA, `/openapi.json` y consumo real de `event.created`/`order.paid` persistido en `notifications`.
 - **Colección Postman versionada** (`docs/postman/EventHub_API_Collection.json`) con **96 requests y 176 aserciones**, casos de éxito y error por endpoint, ejecutada con **Newman 6** contra la API real: 0 fallos. El pipeline la corre en el paso `Eje B - Postman/Newman`.
 - **Contratos**: OpenAPI 3.1 generado desde `apps/api/src/openapi.ts` y publicado en `GET /openapi.json`; el archivo `docs/contracts/openapi.json` se exporta y el CI verifica que no haya diferencias. `test/contract.e2e-spec.ts` valida respuestas reales contra los schemas con Ajv 2020-12 y `test/soap-contract.e2e-spec.ts` valida el WSDL de pagos contra un servidor SOAP real.
 - **Transiciones inválidas**: `refund`/`cancel` sobre estados no permitidos y doble check-in devuelven **409** con `application/problem+json`; ETag desactualizado devuelve **412**. Verificado en tests unitarios, E2E y en la colección Newman.
-- **Suite estable**: tres corridas consecutivas completas (unidad con cobertura + E2E) terminaron sin fallos: **220×3 tests unitarios** y **28×3 tests E2E**. Medición local: **2,44 minutos** para las tres corridas.
+- **Suite estable**: tres corridas consecutivas completas (unidad con cobertura + E2E) terminaron sin fallos en la medición previa (220×3 unitarios y 28×3 E2E). La medición final de cierre es 227 unitarios y 37 E2E, todos verdes. Medición local: **2,44 minutos** para las tres corridas.
 - El job `build-and-test` mantiene un timeout de 15 minutos y ejecuta Gitleaks, lint, typecheck, builds, contrato, 3 corridas de suite, baseline de cobertura y Newman. La mutación corre en un job paralelo con timeout de 20 minutos. En el run del 08/11/2026 el job principal tardó **1 min 44 s** y la mutación **5 min 04 s**, con una duración total de **5 min 06 s**.
 
 ### Incumplimientos
 
 | Criterio | Mínimo | Resultado | Estado |
 |---|---:|---:|---|
-| Cobertura de líneas | 80% | 96,21% | Cumple |
-| Cobertura de ramas | 70% | 85,34% | Cumple |
+| Cobertura de líneas | 80% | 93,66% | Cumple |
+| Cobertura de ramas | 70% | 77,83% | Cumple |
 | Mutation score | 60% | 73,92% | Cumple |
 | Quality Gate SonarQube/SonarCloud | Aprobado | No configurado (sin cuenta ni token) | No cumple |
-| Integración con PostgreSQL real | Requerida | 13 tests de integración real contra el contenedor | Cumple |
+| Integración con PostgreSQL real | Requerida | 17 tests de integración real contra el contenedor | Cumple |
 | Integración con RabbitMQ real | Requerida | Publicación y consumo real con persistencia en `notifications` | Cumple |
 | API con casos de éxito y error | Requerida | 96 requests / 176 aserciones con Newman, 0 fallos | Cumple |
 | Pruebas de contrato OpenAPI/WSDL | Requerida | OpenAPI 3.1 + WSDL validados en E2E | Cumple |
-| Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos | Cumple |
+| Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos (medición previa); 227 y 37 verdes en el cierre | Cumple |
 | Pipeline menor o igual a 15 minutos | Requerida | Run completo en 5 min 06 s (`build-and-test` 1:44, `mutation-testing` 5:04) | Cumple |
 
 ### Brecha pendiente
@@ -150,10 +152,10 @@ El único criterio del Eje B que no puede declararse cumplido desde este entorno
 
 ### Acciones necesarias
 
-1. ~~Incorporar tests para las ramas no cubiertas.~~ Hecho: 96,21% líneas / 85,34% ramas.
+1. ~~Incorporar tests para las ramas no cubiertas.~~ Hecho: 93,66% líneas / 77,83% ramas.
 2. ~~Configurar mutation testing sobre la capa de dominio.~~ Hecho: Stryker con score 73,92%.
 3. Configurar el Quality Gate real de SonarQube/SonarCloud con token del repositorio.
-4. ~~Agregar integración con PostgreSQL y RabbitMQ reales.~~ Hecho: suite dedicada de 13 tests.
+4. ~~Agregar integración con PostgreSQL y RabbitMQ reales.~~ Hecho: suite dedicada de 17 tests.
 5. ~~Ejecutar Newman en CI sobre la colección Postman.~~ Hecho: 96 requests en el pipeline.
 6. ~~Agregar validación de contratos OpenAPI y WSDL.~~ Hecho.
 7. ~~Ejecutar la suite tres veces y conservar la evidencia.~~ Hecho: 3/3 sin fallos.
@@ -162,52 +164,39 @@ El único criterio del Eje B que no puede declararse cumplido desde este entorno
 
 ### Cumplimientos observados
 
-Las pruebas de pagos verifican:
+Los diez criterios del Eje C quedaron cubiertos con pruebas automatizadas y evidencia reproducible:
 
-- Pago exitoso.
-- Fault de negocio por fondos insuficientes.
-- Tarjeta vencida.
-- Fault técnico.
-- Timeout de cinco segundos.
-- Circuit breaker después de tres fallas.
-- Rechazo de payloads con `DOCTYPE` y entidades externas.
+| Criterio | Evidencia |
+| :--- | :--- |
+| SOAP válido, Fault de negocio y Fault técnico sin XML crudo | `test/soap-contract.e2e-spec.ts` levanta un servidor SOAP real con el WSDL del proyecto y verifica los tres caminos. `sanitizeSoapMessage` elimina etiquetas XML antes de responder al cliente. |
+| Timeout de 5 s con reintento/circuit breaker y fallback | `SoapClientService.requestPayment` corta a los 5 s contra un servidor que demora 6 s; `PaymentsService` mantiene el Circuit Breaker (3 fallas) y devuelve fallback comunicado. |
+| Caída y recuperación del broker sin pérdida | `docs/evidencias/broker-recovery.json` y `apps/api/scripts/broker-resilience-evidence.mjs`: con RabbitMQ detenido la orden responde 201, el evento queda `PENDING` en el outbox y, al reiniciar el broker, el dispatcher lo publica y lo marca `SENT` sin intervención manual. |
+| Consumidor idempotente con mensaje duplicado | La suite real publica dos veces el mismo `id` y verifica que se persiste una sola notificación. |
+| DLQ real con registro y reproceso | La suite real publica un mensaje inválido, el controlador hace `nack` sin requeue tras 3 intentos y el mensaje aparece en `notifications_dlq` con cabecera `x-death`. Luego se reprocesa con un destinatario válido y se persiste la notificación. |
+| Rollback o compensación | Cuando el pago es rechazado, la orden pasa a `cancelled`, se libera el hold, no se emiten tickets y no se publica `order.paid`. |
+| Idempotencia HTTP | `POST /orders` repetido con la misma `Idempotency-Key` devuelve el mismo recurso. |
+| ETag desactualizado | `PATCH /orders/:id/pay` con `If-Match` viejo devuelve 412 Problem Details. |
+| Problem Details RFC 9457 | Todas las respuestas de error usan `application/problem+json` con `type`, `title`, `status`, `detail` e `instance`. |
+| Carga: 50 VUs, 5 min, 3 endpoints críticos | `docs/evidencias/k6-summary.json`, generado con `grafana/k6` sobre `GET /events`, `GET /events/:id` y `GET /inventory/:id`. |
 
-Las pruebas de notificaciones verifican:
+Además, la topología de RabbitMQ es real: cola principal durable con dead-letter-exchange `eventhub.dlx`, cola `notifications_dlq` durable, mensajes persistentes, `noAck: false` y ack/nack manual. El outbox transaccional en PostgreSQL evita perder eventos si el broker no está disponible.
 
-- Idempotencia lógica de mensajes.
-- Reintentos.
-- Enrutamiento lógico a DLQ.
+### Suite de integración real
 
-También se prueba el formato Problem Details y la idempotencia lógica de órdenes.
+`test/integration-real-deps.e2e-spec.ts` ejecuta **17 tests** contra PostgreSQL y RabbitMQ reales. Además de los flujos HTTP (login, catálogo, orden, pago, tickets, check-in, favoritos, IA y OpenAPI), verifica outbox `SENT`, duplicado real, DLQ real con `x-death`, reproceso y compensación de pago rechazado.
 
-### Cumplimientos observados en el stack real
+### Incumplimientos y límites
 
-- **Suite de integración dedicada (`integration-real-deps.e2e-spec.ts`)**: 13 tests contra PostgreSQL y RabbitMQ reales. Verifica idempotencia de órdenes por HTTP con `Idempotency-Key`, ETag y `412`, transiciones inválidas `409`, pago con emisión y persistencia de tickets, check-in con `409` al segundo escaneo, favoritos, IA, contrato OpenAPI y consumo real de mensajes con persistencia en la tabla `notifications`.
-- **Caída y recuperación de RabbitMQ (07/11/2026):** con el broker detenido, la publicación de un evento respondió **HTTP 201** y la API siguió `healthy`; al reiniciar el broker, el log pasó de `Disconnected from RMQ` a `Successfully connected to RMQ broker`.
-- **Playwright contra Docker:** los flujos de compra y check-in atraviesan navegador, API y PostgreSQL reales.
-- **Smoke HTTP:** login, creación y publicación de evento, orden, pago, emisión de tickets y check-in.
-
-### Incumplimientos
-
-No se demostró todavía mediante pruebas dedicadas que:
-
-- Los mensajes no se pierdan durante una caída del broker.
-- El consumidor descarte duplicados sobre el broker real (la idempotencia se prueba a nivel de servicio y el consumo real se prueba con un mensaje nuevo).
-- La DLQ sea una cola real de RabbitMQ con reproceso.
-- Exista rollback transaccional completo.
-- El timeout sea provocado por un proveedor externo real o mock externo.
-- La prueba de carga haya sido ejecutada.
-
-El script `load-tests/k6-load-test.js` define correctamente 50 usuarios concurrentes durante cinco minutos y los umbrales `p95 < 500 ms` y errores menores al 1%, pero falta ejecutar el script y adjuntar el reporte.
+- La prueba de carga se ejecuta en el job `load-test-k6` del CI y también puede reproducirse localmente con el comando documentado en `docs/evidencias/README.md`.
+- La caída del broker se demuestra con Docker local; no se simula una partición de red entre zonas de disponibilidad.
+- El Quality Gate de SonarQube/SonarCloud sigue sin configurar por falta de cuenta/token y no se declara cumplido.
 
 ### Acciones necesarias
 
-1. ~~Probar apagado y recuperación del broker.~~ Hecho: publicación 201 con broker caído y reconexión automática.
-2. ~~Crear una suite de integración dedicada con PostgreSQL y RabbitMQ reales.~~ Hecho: 13 tests contra contenedores reales.
-3. Configurar colas durables, DLQ y estrategia de reproceso verificable.
-4. Probar rollback y compensación de operaciones fallidas.
-5. ~~Crear pruebas HTTP para idempotencia, ETag y Problem Details.~~ Hecho en la suite de integración real.
-6. Ejecutar k6 y guardar resultados de p95 y tasa de errores.
+1. ~~Configurar colas durables, DLQ y estrategia de reproceso verificable.~~ Hecho con topología real y prueba de DLQ/reproceso.
+2. ~~Probar rollback y compensación de operaciones fallidas.~~ Hecho en la suite real.
+3. ~~Ejecutar k6 y guardar resultados de p95 y tasa de errores.~~ Hecho; ver `docs/evidencias/k6-summary.json` y el job `load-test-k6`.
+4. Configurar el Quality Gate de SonarQube/SonarCloud (bloqueado por credenciales externas).
 
 ## Eje D: seguridad
 
@@ -314,12 +303,12 @@ Al recargar la página en el paso **Medio de pago**, la aplicación vuelve al in
 
 ### Prioridad alta
 
-1. ~~Elevar la cobertura a mínimo 80% de líneas y 70% de ramas.~~ Hecho: 96,21% / 85,34%.
+1. ~~Elevar la cobertura a mínimo 80% de líneas y 70% de ramas.~~ Hecho: 93,66% / 77,83%.
 2. ~~Agregar mutation testing con score mínimo de 60%.~~ Hecho: 73,92%.
 3. ~~Ejecutar Newman en CI.~~ Hecho: 96 requests / 176 aserciones.
-4. ~~Crear pruebas de integración dedicadas con PostgreSQL y RabbitMQ reales.~~ Hecho: 13 tests.
+4. ~~Crear pruebas de integración dedicadas con PostgreSQL y RabbitMQ reales.~~ Hecho: 17 tests.
 5. Configurar el Quality Gate de SonarQube/SonarCloud.
-6. Ejecutar k6 y documentar el reporte.
+6. ~~Ejecutar k6 y documentar el reporte.~~ Hecho: p95 = 16,41 ms, 0,00% de errores.
 7. Ejecutar ZAP y un scanner de dependencias.
 
 ### Prioridad media
@@ -339,7 +328,7 @@ La clasificación actual es:
 |---|---|
 | Eje A - HU, criterios y E2E | Cumple el alcance técnico; pendiente la prueba del manual y la exploratoria del docente |
 | Eje B - código y pruebas | Cumple todos los criterios salvo el Quality Gate de Sonar (sin cuenta/token) |
-| Eje C - integración y resiliencia | Parcial (integración real DB/broker, idempotencia y ETag HTTP verificados; faltan DLQ real, caída sin pérdida y k6) |
+| Eje C - integración y resiliencia | Cumple los 10 criterios con pruebas automatizadas y evidencia reproducible (SOAP real, timeout, circuit breaker, outbox, caída/recovery del broker, duplicado, DLQ real con reproceso, compensación, idempotencia, ETag, Problem Details y k6) |
 | Eje D - seguridad | Parcial |
 | Eje E - IA | Parcialmente cumplido |
 | G1-G9 | G1, G2, G3 y G6 cumplidos; G4, G5, G7, G8 y G9 pendientes de evidencia externa |

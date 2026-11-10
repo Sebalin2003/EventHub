@@ -18,9 +18,9 @@
 - **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (96 requests / 176 aserciones, ejecutada con Newman 6 en CI)
 - **Contratos:** `docs/contracts/openapi.json` (OpenAPI 3.1) y `docs/contracts/payments.wsdl`, validados en E2E
 - **Mutation testing:** `apps/api/stryker.conf.json` (Stryker 10.1.1 + Vitest, score 73,92%)
-- **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (script versionado; ejecución y reporte pendientes)
+- **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (50 VUs, 5 min y 3 endpoints críticos; ejecutado con `grafana/k6`, reporte en `docs/evidencias/k6-summary.json`)
 
-> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; el Eje A está implementado y verificado con Playwright, axe y Lighthouse, salvo la prueba del manual y la exploratoria del docente, que se ejecutan en clase. El Eje B está cerrado en cobertura, mutación, integración real, contratos, Newman y estabilidad, con la única excepción del Quality Gate de Sonar. G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
+> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; el Eje A está implementado y verificado con Playwright, axe y Lighthouse, salvo la prueba del manual y la exploratoria del docente, que se ejecutan en clase. El Eje B está cerrado en cobertura, mutación, integración real, contratos, Newman y estabilidad, con la única excepción del Quality Gate de Sonar. El **Eje C está cerrado** con SOAP real, timeout y circuit breaker, outbox, caída/recovery del broker, consumidor idempotente, DLQ real con reproceso, compensación, idempotencia HTTP, ETag/412, Problem Details y carga k6 medida. G4, G5, G7, G8 y G9 dependen de Teams, Jira y la defensa presencial.
 
 ---
 
@@ -40,10 +40,10 @@
 
 ### 1.2 Niveles de Prueba
 1. **Pruebas Unitarias y de Dominio:** Cobertura de lógica de negocio, validaciones, factorías, estrategias criptográficas y máquina de estados (State Pattern).
-2. **Pruebas de Integración:** verificación de repositorios TypeORM y suite dedicada contra PostgreSQL y RabbitMQ reales (`integration-real-deps.e2e-spec.ts`, 13 tests), además de consumidores AMQP y adaptadores de pasarela de pago.
+2. **Pruebas de Integración:** verificación de repositorios TypeORM y suite dedicada contra PostgreSQL y RabbitMQ reales (`integration-real-deps.e2e-spec.ts`, 17 tests), además de consumidores AMQP, topología DLQ y adaptadores de pasarela de pago (`soap-contract.e2e-spec.ts`, 9 tests contra un servidor SOAP real).
 3. **Pruebas de Contrato y API:** OpenAPI 3.1 publicado en `GET /openapi.json`, WSDL de pagos y colección Postman versionada con casos de éxito y error por endpoint. La colección se ejecuta con Newman dentro del CI contra la API levantada con PostgreSQL y RabbitMQ reales.
-4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. La suite de API suma 28 tests E2E, incluida la integración real con DB y broker.
-5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial, smoke HTTP del stack Docker, Lighthouse de accesibilidad (100/100 desktop y mobile) y verificación de responsividad en tres viewports. Las pruebas de carga con k6, OWASP ZAP y los escaneos de dependencias están identificados pero todavía no ejecutados.
+4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. La suite de API suma 37 tests E2E en 5 archivos, incluidos los 17 de integración real con DB/broker y los 9 de contrato SOAP.
+5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial, smoke HTTP del stack Docker, Lighthouse de accesibilidad (100/100 desktop y mobile), verificación de responsividad en tres viewports y **prueba de carga con k6** (50 VUs durante 5 minutos sobre tres endpoints críticos, p95 = 16,41 ms y 0,00% de errores). OWASP ZAP y los escaneos de dependencias siguen identificados pero no ejecutados.
 
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
@@ -53,18 +53,19 @@
 
 ### 1.4 Criterios de Entrada y de Salida
 - **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, 3 warnings no bloqueantes) e infraestructura Docker levantando en menos de 15 minutos.
-- **Criterios de Salida (estado al 08/11/2026):**
+- **Criterios de Salida (estado al 10/11/2026):**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
-  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose, Playwright E2E y mutation testing; duración total del run 5 min 06 s.
+  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose, Playwright E2E, mutation testing y carga k6; duración total del run dentro de los 15 minutos.
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
-  - Suites verdes: 220 pruebas de API, 28 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (274 en total).
+  - Suites verdes: 227 pruebas de API, 37 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (290 en total).
   - Eje A: 43/43 criterios Gherkin verificados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
-  - Cobertura real de API: **96,21% de líneas** y **85,34% de ramas**. Umbrales de 80% / 70% configurados en Vitest y baseline anti-regresión de 96% / 85% en CI.
+  - Cobertura real de API: **93,66% de líneas** y **77,83% de ramas** (91,46% de sentencias). Umbrales de 80% / 70% configurados en Vitest y baseline anti-regresión de 90% / 75% en CI.
   - Mutation testing: **73,92%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
-  - Integración real: 13 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks.
+  - Integración real: 17 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks, más 9 tests contra un servidor SOAP real.
   - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
-  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; medición local de 2,44 minutos y run completo de CI en 5 min 06 s.
+  - Eje C: caída y recuperación de RabbitMQ sin pérdida (`docs/evidencias/broker-recovery.json`), DLQ real con `x-death` y reproceso, consumidor idempotente, compensación y outbox transaccional. Carga k6: **p95 = 16,41 ms**, **error rate = 0,00%** y 6.695 iteraciones (`docs/evidencias/k6-summary.json`).
+  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; run completo de CI históricamente en 5 min 06 s, ampliado con el job `load-test-k6`.
   - Defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) registrados en la sección 5.
   - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
   - G4 (Teams), G5 (Jira), G7 (demo), G8 (declaración de IA) y G9 (contraste final) quedan pendientes de ejecución externa.
@@ -298,11 +299,12 @@ Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec
 ### 4.1 Resumen de Ejecución de Pruebas (medición local del 08/11/2026)
 | Suite | Comando | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo |
 |---|---|:---:|:---:|:---:|:---:|:---:|
-| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 220 | 220 | 0 | 0 | 21,82 s |
-| Escenarios críticos e integración real (PostgreSQL + RabbitMQ) | `pnpm --filter api test:e2e` | 28 | 28 | 0 | 0 | 11,84 s |
+| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 227 | 227 | 0 | 0 | 28,06 s |
+| Escenarios críticos, integración real (PostgreSQL + RabbitMQ) y SOAP | `pnpm --filter api test:e2e` | 37 | 37 | 0 | 0 | 13,93 s |
 | Frontend (reglas de negocio) | `pnpm --filter @evenhub/web test` | 8 | 8 | 0 | 0 | 1,93 s |
 | E2E Playwright (críticos + responsive + a11y) | `pnpm --filter @evenhub/web test:e2e` | 18 | 18 | 0 | 0 | ~2 min |
-| **Total** | — | **274** | **274** | **0** | **0** | — |
+| Carga k6 (50 VUs, 5 min, 3 endpoints) | `grafana/k6 run load-tests/k6-load-test.js` | 6.695 iteraciones | 6.695 | 0 | 0 | 5 min 02 s |
+| **Total** | — | **290 pruebas + 6.695 iteraciones** | **todas** | **0** | **0** | — |
 
 Además se verificaron: build de API correcto, build de web correcto, `oxlint` con 3 warnings no bloqueantes, typecheck de web correcto, Gitleaks sin hallazgos y Lighthouse Accessibility 100/100 en desktop y mobile.
 
@@ -316,13 +318,15 @@ Además se verificaron: build de API correcto, build de web correcto, `oxlint` c
 | `order-state.ts` | 95,45 | 80,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `ai.service.ts` | 82,50 | 72,72 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
 | `check-in.controller.ts` | 100,00 | 80,95 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| `payments.service.ts` | 95,09 | 87,93 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `payments.service.ts` | 78,94 | 55,23 | Umbral global | Las ramas de SOAP real se ejercitan en `soap-contract.e2e-spec.ts` |
 | `tickets.service.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| `orders.service.ts` | 100,00 | 91,13 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| `events.service.ts` | 98,91 | 97,22 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
-| **Total API** | **96,21** | **85,34** | Líneas ≥ 80 / Ramas ≥ 70 | **CUMPLE** |
+| `orders.service.ts` | 98,42 | 90,12 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `events.service.ts` | 97,91 | 95,94 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `outbox.service.ts` | 97,22 | 70,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
+| `broker-topology.service.ts` | 92,85 | 47,36 | Umbral global | Las ramas 406 se ejercitan contra RabbitMQ real |
+| **Total API** | **93,66** | **77,83** | Líneas ≥ 80 / Ramas ≥ 70 | **CUMPLE** |
 
-La cobertura se elevó con tests reales sobre las ramas de negocio de órdenes, eventos, pagos, tickets, DAOs y factorías, sin excluir archivos del cálculo. El CI fija un baseline anti-regresión de 96% de líneas y 85% de ramas.
+La cobertura se elevó con tests reales sobre las ramas de negocio de órdenes, eventos, pagos, tickets, DAOs y factorías, sin excluir archivos del cálculo. La incorporación de los módulos de resiliencia (outbox y topología DLQ) amplió el denominador y explica la variación respecto de la medición anterior. El CI fija un baseline anti-regresión de 90% de líneas y 75% de ramas, por encima de los umbrales de la cátedra.
 
 ### 4.3 Pruebas de Mutación (Mutation Score)
 - **Herramienta:** Stryker Mutator 10.1.1 con runner de Vitest (`apps/api/stryker.conf.json`).
@@ -332,9 +336,11 @@ La cobertura se elevó con tests reales sobre las ramas de negocio de órdenes, 
 - **Ejecución:** job `mutation-testing` en GitHub Actions, en paralelo al job principal.
 
 ### 4.4 Pruebas de Rendimiento y Carga (k6)
-- **Estado:** el script `load-tests/k6-load-test.js` está versionado y define 50 VUs durante 5 minutos con umbrales `p95 < 500 ms` y error < 1%.
-- **Reporte:** **no ejecutado**. No se declaran latencias, throughput ni tasas de error porque no hay medición real adjunta.
-- **Acción pendiente:** ejecutar k6 contra el stack Docker y adjuntar el resumen (`k6 run --summary-export`).
+- **Ejecución:** `grafana/k6` sobre la API local con PostgreSQL y RabbitMQ reales. Ramp-up de 30 s, meseta de 4 min a 50 VUs y ramp-down de 30 s (5 min totales).
+- **Endpoints críticos:** `GET /events`, `GET /events/:id` y `GET /inventory/:id` (los dos últimos con token real obtenido en `setup`).
+- **Resultado:** **p95 = 16,41 ms**, **error rate = 0,00%**, **6.695 iteraciones completas** y **20.087 checks** sin fallos. Umbrales exigidos: p95 < 500 ms y error < 1% → **CUMPLE**.
+- **Reporte:** `docs/evidencias/k6-summary.json`; el job `load-test-k6` del CI repite la prueba y valida los umbrales.
+- **Reproducción:** `docker run --rm --network host -v "$PWD:/scripts" -w /scripts -e API_URL=http://localhost:3000 grafana/k6:0.54.0 run load-tests/k6-load-test.js`.
 
 ### 4.5 Pruebas E2E, Responsive y Accesibilidad (Eje A)
 | Verificación | Herramienta | Alcance | Resultado |
@@ -437,7 +443,7 @@ Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado e
 
 ## 9. Conclusión del Aseguramiento de Calidad
 
-EventHub cuenta con una base de pruebas automatizadas real y reproducible: **274 pruebas verdes** (220 de API, 28 E2E de API incluida la integración real con DB y broker, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 96,21% de líneas / 85,34% de ramas, mutation score de 73,92%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
+EventHub cuenta con una base de pruebas automatizadas real y reproducible: **290 pruebas verdes** (227 de API, 37 E2E de API incluida la integración real con DB/broker y el contrato SOAP, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 93,66% de líneas / 77,83% de ramas, mutation score de 73,92%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, prueba de carga k6 con p95 de 16,41 ms y 0,00% de errores, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
 
 La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
 
@@ -446,9 +452,10 @@ La entrega **todavía no puede declararse conforme a la totalidad de los criteri
 - **G3** está validado: CI en verde sobre el tag, incluidos `playwright-e2e` y `mutation-testing` ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
 - **G6** está validado con Gitleaks v8.28.0 y una allowlist justificada.
 - **Eje A** está verificado: 43/43 criterios Gherkin, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px, axe sin violaciones critical/serious en 9 pantallas y Lighthouse Accessibility 100/100. La **prueba del manual** y la **prueba exploratoria del docente** quedan pendientes de ejecución en clase.
-- **Eje B** está verificado en todos sus criterios salvo el Quality Gate de Sonar (sin cuenta/token): cobertura 96,21% / 85,34%, mutation score 73,92%, 13 tests de integración real, contratos OpenAPI/WSDL, 96 requests de Newman y 3 corridas consecutivas sin fallos.
+- **Eje B** está verificado en todos sus criterios salvo el Quality Gate de Sonar (sin cuenta/token): cobertura 93,66% / 77,83%, mutation score 73,92%, 17 tests de integración real, contratos OpenAPI/WSDL, 96 requests de Newman y 3 corridas consecutivas sin fallos.
+- **Eje C** está cerrado con evidencia reproducible: SOAP real con Fault de negocio, Fault técnico y timeout de 5 s sin XML crudo, circuit breaker con fallback, outbox transaccional, caída y recuperación de RabbitMQ sin pérdida, consumidor idempotente, DLQ real con `x-death` y reproceso, compensación de pago rechazado, idempotencia HTTP, ETag/412, Problem Details y k6 con 50 VUs (p95 16,41 ms, 0,00% errores).
 - **G4** (Teams), **G5** (Jira), **G7** (demo), **G8** (declaración de IA) y **G9** (contraste final) dependen de acciones externas que deben completarse antes del 10/11/2026 a las 13:30.
-- k6, ZAP, el escaneo de dependencias y el Quality Gate de Sonar siguen pendientes.
+- ZAP, el escaneo de dependencias y el Quality Gate de Sonar siguen pendientes.
 - **EVH-108** queda abierto con severidad Menor y workaround documentado.
 
 El documento mantiene las brechas visibles en lugar de declararlas resueltas. Ese es el estado que debe acompañar al tag y al run de CI una vez publicados.

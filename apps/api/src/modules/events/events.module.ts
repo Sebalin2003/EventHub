@@ -12,9 +12,17 @@ import { EventsController } from './events.controller.js';
 import { EventsService } from './events.service.js';
 import { EventSeed } from './event.seed.js';
 import { OrganizerEventsController } from './organizer-events.controller.js';
+import { OutboxModule } from '../../common/broker/outbox.module.js';
+import {
+  NOTIFICATIONS_DLQ,
+  NOTIFICATIONS_DLX,
+  NOTIFICATIONS_QUEUE,
+  rabbitMqUrl,
+} from '../../common/broker/broker.constants.js';
 
 @Module({
   imports: [
+    OutboxModule,
     IdentityModule,
     TypeOrmModule.forFeature([Event, User]),
     ClientsModule.register([
@@ -22,10 +30,13 @@ import { OrganizerEventsController } from './organizer-events.controller.js';
         name: 'NOTIFICATIONS_SERVICE',
         transport: Transport.RMQ,
         options: {
-          urls: [process.env.RABBITMQ_URL || 'amqp://user:password@localhost:5672'],
-          queue: 'notifications_queue',
+          urls: [rabbitMqUrl()],
+          queue: NOTIFICATIONS_QUEUE,
+          persistent: true,
           queueOptions: {
             durable: true,
+            deadLetterExchange: NOTIFICATIONS_DLX,
+            deadLetterRoutingKey: NOTIFICATIONS_DLQ,
           },
         },
       },
