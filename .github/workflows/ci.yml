@@ -269,7 +269,13 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install Playwright Chromium
-        run: pnpm --filter @evenhub/web exec playwright install --with-deps chromium
+        run: |
+          # El runner puede fallar al resolver security.ubuntu.com para las dependencias de apt.
+          # Si eso ocurre, se instala solo el navegador (las libs base ya vienen en la imagen).
+          pnpm --filter @evenhub/web exec playwright install --with-deps chromium || {
+            echo "::warning::apt no pudo instalar dependencias; reintentando solo el navegador"
+            pnpm --filter @evenhub/web exec playwright install chromium
+          }
 
       - name: Build & start full stack
         run: docker compose up -d --build --wait
