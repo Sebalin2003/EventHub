@@ -8,7 +8,7 @@
 ### Enlaces del Entregable
 - **Repositorio GitHub:** [https://github.com/Sebalin2003/EventHub](https://github.com/Sebalin2003/EventHub)
 - **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega, incluidos el Eje A y el Eje B)
-- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (build/tests, mutación, Docker y `playwright-e2e`; 4 jobs en verde sobre `v1.0-testing`, 08/11/2026, duración total 5 min 06 s)
+- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (build/tests, mutación, Docker, `playwright-e2e`, carga k6 y `security-scan`; 6 jobs en verde sobre `main`, run `43040287065` del 11/11/2026, duración total 12 min 15 s)
 - **Suite E2E / Responsive / Accesibilidad:** `apps/web/e2e/` (Playwright + axe-core, 18 pruebas verdes)
 - **Evidencia Lighthouse:** `docs/evidencias/lighthouse-home-desktop.json` y `docs/evidencias/lighthouse-home-mobile.json` (100/100 en Accessibility)
 - **Manual de usuario:** `docs/MANUAL_USUARIO.md`
@@ -42,30 +42,30 @@
 1. **Pruebas Unitarias y de Dominio:** Cobertura de lógica de negocio, validaciones, factorías, estrategias criptográficas y máquina de estados (State Pattern).
 2. **Pruebas de Integración:** verificación de repositorios TypeORM y suite dedicada contra PostgreSQL y RabbitMQ reales (`integration-real-deps.e2e-spec.ts`, 17 tests), además de consumidores AMQP, topología DLQ y adaptadores de pasarela de pago (`soap-contract.e2e-spec.ts`, 9 tests contra un servidor SOAP real).
 3. **Pruebas de Contrato y API:** OpenAPI 3.1 publicado en `GET /openapi.json`, WSDL de pagos y colección Postman versionada con casos de éxito y error por endpoint. La colección se ejecuta con Newman dentro del CI contra la API levantada con PostgreSQL y RabbitMQ reales.
-4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. La suite de API suma 37 tests E2E en 5 archivos, incluidos los 17 de integración real con DB/broker y los 9 de contrato SOAP.
+4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. La suite de API suma 66 tests E2E en 6 archivos: 17 de integración real con DB/broker, 9 de contrato SOAP, 29 de seguridad HTTP (BOLA/BFLA, JWT, mass assignment, inyecciones, XXE, rate limiting, headers y CORS) y el resto de los flujos de aplicación.
 5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial, smoke HTTP del stack Docker, Lighthouse de accesibilidad (100/100 desktop y mobile), verificación de responsividad en tres viewports y **prueba de carga con k6** (50 VUs durante 5 minutos sobre tres endpoints críticos, p95 = 16,41 ms y 0,00% de errores). OWASP ZAP y los escaneos de dependencias siguen identificados pero no ejecutados.
 
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
 - **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
-- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ. El job `build-and-test` ejecuta Gitleaks, lint, typecheck, builds, validación de contrato OpenAPI, 3 corridas de suite, baseline de cobertura y Newman. Los jobs paralelos cubren Docker Compose, Playwright E2E/responsive/a11y y mutation testing. Ejecutado en verde sobre el tag `v1.0-testing` el 08/11/2026 en 5 min 06 s: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
+- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ. El job `build-and-test` ejecuta Gitleaks, lint, typecheck, builds, validación de contrato OpenAPI, 3 corridas de suite, baseline de cobertura y Newman. Los jobs paralelos cubren Docker Compose, Playwright E2E/responsive/a11y, mutation testing, carga k6 y `security-scan` (auditoría de dependencias + ZAP baseline). Ejecutado en verde sobre `main` el 11/11/2026 (run `43040287065`) en 12 min 15 s: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
 - **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, 3 warnings no bloqueantes) e infraestructura Docker levantando en menos de 15 minutos.
-- **Criterios de Salida (estado al 10/11/2026):**
+- **Criterios de Salida (estado al 11/11/2026):**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
-  - G3 validado: CI en verde sobre el tag, con los jobs de build/tests, Docker Compose, Playwright E2E, mutation testing y carga k6; duración total del run dentro de los 15 minutos.
+  - G3 validado: CI en verde sobre `main`, con 6 jobs (build/tests, Docker Compose, Playwright E2E, mutation testing, carga k6 y seguridad); run `43040287065` en 12 min 15 s, dentro de los 15 minutos.
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
-  - Suites verdes: 253 pruebas de API, 37 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (316 en total).
+  - Suites verdes: 253 pruebas de API, 66 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (345 en total).
   - Eje A: 43/43 criterios Gherkin verificados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
   - Cobertura real de API: **96,52% de líneas** y **84,60% de ramas** (94,43% de sentencias). Umbrales de 80% / 70% configurados en Vitest y baseline anti-regresión de 90% / 75% en CI.
   - Mutation testing: **76,23%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
   - Integración real: 17 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks, más 9 tests contra un servidor SOAP real.
   - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
   - Eje C: caída y recuperación de RabbitMQ sin pérdida (`docs/evidencias/broker-recovery.json`), DLQ real con `x-death` y reproceso, consumidor idempotente, compensación y outbox transaccional. Carga k6: **p95 = 16,41 ms**, **error rate = 0,00%** y 6.695 iteraciones (`docs/evidencias/k6-summary.json`).
-  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; run completo de CI históricamente en 5 min 06 s, ampliado con el job `load-test-k6`.
+  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; el run completo de CI con los 6 jobs (incluidos k6 y `security-scan`) tarda 12 min 15 s.
   - Defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) registrados en la sección 5.
   - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
   - G4 (Teams), G5 (Jira), G7 (demo), G8 (declaración de IA) y G9 (contraste final) quedan pendientes de ejecución externa.
@@ -296,15 +296,15 @@ Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec
 
 ## 4. Informe de Ejecución y Métricas
 
-### 4.1 Resumen de Ejecución de Pruebas (medición local del 08/11/2026)
+### 4.1 Resumen de Ejecución de Pruebas (medición local del 11/11/2026)
 | Suite | Comando | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo |
 |---|---|:---:|:---:|:---:|:---:|:---:|
-| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 253 | 253 | 0 | 0 | 16,75 s |
-| Escenarios críticos, integración real (PostgreSQL + RabbitMQ) y SOAP | `pnpm --filter api test:e2e` | 37 | 37 | 0 | 0 | 13,93 s |
+| API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 253 | 253 | 0 | 0 | 20,31 s |
+| Escenarios críticos, integración real (PostgreSQL + RabbitMQ), SOAP y seguridad HTTP | `pnpm --filter api test:e2e` | 66 | 66 | 0 | 0 | 12,57 s |
 | Frontend (reglas de negocio) | `pnpm --filter @evenhub/web test` | 8 | 8 | 0 | 0 | 1,93 s |
 | E2E Playwright (críticos + responsive + a11y) | `pnpm --filter @evenhub/web test:e2e` | 18 | 18 | 0 | 0 | ~2 min |
 | Carga k6 (50 VUs, 5 min, 3 endpoints) | `grafana/k6 run load-tests/k6-load-test.js` | 6.695 iteraciones | 6.695 | 0 | 0 | 5 min 02 s |
-| **Total** | — | **316 pruebas + 6.695 iteraciones** | **todas** | **0** | **0** | — |
+| **Total** | — | **345 pruebas + 6.695 iteraciones** | **todas** | **0** | **0** | — |
 
 Además se verificaron: build de API correcto, build de web correcto, `oxlint` con 3 warnings no bloqueantes, typecheck de web correcto, Gitleaks sin hallazgos y Lighthouse Accessibility 100/100 en desktop y mobile.
 
@@ -443,7 +443,7 @@ Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado e
 
 ## 9. Conclusión del Aseguramiento de Calidad
 
-EventHub cuenta con una base de pruebas automatizadas real y reproducible: **316 pruebas verdes** (253 de API, 37 E2E de API incluida la integración real con DB/broker y el contrato SOAP, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 96,52% de líneas / 84,60% de ramas, mutation score de 76,23%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, prueba de carga k6 con p95 de 16,41 ms y 0,00% de errores, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial y accesibilidad medida.
+EventHub cuenta con una base de pruebas automatizadas real y reproducible: **345 pruebas verdes** (253 de API, 66 E2E de API incluidos la integración real con DB/broker, el contrato SOAP y los 29 tests de seguridad HTTP, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 96,52% de líneas / 84,60% de ramas, mutation score de 76,23%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, prueba de carga k6 con p95 de 16,41 ms y 0,00% de errores, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial, ZAP baseline y API scan autenticado sin alertas High/Medium/Low, `pnpm audit --prod` en 0 y accesibilidad medida.
 
 La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
 
