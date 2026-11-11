@@ -15,7 +15,7 @@ export class NotificationsController {
 
   @EventPattern('event.created')
   async handleEventCreated(@Payload() data: any, @Ctx() context: any) {
-    this.logger.log(`Received event.created: ${JSON.stringify(data)}`);
+    this.logger.log(`Received event.created: ${data?.id ?? data?.eventId ?? 'unknown'}`);
     return this.process(context, () =>
       this.notificationsService.processIncomingMessage(
         'event.created',
@@ -27,7 +27,7 @@ export class NotificationsController {
 
   @EventPattern('order.created')
   async handleOrderCreated(@Payload() data: any, @Ctx() context: any) {
-    this.logger.log(`Received order.created: ${JSON.stringify(data)}`);
+    this.logger.log(`Received order.created: ${data?.id ?? data?.orderId ?? 'unknown'}`);
     return this.process(context, () =>
       this.notificationsService.processIncomingMessage(
         'order.created',
@@ -39,7 +39,7 @@ export class NotificationsController {
 
   @EventPattern('order.paid')
   async handleOrderPaid(@Payload() data: any, @Ctx() context: any) {
-    this.logger.log(`Received order.paid: ${JSON.stringify(data)}`);
+    this.logger.log(`Received order.paid: ${data?.orderId ?? data?.id ?? 'unknown'}`);
     return this.process(context, () =>
       this.notificationsService.sendEmail(
         data.userEmail || 'user@example.com',

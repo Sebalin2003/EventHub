@@ -4,6 +4,7 @@ import {
   Get,
   Patch,
   Param,
+  ParseUUIDPipe,
   Body,
   Headers,
   UseGuards,
@@ -44,7 +45,7 @@ export class OrdersController {
   @Get(':id')
   async findOne(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Response({ passthrough: true }) res: ExpressResponse,
   ) {
     const userId = req.user.sub || req.user.id;
@@ -59,7 +60,7 @@ export class OrdersController {
   @Patch(':id/pay')
   async payPatch(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Headers('if-match') ifMatch?: string,
   ) {
     return this.handlePay(req, id, ifMatch);
@@ -68,7 +69,7 @@ export class OrdersController {
   @Post(':id/pay')
   async payPost(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Headers('if-match') ifMatch?: string,
     @Body() body?: PayOrderDto,
   ) {
@@ -102,7 +103,7 @@ export class OrdersController {
   @Patch(':id/cancel')
   async cancelPatch(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Headers('if-match') ifMatch?: string,
   ) {
     return this.handleCancel(req, id, ifMatch);
@@ -111,7 +112,7 @@ export class OrdersController {
   @Post(':id/cancel')
   async cancelPost(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Headers('if-match') ifMatch?: string,
   ) {
     return this.handleCancel(req, id, ifMatch);
@@ -135,7 +136,7 @@ export class OrdersController {
   @Patch(':id/refund')
   async refund(
     @Request() req: any,
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Headers('if-match') ifMatch?: string,
   ) {
     const userId = req.user.sub || req.user.id;

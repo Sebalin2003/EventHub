@@ -1,0 +1,27 @@
+﻿EventHub TLS smoke test - 2026-11-11T10:53:56.0110520-03:00
+Certificado autofirmado CN=localhost generado con OpenSSL (validez 1 dia, solo evidencia local).
+
+HTTP/1.1 200 OK
+Vary: Origin
+Access-Control-Allow-Credentials: true
+Access-Control-Expose-Headers: ETag
+X-Content-Type-Options: nosniff
+X-Frame-Options: DENY
+X-XSS-Protection: 1; mode=block
+Strict-Transport-Security: max-age=31536000; includeSubDomains
+Content-Security-Policy: default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data: https://images.unsplash.com; connect-src 'self';
+Referrer-Policy: strict-origin-when-cross-origin
+Permissions-Policy: camera=(), microphone=(), geolocation=()
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+Cross-Origin-Resource-Policy: same-origin
+Content-Type: application/json; charset=utf-8
+Content-Length: 40
+ETag: W/"28-RY6GK1FeS1LEslthaDQY+knqu0Y"
+Date: Wed, 11 Nov 2026 13:53:56 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+
+{"service":"EventHub API","status":"ok"}
+
+{"service":"EventHub API","status":"ok"}

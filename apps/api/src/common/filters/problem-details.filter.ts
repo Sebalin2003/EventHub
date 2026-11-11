@@ -81,7 +81,8 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         }
       }
     } else if (exception instanceof Error) {
-      detail = exception.message;
+      // Eje D: un error no controlado nunca debe reflejar el mensaje interno al cliente.
+      detail = 'An unexpected internal error occurred';
     }
 
     const title = STATUS_TITLES[status] || 'Error';
@@ -103,7 +104,8 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     // Mask sensitive parameters for security logs
     const sanitizedUrl = (request.originalUrl || request.url).replace(/(token|password|card)=[^&]+/gi, '$1=***');
     if (status >= 500) {
-      this.logger.error(`[${status}] ${title} on ${sanitizedUrl}: ${detail}`);
+      const internal = exception instanceof Error ? exception.message : String(exception);
+      this.logger.error(`[${status}] ${title} on ${sanitizedUrl}: ${internal}`);
     } else {
       this.logger.warn(`[${status}] ${title} on ${sanitizedUrl}: ${detail}`);
     }

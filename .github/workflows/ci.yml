@@ -344,6 +344,75 @@ jobs:
         if: always()
         run: docker compose down -v --remove-orphans
 
+  security-scan:
+    name: Eje D - Dependencias y ZAP baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Eje D - Dependencias de produccion sin CVE alta/critica
+        run: |
+          pnpm audit --prod --audit-level high
+          echo "pnpm audit --prod sin vulnerabilidades altas ni criticas."
+
+      - name: Build & start API, PostgreSQL and RabbitMQ
+        run: docker compose up -d --build --wait postgres rabbitmq api
+
+      - name: Eje D - ZAP baseline (0 High)
+        run: |
+          mkdir -p docs/evidencias/zap
+          docker run --rm --network host \
+            -v "$PWD/docs/evidencias/zap:/zap/wrk:rw" \
+            zaproxy/zap-stable zap-baseline.py \
+            -t http://localhost:3000 \
+            -J baseline-ci.json -r baseline-ci.html -w baseline-ci.md -I
+
+      - name: Eje D - Verificar 0 alertas High
+        run: |
+          node - <<'NODE'
+          const report = require('./docs/evidencias/zap/baseline-ci.json');
+          const high = report.site.flatMap((s) => s.alerts).filter((a) => a.riskcode === '3');
+          console.log(`ZAP baseline: ${high.length} alertas High`);
+          if (high.length > 0) {
+            for (const alert of high) console.error(`- ${alert.name}: ${alert.instances.length} instancias`);
+            process.exit(1);
+          }
+          console.log('Criterio Eje D cumplido: 0 alertas High en ZAP baseline.');
+          NODE
+
+      - name: Upload ZAP evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-baseline-evidence
+          path: docs/evidencias/zap/
+          if-no-files-found: warn
+
+      - name: Dump logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v --remove-orphans
+
   docker-reproducibility:
     name: G1 - Docker Compose reproducibility & smoke test
     runs-on: ubuntu-latest

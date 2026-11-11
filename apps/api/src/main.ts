@@ -1,8 +1,11 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { readFileSync } from 'node:fs';
 import { AppModule } from './app.module.js';
 import { MicroserviceOptions, Transport } from '@nestjs/microservices';
 import { ProblemDetailsFilter } from './common/filters/problem-details.filter.js';
+import { corsOptions } from './common/config/cors.options.js';
 import {
   NOTIFICATIONS_DLQ,
   NOTIFICATIONS_DLX,
@@ -18,23 +21,22 @@ async function bootstrap() {
     logger.warn('JWT_SECRET not set; using the development secret');
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(
+    AppModule,
+    // Eje D: TLS directo opcional. En produccion se recomienda terminacion en proxy.
+    process.env.TLS_CERT_PATH && process.env.TLS_KEY_PATH
+      ? {
+          httpsOptions: {
+            key: readFileSync(process.env.TLS_KEY_PATH),
+            cert: readFileSync(process.env.TLS_CERT_PATH),
+          },
+        }
+      : {},
+  );
+  app.disable('x-powered-by');
 
   // Security: CORS configured with explicit parameters, no wildcard with credentials
-  app.enableCors({
-    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-      // Allow localhost dev servers or same origin
-      if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin) || origin.endsWith('eventhub.com')) {
-        callback(null, true);
-      } else {
-        callback(null, false);
-      }
-    },
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key', 'If-Match', 'X-Requested-With'],
-    exposedHeaders: ['ETag'],
-  });
+  app.enableCors(corsOptions);
 
   // REST standard: RFC 9457 Problem Details Exception Filter
   app.useGlobalFilters(new ProblemDetailsFilter());

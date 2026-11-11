@@ -18,7 +18,9 @@ import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard.js';
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
         secret: config.get<string>('JWT_SECRET', 'development-secret'),
-        signOptions: { expiresIn: '1d' },
+        signOptions: { expiresIn: '1d', issuer: 'eventhub' },
+        // Eje D: un token emitido por otro emisor debe rechazarse aunque la firma sea válida.
+        verifyOptions: { issuer: 'eventhub' },
       }),
     }),
   ],

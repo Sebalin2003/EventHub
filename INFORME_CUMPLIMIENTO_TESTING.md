@@ -202,43 +202,54 @@ Además, la topología de RabbitMQ es real: cola principal durable con dead-lett
 
 ### Cumplimientos observados
 
-Las pruebas existentes cubren:
+La suite HTTP real `apps/api/test/security-http.e2e-spec.ts` (29 pruebas contra `AppModule`, PostgreSQL y RabbitMQ reales) cubre:
 
-- JWT ausente.
-- JWT vencido.
-- Firma alterada.
-- `alg=none`.
-- BFLA.
-- Rate limiting con `429`.
-- Problem Details sin stack trace.
-- BOLA en tickets.
+- JWT ausente, vencido, con firma alterada, `alg=none`, firmado con otro secreto y emitido por otro emisor (`iss` distinto): todos 401.
+- BOLA/IDOR en órdenes y tickets: un usuario no accede a recursos de otro (403/404).
+- BFLA: un comprador no accede a endpoints de organizador (403); un ADMIN pasa el guard de roles.
+- Mass assignment: campos como `role`, `sold`, `status` o `organizerId` se rechazan con 400 o se ignoran.
+- SQL injection, NoSQL injection y XSS en campos reales: no se ejecutan y no se reflejan.
+- XXE en el pago SOAP: se rechaza con `XXE_INJECTION_REJECTED`.
+- Fuerza bruta en login: 429 tras superar el límite.
+- Errores sin stack trace, sin rutas de archivos, sin `TypeError` y sin mensajes de PostgreSQL.
+- Id de orden no UUID: 400 (antes producía 500).
+- Cabeceras: CSP estricta, HSTS, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP, COEP y CORP.
+- CORS: origen permitido y origen rechazado según `cors.options.ts`.
+- Cookies: la API no setea cookies de sesión (JWT en `Authorization`).
 - Hash adaptativo con scrypt.
-- Validación con `whitelist` y `forbidNonWhitelisted`.
-- Headers como CSP, HSTS y `X-Content-Type-Options`.
+
+### Evidencia de herramientas
+
+| Prueba | Resultado |
+|---|---|
+| OWASP ZAP baseline | 0 High, 0 Medium, 0 Low; 2 informativas justificadas (`docs/evidencias/zap/baseline.json`) |
+| OWASP ZAP API scan autenticado (admin) | 0 High, 0 Medium, 0 Low; 3 informativas justificadas (`docs/evidencias/zap/api-auth.json`) |
+| `pnpm audit --prod` | 0 vulnerabilidades (`docs/evidencias/security/pnpm-audit-prod.json`) |
+| `pnpm audit` completo | 1 moderada dev-only (`minimatch`), justificada |
+| Gitleaks sobre todo el historial | Sin hallazgos |
+| TLS local con certificado autofirmado | 200 en `https://localhost:3002/` con HSTS (`docs/evidencias/security/tls-smoke.txt`) |
+| Auditoría de logs | Emails enmascarados y payloads reducidos a ids; sin tokens ni stack traces |
+
+Justificación individual de cada alerta y de la deuda de `minimatch`: `docs/evidencias/zap-justificaciones.md`.
 
 ### Incumplimientos o evidencias faltantes
 
 | Prueba | Estado |
 |---|---|
-| JWT de otro emisor | Falta test específico |
-| Mass assignment vía endpoint real | Parcial |
-| SQL/NoSQL/XSS en todos los campos | Sin suite completa |
-| XXE mediante integración real | Solo probado en el servicio |
-| OWASP ZAP baseline y autenticado | Sin reporte |
-| CVE con Trivy/Snyk/Dependency-Check | Sin reporte |
-| Cookies Secure/HttpOnly/SameSite | No verificable |
-| TLS real | No configurado en Docker Compose |
-| Logs sin PII, tokens ni datos sensibles | Falta auditoría formal |
-| CORS y headers mediante prueba HTTP | Implementación presente, falta evidencia automatizada |
+| TLS real en Docker Compose | Parcial: TLS directo opcional implementado y probado con certificado autofirmado; en producción se documenta terminación en proxy |
+| Prueba del manual y exploratoria del docente | Pendiente de la clase |
+| Quality Gate de SonarQube/SonarCloud | Omitido por decisión del equipo ante la falta de cuenta/token |
+| `minimatch` moderado | Deuda dev-only; la corrección exige un salto de versión mayor incompatible con `@nestjs/cli` y Stryker |
 
-### Acciones necesarias
+### Acciones realizadas
 
-1. Agregar casos HTTP para mass assignment, XSS, BOLA, BFLA y JWT de otro emisor.
-2. Ejecutar ZAP baseline y scan autenticado.
-3. Ejecutar Trivy, Snyk o Dependency-Check.
-4. ~~Ejecutar Gitleaks o TruffleHog sobre todo el historial.~~ Ejecutado con Gitleaks v8.28.0: sin hallazgos.
-5. Revisar logs para evitar PII, tokens y secretos.
-6. Documentar TLS, cookies y configuración de producción.
+1. Se agregaron 29 casos HTTP de seguridad con BOLA, BFLA, mass assignment, XSS, SQL/NoSQL, XXE, JWT de otro emisor y fuerza bruta.
+2. Se ejecutaron ZAP baseline y API scan autenticado; se corrigieron los 500, la revelación de errores, el `Content-Type` de la raíz y las 3 Medium + 2 Low de cabeceras.
+3. Se ejecutó `pnpm audit`; producción quedó en 0 y se documentó la única deuda dev-only.
+4. Gitleaks ya se ejecutaba sobre todo el historial: sin hallazgos.
+5. Se auditaron los logs: se enmascararon emails y se dejaron de registrar payloads completos.
+6. Se documentaron TLS, cookies y configuración de producción en `docs/evidencias/zap-justificaciones.md`.
+7. Se agregó el job `security-scan` al pipeline (auditoría de producción + ZAP baseline con verificación de 0 High).
 
 ## Eje E: inteligencia artificial
 
@@ -309,12 +320,12 @@ Al recargar la página en el paso **Medio de pago**, la aplicación vuelve al in
 4. ~~Crear pruebas de integración dedicadas con PostgreSQL y RabbitMQ reales.~~ Hecho: 17 tests.
 5. Configurar el Quality Gate de SonarQube/SonarCloud.
 6. ~~Ejecutar k6 y documentar el reporte.~~ Hecho: p95 = 16,41 ms, 0,00% de errores.
-7. Ejecutar ZAP y un scanner de dependencias.
+7. ~~Ejecutar ZAP y un scanner de dependencias.~~ Hecho: 0 High/Medium/Low en baseline y API scan autenticado; `pnpm audit --prod` en 0.
 
 ### Prioridad media
 
 1. ~~Agregar contratos OpenAPI/WSDL.~~ Hecho y verificados en CI.
-2. Agregar pruebas HTTP de seguridad y resiliencia.
+2. ~~Agregar pruebas HTTP de seguridad y resiliencia.~~ Hecho: 29 pruebas HTTP de seguridad.
 3. ~~Ejecutar la suite tres veces para verificar ausencia de flaky tests.~~ Hecho: 3/3 sin fallos.
 4. ~~Validar responsive y accesibilidad.~~ Validado: 360/768/1280 px, axe 9/9 y Lighthouse 100/100.
 5. Completar la declaración de IA.
@@ -329,7 +340,7 @@ La clasificación actual es:
 | Eje A - HU, criterios y E2E | Cumple el alcance técnico; pendiente la prueba del manual y la exploratoria del docente |
 | Eje B - código y pruebas | Cumple todos los criterios salvo el Quality Gate de Sonar (sin cuenta/token) |
 | Eje C - integración y resiliencia | Cumple los 10 criterios con pruebas automatizadas y evidencia reproducible (SOAP real, timeout, circuit breaker, outbox, caída/recovery del broker, duplicado, DLQ real con reproceso, compensación, idempotencia, ETag, Problem Details y k6) |
-| Eje D - seguridad | Parcial |
+| Eje D - seguridad | Cumple el alcance técnico: BOLA, BFLA, JWT, mass assignment, inyecciones, XXE, fuerza bruta, ZAP sin High/Medium/Low, dependencias de producción sin CVE, cabeceras, cookies y logs auditados; TLS directo opcional probado con certificado autofirmado |
 | Eje E - IA | Parcialmente cumplido |
 | G1-G9 | G1, G2, G3 y G6 cumplidos; G4, G5, G7, G8 y G9 pendientes de evidencia externa |
 

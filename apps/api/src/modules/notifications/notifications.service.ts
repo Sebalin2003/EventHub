@@ -76,7 +76,9 @@ export class NotificationsService {
     const saved = await this.notificationRepository.save(notification);
     this.processedMessageKeys.add(deduplicationKey);
 
-    this.logger.log(`[EMAIL SENT] To: ${recipient} | Subject: ${subject} | Record ID: ${saved.id}`);
+    // Eje D: no registrar el email completo (PII) en los logs.
+    const maskedRecipient = recipient.replace(/^(.).*(@.*)$/, '$1***$2');
+    this.logger.log(`[EMAIL SENT] To: ${maskedRecipient} | Subject: ${subject} | Record ID: ${saved.id}`);
     return { status: 'PROCESSED', notificationId: saved.id };
   }
 

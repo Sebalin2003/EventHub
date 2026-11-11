@@ -15,8 +15,8 @@ describe('AppController', () => {
   });
 
   describe('root', () => {
-    it('should return "Hello World!"', () => {
-      expect(appController.getHello()).toBe('Hello World!');
+    it('should return the API status as JSON', () => {
+      expect(appController.getHello()).toEqual({ service: 'EventHub API', status: 'ok' });
     });
   });
 });

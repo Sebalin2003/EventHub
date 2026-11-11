@@ -80,14 +80,14 @@ describe('ProblemDetailsFilter (Eje B: contrato de errores RFC 9457)', () => {
     }));
   });
 
-  it('usa Error para excepciones no HTTP y responde 500', () => {
+  it('usa Error para excepciones no HTTP y responde 500 sin filtrar el mensaje interno', () => {
     filter.catch(new Error('unexpected'), host);
 
     expect(response.status).toHaveBeenCalledWith(500);
     expect(response.json).toHaveBeenCalledWith(expect.objectContaining({
       status: 500,
       title: 'Internal Server Error',
-      detail: 'unexpected',
+      detail: 'An unexpected internal error occurred',
     }));
   });
 
