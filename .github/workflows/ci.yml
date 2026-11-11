@@ -378,6 +378,7 @@ jobs:
       - name: Eje D - ZAP baseline (0 High)
         run: |
           mkdir -p docs/evidencias/zap
+          chmod -R a+rwx docs/evidencias/zap
           docker run --rm --network host \
             -v "$PWD/docs/evidencias/zap:/zap/wrk:rw" \
             zaproxy/zap-stable zap-baseline.py \
@@ -387,11 +388,18 @@ jobs:
       - name: Eje D - Verificar 0 alertas High
         run: |
           node - <<'NODE'
-          const report = require('./docs/evidencias/zap/baseline-ci.json');
-          const high = report.site.flatMap((s) => s.alerts).filter((a) => a.riskcode === '3');
-          console.log(`ZAP baseline: ${high.length} alertas High`);
+          const fs = require('fs');
+          const path = './docs/evidencias/zap/baseline-ci.json';
+          if (!fs.existsSync(path)) {
+            console.error('No se genero el reporte JSON de ZAP.');
+            process.exit(1);
+          }
+          const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+          const alerts = (report.site || []).flatMap((s) => s.alerts || []);
+          const high = alerts.filter((a) => Number(a.riskcode) === 3);
+          console.log(`ZAP baseline: ${high.length} alertas High sobre ${alerts.length} alertas totales`);
           if (high.length > 0) {
-            for (const alert of high) console.error(`- ${alert.name}: ${alert.instances.length} instancias`);
+            for (const alert of high) console.error(`- ${alert.name}: ${(alert.instances || []).length} instancias`);
             process.exit(1);
           }
           console.log('Criterio Eje D cumplido: 0 alertas High en ZAP baseline.');
