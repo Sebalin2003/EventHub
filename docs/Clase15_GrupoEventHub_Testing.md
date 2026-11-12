@@ -65,7 +65,7 @@
   - Integración real: 17 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks, más 9 tests contra un servidor SOAP real.
   - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
   - Eje C: caída y recuperación de RabbitMQ sin pérdida (`docs/evidencias/broker-recovery.json`), DLQ real con `x-death` y reproceso, consumidor idempotente, compensación y outbox transaccional. Carga k6: **p95 = 16,41 ms**, **error rate = 0,00%** y 6.695 iteraciones (`docs/evidencias/k6-summary.json`).
-  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; el run completo de CI con los 6 jobs (incluidos k6 y `security-scan`) tarda 12 min 15 s.
+  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; el run completo de CI con los 6 jobs tardó 12 min 15 s en la medición inicial y 6,4 min en la revalidación final del 12/11/2026. El CI detectó y permitió corregir un fallo intermitente real del seed (colisión `23505` por suites E2E paralelas), validado después con 3 corridas E2E consecutivas de 76/76 y el run `43265088091` del tag en verde.
   - Defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) registrados en la sección 5.
   - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
   - G4 (Teams), G5 (Jira), G7 (demo) y G9 (contraste final) quedan pendientes de ejecución externa. G8 (declaración de IA) quedó completo como documento; resta la validación oral del equipo.
