@@ -54,17 +54,40 @@ export class EventSeed implements OnModuleInit {
     @InjectRepository(User) private readonly userRepository: Repository<User>,
   ) {}
 
+  /**
+   * Varias suites E2E levantan el AppModule en paralelo y ejecutan el seed a la
+   * vez. El chequeo "existe antes de insertar" tiene una ventana de carrera:
+   * dos procesos pueden no ver la fila y chocar contra la restriccion unica.
+   * En ese caso el dato ya fue insertado por el otro proceso y se ignora.
+   */
+  private isUniqueViolation(error: unknown): boolean {
+    const err = error as { code?: string; driverError?: { code?: string } };
+    return (err?.code ?? err?.driverError?.code) === '23505';
+  }
+
+  private async saveIgnoringConcurrentInsert(entity: Parameters<Repository<Event>['save']>[0]) {
+    try {
+      await this.eventRepository.save(entity as Event);
+    } catch (error) {
+      if (!this.isUniqueViolation(error)) throw error;
+    }
+  }
+
   async onModuleInit() {
     for (const [email, firstName, lastName, role] of users) {
       const existing = await this.userRepository.findOne({ where: { email } });
       if (!existing) {
-        await this.userRepository.save({
-          email,
-          passwordHash: this.hash.hashPassword('password'),
-          firstName,
-          lastName,
-          role,
-        });
+        try {
+          await this.userRepository.save({
+            email,
+            passwordHash: this.hash.hashPassword('password'),
+            firstName,
+            lastName,
+            role,
+          });
+        } catch (error) {
+          if (!this.isUniqueViolation(error)) throw error;
+        }
       }
     }
 
@@ -80,7 +103,7 @@ export class EventSeed implements OnModuleInit {
         }
         continue;
       }
-      await this.eventRepository.save({
+      await this.saveIgnoringConcurrentInsert({
         legacyId,
         title,
         description,
