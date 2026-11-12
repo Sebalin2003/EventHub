@@ -1,6 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { ClientProxy, ClientProxyFactory, Transport } from '@nestjs/microservices';
+import { ClientProxy, Transport } from '@nestjs/microservices';
 import * as amqp from 'amqplib';
 import { firstValueFrom } from 'rxjs';
 import request from 'supertest';
@@ -8,7 +8,6 @@ import { DataSource } from 'typeorm';
 import { AppModule } from '../src/app.module.js';
 import { ProblemDetailsFilter } from '../src/common/filters/problem-details.filter.js';
 import { OutboxService } from '../src/common/broker/outbox.service.js';
-import { OutboxMessage } from '../src/common/broker/outbox-message.entity.js';
 import {
   NOTIFICATIONS_DLQ,
   NOTIFICATIONS_DLX,

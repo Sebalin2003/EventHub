@@ -57,16 +57,20 @@ export class AiAdvisorService {
   // OWASP LLM02: Sensitive Data Leakage Prevention (PII detection regex)
   private readonly piiPatterns = [
     /\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}\b/g, // Credit cards
-    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g, // Emails
+    /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g, // Emails
   ];
 
   async getAdvice(request: AiAdvisorRequest): Promise<AiAdvisorResponse> {
     const rawPrompt = request.prompt?.trim() || '';
+    const rawPreference = request.categoryPreference?.trim() || '';
 
-    // 1. Inyección de Prompt directa e indirecta (OWASP LLM01)
+    // 1. Inyección de Prompt directa e indirecta (OWASP LLM01).
+    // La preferencia tambien es datos que el sistema le pasa al modelo, por lo
+    // que se analiza como superficie de inyeccion indirecta.
+    const modelInputSurface = `${rawPrompt}\n${rawPreference}`;
     for (const pattern of this.promptInjectionPatterns) {
-      if (pattern.test(rawPrompt)) {
-        this.logger.warn(`Intento de inyección de prompt neutralizado: "${rawPrompt.substring(0, 50)}..."`);
+      if (pattern.test(modelInputSurface)) {
+        this.logger.warn(`Intento de inyección de prompt neutralizado: "${modelInputSurface.substring(0, 50)}..."`);
         return {
           success: false,
           reply: 'No puedo procesar instrucciones que intenten alterar las directrices de seguridad o revelar información interna del sistema.',
@@ -92,7 +96,7 @@ export class AiAdvisorService {
     // 3. Simulación de proveedor de IA caído o timeout (Fallback resiliente sin romper flujo)
     if (request.simulateTimeout) {
       this.logger.warn('Proveedor de IA con alta latencia/timeout. Aplicando fallback determinístico.');
-      return this.generateFallbackResponse(request.categoryPreference);
+      return this.generateFallbackResponse();
     }
 
     try {
@@ -103,8 +107,9 @@ export class AiAdvisorService {
       let sanitizedReply = replyText;
       let piiSanitized = false;
       for (const piiRegex of this.piiPatterns) {
-        if (piiRegex.test(sanitizedReply)) {
-          sanitizedReply = sanitizedReply.replace(piiRegex, '[DATO CONFIDENCIAL PROTEGIDO]');
+        const before = sanitizedReply;
+        sanitizedReply = sanitizedReply.replace(piiRegex, '[DATO CONFIDENCIAL PROTEGIDO]');
+        if (sanitizedReply !== before) {
           piiSanitized = true;
         }
       }
@@ -117,7 +122,7 @@ export class AiAdvisorService {
       };
     } catch (err) {
       this.logger.error(`Error en servicio de IA: ${err}. Activando fallback.`);
-      return this.generateFallbackResponse(request.categoryPreference);
+      return this.generateFallbackResponse();
     }
   }
 
@@ -135,7 +140,7 @@ export class AiAdvisorService {
     return 'En EventHub tenemos una amplia cartelera disponible. Puedes explorar recitales, congresos tecnológicos y obras de teatro con reserva de asientos numerados.';
   }
 
-  private generateFallbackResponse(categoryPreference?: string): AiAdvisorResponse {
+  private generateFallbackResponse(): AiAdvisorResponse {
     return {
       success: true,
       reply: `El motor de IA está en mantenimiento preventivo. Te sugerimos los eventos más populares del momento: "Festival de Rock 2026" y "Expo Tech UADE".`,

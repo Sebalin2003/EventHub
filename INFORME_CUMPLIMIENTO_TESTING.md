@@ -4,22 +4,22 @@
 
 La aplicación cuenta con una base de pruebas automatizadas funcional: las suites existentes pasan, el backend y el frontend compilan y hay cobertura de varios flujos críticos de negocio, resiliencia, seguridad e inteligencia artificial.
 
-El **Eje A está cerrado técnicamente**, el **Eje B quedó resuelto en todos los criterios verificables desde el repositorio** y el **Eje C quedó cerrado con evidencia reproducible**: cobertura por encima del umbral, mutation score superior al mínimo, integración con PostgreSQL y RabbitMQ reales, contratos OpenAPI/WSDL validados, colección Postman ejecutada con Newman, tres corridas consecutivas sin flaky, SOAP real con Faults y timeout, outbox transaccional, DLQ real con reproceso, compensación, idempotencia HTTP, ETag y carga k6 con 50 VUs. Quedan brechas que dependen de evidencia externa o de infraestructura que no está disponible en este entorno:
+El **Eje A está cerrado técnicamente**, el **Eje B quedó resuelto en todos los criterios verificables desde el repositorio**, el **Eje C quedó cerrado con evidencia reproducible** y el **Eje D y el Eje E quedaron cubiertos con pruebas y documentación**: cobertura por encima del umbral, mutation score superior al mínimo, integración con PostgreSQL y RabbitMQ reales, contratos OpenAPI/WSDL validados, colección Postman ejecutada con Newman, tres corridas consecutivas sin flaky, SOAP real con Faults y timeout, outbox transaccional, DLQ real con reproceso, compensación, idempotencia HTTP, ETag, carga k6 con 50 VUs, ZAP sin alertas High/Medium/Low, dependencias de producción sin CVE y declaración de IA con pruebas del asistente. Quedan brechas que dependen de evidencia externa o de infraestructura que no está disponible en este entorno:
 
 - **Quality Gate de SonarQube/SonarCloud**: no hay cuenta ni token, por lo que no se declara cumplido.
-- ~~No existe el tag `v1.0-testing`.~~ Tag creado y publicado sobre el commit final, reubicado el 11/11/2026 para incluir los Ejes A, B, C y D.
+- ~~No existe el tag `v1.0-testing`.~~ Tag creado y publicado sobre el commit final, reubicado el 12/11/2026 para incluir los Ejes A, B, C, D y E.
 - La prueba del manual de usuario y la prueba exploratoria del docente siguen pendientes de ejecución en clase.
 - **EVH-108** (recarga en checkout, severidad Menor) queda abierto con workaround documentado.
 - Varias condiciones dependen de evidencias externas: Teams, Jira y demostración presencial.
-- ~~El pipeline completo en GitHub Actions debe volver a ejecutarse sobre el tag final para confirmar en el runner la duración total y el verde con los nuevos pasos.~~ Ejecutado el 11/11/2026 en el run `43040287065`: los seis jobs terminaron en verde y la duración total fue de **12 min 15 s** (`build-and-test` 1 min 49 s; `mutation-testing` 5 min 44 s; `security-scan` 2 min 17 s).
+- ~~El pipeline completo en GitHub Actions debe volver a ejecutarse sobre el tag final para confirmar en el runner la duración total y el verde con los nuevos pasos.~~ Ejecutado el 11/11/2026 sobre `main` (run `43040287065`, 12 min 15 s) y revalidado sobre el tag `v1.0-testing`; en ambos los seis jobs terminaron en verde.
 
 ## Evidencia ejecutada
 
 | Verificación | Resultado |
 |---|---:|
-| Tests unitarios/dominio/seguridad de API | 253 tests pasados |
+| Tests unitarios/dominio/seguridad de API | 259 tests pasados |
 | Tests del frontend | 8 tests pasados |
-| Escenarios E2E de API (6 archivos: integración, contrato SOAP y seguridad HTTP) | 66 tests pasados |
+| Escenarios E2E de API (7 archivos: integración, contrato SOAP, seguridad HTTP y asistente de IA) | 76 tests pasados |
 | Integración real contra PostgreSQL + RabbitMQ | 17 tests pasados |
 | Contrato SOAP contra servidor real (WSDL, Faults y timeout) | 9 tests pasados |
 | Cobertura de líneas API | 96,52% |
@@ -27,7 +27,7 @@ El **Eje A está cerrado técnicamente**, el **Eje B quedó resuelto en todos lo
 | Mutation score (Stryker 10.1.1 + Vitest) | 76,23% (617 killed, 2 timeout, 184 survived, 9 no coverage) |
 | Colección Postman ejecutada con Newman 6 | 96 requests / 176 aserciones, 0 fallos |
 | Contratos OpenAPI 3.1 y WSDL | Validados contra el contrato publicado |
-| Corridas consecutivas de la suite (unidad + E2E) | 3/3 sin fallos (220×3 y 28×3 en la medición previa; 253 y 37 en la final) |
+| Corridas consecutivas de la suite (unidad + E2E) | 3/3 sin fallos (220×3 y 28×3 en la medición previa; 259 y 76 en la final) |
 | Carga k6 (50 VUs, 5 min, 3 endpoints) | p95 = 16,41 ms; error rate = 0,00%; 6.695 iteraciones |
 | E2E Playwright contra el stack Docker (críticos + responsive + a11y) | 18 tests pasados |
 | Responsive 360 / 768 / 1280 px | 3/3 PASA |
@@ -36,9 +36,9 @@ El **Eje A está cerrado técnicamente**, el **Eje B quedó resuelto en todos lo
 | Build del backend | Correcto |
 | Build del frontend | Correcto |
 | Typecheck del frontend | Correcto |
-| Oxlint | Correcto, con 3 warnings |
+| Oxlint | Correcto, sin warnings |
 | Gitleaks v8.28.0 sobre todo el historial | Sin hallazgos (`no leaks found`) |
-| CI sobre `main` (6 jobs: build/tests, mutación, Playwright, Docker, carga k6 y seguridad) | En verde en el run `43040287065` (12 min 15 s; `security-scan` 2 min 17 s con ZAP baseline sin alertas High): [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
+| CI sobre `main` y tag `v1.0-testing` (6 jobs: build/tests, mutación, Playwright, Docker, carga k6 y seguridad) | En verde en `main` (run `43040287065`, 12 min 15 s) y en el tag `v1.0-testing` con el mismo pipeline; `security-scan` con ZAP baseline sin alertas High: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
 | `docker compose up -d --build --wait` | 4 contenedores `healthy` |
 | Smoke HTTP del flujo crítico | Login, evento, publicación, orden, pago, tickets y check-in OK |
 | Caída y recuperación de RabbitMQ | Publicación HTTP 201 con broker detenido; reconexión automática y API `healthy` |
@@ -69,13 +69,13 @@ docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.28.0 detect --s
 | Código | Estado | Evidencia y acción necesaria |
 |---|---|---|
 | G1 | Cumple (local) | `docker compose up -d --build --wait` levanta PostgreSQL, RabbitMQ, API y web; los cuatro quedan `healthy`. Smoke HTTP OK: `/events`, `/`, proxy `/api/events` y flujo completo de login/compra/check-in. Falta repetirlo en una máquina limpia para la evidencia formal. |
-| G2 | Cumple | Tag `v1.0-testing` creado y publicado, reubicado el 11/11/2026 sobre el commit final que incluye los Ejes A, B, C y D. |
+| G2 | Cumple | Tag `v1.0-testing` creado y publicado, reubicado el 12/11/2026 sobre el commit final que incluye los Ejes A, B, C, D y E. |
 | G3 | Cumple | CI en verde sobre el tag: build, lint, typecheck, contrato OpenAPI sincronizado, 3 corridas de suite, cobertura, Newman, Gitleaks, job Docker con smoke HTTP, job `playwright-e2e` y job de mutation testing. [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml). |
 | G4 | No verificable | Hay documentación en el repositorio, pero debe confirmarse la entrega del plan, matriz, informe, defectos y PDF en Teams. |
 | G5 | No verificable | Debe comprobarse que cada caso y defecto exista en Jira con estado, responsable y vínculo a la HU. |
 | G6 | Cumple | Gitleaks v8.28.0 sobre todo el historial: `no leaks found`, con allowlist justificada para dos falsos positivos (placeholder de badge y fixture JWT `alg=none`). El escaneo corre en CI sobre todo el historial. |
 | G7 | No verificable | Requiere demostrar en vivo el flujo principal de punta a punta. El flujo ya fue validado por Playwright y por smoke HTTP contra Docker. |
-| G8 | Parcial | Debe completarse la declaración de IA con herramientas, versiones, prompts, decisiones aceptadas/descartadas y validación manual. |
+| G8 | Cumple como documento | Declaración de IA completa en `docs/DECLARACION_IA.md`, con herramientas, versiones evidenciadas, prompts, salidas aceptadas/descartadas, verificación y casos reales de error. Resta la validación/firma oral del equipo. |
 | G9 | No verificable | Debe contrastarse el informe con Jira y la ejecución para asegurar que no existan defectos conocidos omitidos. |
 
 El tag y el pipeline ya están resueltos; el resto de las condiciones eliminatorias sigue dependiendo de evidencias externas y de la defensa.
@@ -128,7 +128,7 @@ La evidencia principal se encuentra en:
 - **Colección Postman versionada** (`docs/postman/EventHub_API_Collection.json`) con **96 requests y 176 aserciones**, casos de éxito y error por endpoint, ejecutada con **Newman 6** contra la API real: 0 fallos. El pipeline la corre en el paso `Eje B - Postman/Newman`.
 - **Contratos**: OpenAPI 3.1 generado desde `apps/api/src/openapi.ts` y publicado en `GET /openapi.json`; el archivo `docs/contracts/openapi.json` se exporta y el CI verifica que no haya diferencias. `test/contract.e2e-spec.ts` valida respuestas reales contra los schemas con Ajv 2020-12 y `test/soap-contract.e2e-spec.ts` valida el WSDL de pagos contra un servidor SOAP real.
 - **Transiciones inválidas**: `refund`/`cancel` sobre estados no permitidos y doble check-in devuelven **409** con `application/problem+json`; ETag desactualizado devuelve **412**. Verificado en tests unitarios, E2E y en la colección Newman.
-- **Suite estable**: tres corridas consecutivas completas (unidad con cobertura + E2E) terminaron sin fallos en la medición previa (220×3 unitarios y 28×3 E2E). La medición final de cierre es **253 unitarios** y **66 E2E**, todos verdes. Medición local: **2,44 minutos** para las tres corridas.
+- **Suite estable**: tres corridas consecutivas completas (unidad con cobertura + E2E) terminaron sin fallos en la medición previa (220×3 unitarios y 28×3 E2E). La medición final de cierre es **259 unitarios** y **76 E2E**, todos verdes. La medición local previa de las tres corridas fue **2,44 minutos**.
 - El job `build-and-test` mantiene un timeout de 15 minutos y ejecuta Gitleaks, lint, typecheck, builds, contrato, 3 corridas de suite, baseline de cobertura y Newman. La mutación corre en un job paralelo con timeout de 20 minutos y `security-scan` ejecuta `pnpm audit --prod` y ZAP baseline. En el run `43040287065` (11/11/2026) el job principal tardó **1 min 49 s**, la mutación **5 min 44 s**, `security-scan` **2 min 17 s** y la duración total fue **12 min 15 s**.
 
 ### Incumplimientos
@@ -143,7 +143,7 @@ La evidencia principal se encuentra en:
 | Integración con RabbitMQ real | Requerida | Publicación y consumo real con persistencia en `notifications` | Cumple |
 | API con casos de éxito y error | Requerida | 96 requests / 176 aserciones con Newman, 0 fallos | Cumple |
 | Pruebas de contrato OpenAPI/WSDL | Requerida | OpenAPI 3.1 + WSDL validados en E2E | Cumple |
-| Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos (medición previa); 253 unitarios y 66 E2E verdes en el cierre | Cumple |
+| Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos (medición previa); 259 unitarios y 76 E2E verdes en el cierre | Cumple |
 | Pipeline menor o igual a 15 minutos | Requerida | Run completo en 12 min 15 s (`build-and-test` 1:49, `mutation-testing` 5:44, `security-scan` 2:17) | Cumple |
 
 ### Brecha pendiente
@@ -253,30 +253,34 @@ Justificación individual de cada alerta y de la deuda de `minimatch`: `docs/evi
 
 ## Eje E: inteligencia artificial
 
-### Cumplimientos observados
+### Declaración formal
 
-`apps/api/src/modules/ai/ai.service.spec.ts` prueba:
+La declaración obligatoria quedó en **`docs/DECLARACION_IA.md`**. Incluye, para cada herramienta con evidencia real (Claude 5.5, OpenAI Codex, Figma Make y OpenCode v2.2.2), el uso, un prompt representativo, la salida aceptada, la salida corregida o descartada y la forma de verificación. También documenta la autoría en Git y deja explícito que la firma y defensa oral de cada integrante corresponden a la instancia de evaluación.
+
+Casos reales de IA incorrecta detectados y corregidos:
+
+- El job de ZAP comparaba `riskcode === '3'` (string) contra un JSON que lo emite numérico; el run `43034561454` falló y se corrigió a `Number(riskcode) === 3`.
+- El contenedor de ZAP no podía escribir el reporte en el volumen montado; se agregó `chmod -R a+rwx`.
+- `playwright install --with-deps` falló por DNS del runner; se agregó el reintento sin dependencias apt.
+- Un borrador generado con asistencia de IA afirmaba “37 E2E / 316 pruebas / 5 jobs”; la ejecución real mostró 76 E2E, 361 pruebas y 6 jobs. Se corrigieron los documentos y el PDF.
+
+### Testing de la funcionalidad de IA integrada
+
+`AiAdvisorService` es un simulador determinístico de asistente de eventos, sin proveedor externo ni API keys. La suite cubre:
 
 - Recomendaciones dentro del dominio.
-- Inyección directa de prompts.
-- Jailbreak/DAN mode.
-- Consultas médicas fuera de dominio.
-- Pedidos de recetas.
+- Inyección directa de prompts, en español, jailbreak/DAN y **inyección indirecta** en datos que el sistema le pasa al modelo (`categoryPreference`).
+- Protección del prompt del sistema: la respuesta bloqueada no filtra las instrucciones internas.
+- Guardrails temáticos para consultas médicas y legales.
+- Fuga de PII: emails y tarjetas enmascarados con `sanitizedPii=true`.
 - Fallback ante timeout o caída del proveedor.
+- Validación HTTP: 400 con `application/problem+json` sin stack y rechazo de propiedades no declaradas.
 
-### Evidencia faltante
+Evidencia: **14 pruebas unitarias** y **10 pruebas HTTP** verdes, más la suite completa de **259 unitarias y 76 E2E**. Artefactos en `docs/evidencias/ai/`.
 
-La declaración de uso de IA debe incluir, para cada herramienta:
+### Plan y limitaciones
 
-- Nombre y versión.
-- Objetivo de uso.
-- Prompt representativo.
-- Resultado aceptado.
-- Resultado corregido o descartado.
-- Verificación manual.
-- Un caso donde la IA haya propuesto un test o diagnóstico incorrecto y cómo fue detectado.
-
-Por lo tanto, el Eje E está parcialmente cubierto por código y tests, pero no puede considerarse completamente demostrado sin la declaración formal.
+El plan para la entrega final (regresión visual asistida, datos sintéticos para k6, triage de defectos, red-team de prompts y evaluación de un proveedor LLM real) está en `docs/DECLARACION_IA.md`, con objetivo medible y riesgo controlado por cada incorporación. Se declara que el componente actual es determinístico y que los guardrails por regex no sustituyen la defensa en profundidad de un LLM real.
 
 ## Defecto detectado durante la validación de G1 (corregido)
 
@@ -341,7 +345,7 @@ La clasificación actual es:
 | Eje B - código y pruebas | Cumple todos los criterios salvo el Quality Gate de Sonar (sin cuenta/token) |
 | Eje C - integración y resiliencia | Cumple los 10 criterios con pruebas automatizadas y evidencia reproducible (SOAP real, timeout, circuit breaker, outbox, caída/recovery del broker, duplicado, DLQ real con reproceso, compensación, idempotencia, ETag, Problem Details y k6) |
 | Eje D - seguridad | Cumple el alcance técnico: BOLA, BFLA, JWT, mass assignment, inyecciones, XXE, fuerza bruta, ZAP sin High/Medium/Low, dependencias de producción sin CVE, cabeceras, cookies y logs auditados; TLS directo opcional probado con certificado autofirmado |
-| Eje E - IA | Parcialmente cumplido |
-| G1-G9 | G1, G2, G3 y G6 cumplidos; G4, G5, G7, G8 y G9 pendientes de evidencia externa |
+| Eje E - IA | Cumple: declaración formal en `docs/DECLARACION_IA.md`, 14 pruebas unitarias y 10 HTTP del asistente, plan y limitaciones; la firma y defensa oral quedan para la instancia de evaluación |
+| G1-G9 | G1, G2, G3 y G6 cumplidos; G8 completo como documento (resta la validación oral del equipo); G4, G5, G7 y G9 pendientes de evidencia externa |
 
-La aplicación tiene una base sólida y los Ejes A, B, C y D están cerrados a nivel técnico con evidencia real. El pipeline completo de 6 jobs se ejecutó en verde sobre `main` el 11/11/2026 (run `43040287065`) en 12 min 15 s. **No debe presentarse como plenamente conforme hasta completar las evidencias externas (Teams, Jira, demo, declaración de IA y prueba del manual) y la revisión del Quality Gate de Sonar, que quedó fuera de alcance por falta de acceso.**
+La aplicación tiene una base sólida y los Ejes A, B, C, D y E están cerrados a nivel técnico con evidencia real. El pipeline completo de 6 jobs se ejecutó en verde sobre `main` (run `43040287065`, 12 min 15 s) y se revalidó sobre el tag `v1.0-testing`. **No debe presentarse como plenamente conforme hasta completar las evidencias externas (Teams, Jira, demo y prueba del manual) y la revisión del Quality Gate de Sonar, que quedó fuera de alcance por falta de acceso.**

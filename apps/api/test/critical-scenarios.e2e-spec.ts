@@ -32,7 +32,7 @@ describe('Eje A: 5 Escenarios Críticos Automatizados de Punta a Punta (E2E)', (
 
       jwtMock = {
         signAsync: vi.fn(async (payload: any) => `token-for-${payload.sub}`),
-        verify: vi.fn((token: string) => ({ sub: 'usr-1', email: 'test@eventhub.com', role: 'attendee' })),
+        verify: vi.fn((_token: string) => ({ sub: 'usr-1', email: 'test@eventhub.com', role: 'attendee' })),
       };
 
       identityService = new IdentityService(userDaoMock, jwtMock, hashStrategy);

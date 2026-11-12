@@ -101,15 +101,19 @@ pnpm --filter @evenhub/web typecheck
 pnpm audit --prod --audit-level high
 docker run --rm -v "$PWD/docs/evidencias/zap:/zap/wrk:rw" zaproxy/zap-stable \
   zap-baseline.py -t http://localhost:3000 -J baseline.json -r baseline.html -w baseline.md -I
+
+# 8. Eje E: asistente de IA (unitarias + HTTP)
+pnpm --filter api exec vitest run src/modules/ai/ai.service.spec.ts
+pnpm --filter api exec vitest run --config ./vitest.config.e2e.ts test/ai-advisor.e2e-spec.ts
 ```
 
-Estado real de la suite (medido el 11/11/2026):
+Estado real de la suite (medido el 12/11/2026):
 - **Eje A:** 18 pruebas Playwright contra el stack Docker (6 críticas, 3 responsive y 9 de accesibilidad), axe sin violaciones critical/serious y Lighthouse 100/100.
-- **Eje B:** 253 pruebas unitarias de API y 8 de frontend, todas verdes. Cobertura real: **96,52% de líneas / 84,60% de ramas** (94,43% de sentencias). Mutation score **76,23%** con Stryker. Integración real con PostgreSQL y RabbitMQ, contratos OpenAPI/WSDL, Newman con 96 requests / 176 aserciones y 3 corridas consecutivas sin fallos.
+- **Eje B:** 259 pruebas unitarias de API y 8 de frontend, todas verdes. Cobertura real: **96,52% de líneas / 84,60% de ramas** (94,43% de sentencias). Mutation score **76,23%** con Stryker. Integración real con PostgreSQL y RabbitMQ, contratos OpenAPI/WSDL, Newman con 96 requests / 176 aserciones y 3 corridas consecutivas sin fallos.
 - **Eje C:** los 10 criterios quedaron cubiertos con evidencia reproducible: SOAP real con Faults de negocio/técnico y timeout de 5 s sin XML crudo, Circuit Breaker con fallback, outbox transaccional en PostgreSQL, caída y recuperación de RabbitMQ sin pérdida (`docs/evidencias/broker-recovery.json`), consumidor idempotente, DLQ real con `x-death` y reproceso, compensación de pago rechazado, idempotencia HTTP, ETag/412 y Problem Details. Carga k6 con 50 VUs durante 5 minutos: **p95 = 16,41 ms, error rate = 0,00%** (6.695 iteraciones, `docs/evidencias/k6-summary.json`).
-- **Suite E2E de API:** 66 tests en 6 archivos, incluidos los 17 de integración real, los 9 de contrato SOAP y los 29 de seguridad HTTP.
+- **Suite E2E de API:** 76 tests en 7 archivos, incluidos los 17 de integración real, los 9 de contrato SOAP, los 29 de seguridad HTTP y los 10 del asistente de IA.
 - **Eje D:** 29 pruebas HTTP contra `AppModule`, PostgreSQL y RabbitMQ reales cubren BOLA/IDOR (403/404), BFLA (403), JWT ausente/vencido/alterado/`alg=none`/otro emisor (401), mass assignment (400), SQL/NoSQL/XSS sin ejecución, XXE rechazado, fuerza bruta (429), cabeceras CSP/COOP/COEP/CORP/HSTS, CORS y ausencia de cookies de sesión. OWASP ZAP baseline y API scan autenticado: **0 High, 0 Medium, 0 Low**; `pnpm audit --prod`: **0 vulnerabilidades**; TLS directo opcional verificado con certificado autofirmado. Evidencias y justificaciones en `docs/evidencias/zap/`, `docs/evidencias/security/` y `docs/evidencias/zap-justificaciones.md`.
-- **Eje E:** testing de IA (prompt injection, guardrails temáticos, sanitización PII y fallback).
+- **Eje E:** declaración formal de IA en [`docs/DECLARACION_IA.md`](./docs/DECLARACION_IA.md) con herramientas y versiones evidenciadas, prompts, salidas aceptadas/corregidas y verificación. El asistente `AiAdvisorService` se prueba con **14 unitarias y 10 HTTP**: inyección directa e indirecta, protección del prompt del sistema, guardrails médicos/legales, enmascarado de emails y tarjetas, fallback ante timeout y validación 400 con Problem Details. Evidencia en `docs/evidencias/ai/`.
 - **G6:** Gitleaks v8.28.0 sobre todo el historial, sin hallazgos.
 
 Las brechas y el plan para cerrarlas están en [`INFORME_CUMPLIMIENTO_TESTING.md`](./INFORME_CUMPLIMIENTO_TESTING.md).

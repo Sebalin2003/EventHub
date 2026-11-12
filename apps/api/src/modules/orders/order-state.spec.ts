@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ConflictException } from '@nestjs/common';
 import { Order, OrderStatus } from './entities/order.entity.js';
-import { createOrderState } from './state/order-state.js';
 
 describe('Order State Pattern (Eje B: Transiciones de Estado y 409 Conflict)', () => {
   it('debe iniciar en estado PENDING', () => {
