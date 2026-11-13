@@ -1,21 +1,25 @@
 # EvenHub
 
-Demo frontend de una plataforma para vender entradas y administrar eventos. Mantiene el lenguaje visual de “boletería contemporánea” definido en [`DESIGN.md`](./DESIGN.md) y ofrece recorridos para asistentes, organizadores, staff y administradores.
+Plataforma para vender entradas y administrar eventos: frontend React y API NestJS con PostgreSQL, RabbitMQ y pasarela de pagos SOAP. Mantiene el lenguaje visual de “boletería contemporánea” definido en [`DESIGN.md`](./DESIGN.md) y ofrece recorridos para asistentes, organizadores, staff y administradores.
 
-> **Estado:** el catálogo de eventos se carga desde el backend NestJS y PostgreSQL cuando están disponibles; compras, tickets, check-in y servicios externos continúan funcionando como demo local.
+> **Estado:** la web usa la API real para login (JWT), catálogo, eventos del organizador y favoritos. La API también expone órdenes, pagos SOAP, tickets, check-in, reembolsos y notificaciones por RabbitMQ, pero el checkout, las entradas y el check-in **de la interfaz web** siguen funcionando como demo local (`localStorage`). Si la API no está disponible, la web completa cae a modo demo.
 
 > **CI:** [run verde sobre el tag `v1.0-testing`](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) — build, lint, typecheck, 3 corridas de tests, cobertura, contratos, Newman, E2E, smoke Docker y mutation testing.
 
 ## Perfiles de demostración
 
-| Perfil | Usuario demo | Funciones |
-|---|---|---|
-| Asistente | `maria@eventHub.com` | Favoritos, compra, entradas, historial y reembolsos. |
-| Organizador | `org@techmadrid.es` | Eventos, inventario, ventas, asistentes y check-in. |
-| Staff | `staff@eventHub.com` | Validación persistente de entradas. |
-| Administrador | `admin@eventHub.com` | Usuarios, eventos y auditoría real del demo. |
+Usuarios creados por el seed de la API. La contraseña de todos es `password`.
 
-La pestaña **Demostración** permite elegir un perfil directamente. El formulario local identifica el email, pero no valida la contraseña.
+| Perfil | Usuario | Funciones |
+|---|---|---|
+| Asistente | `maria@eventhub.com.ar` | Favoritos, compra, entradas, historial y reembolsos. |
+| Organizador | `eventos@eventhub.com.ar` | Eventos, inventario, ventas, asistentes y check-in. |
+| Staff | `staff@eventhub.com.ar` | Validación de entradas. |
+| Administrador | `admin@eventhub.com.ar` | Usuarios, eventos y auditoría. |
+
+Otros usuarios del seed: `javier@eventhub.com.ar`, `lucia@email.com.ar`, `marcos@email.com.ar` (asistentes) y `hola@comunidaddigital.ar` (organizador).
+
+La pestaña **Demostración** permite elegir un perfil directamente: si la API está levantada obtiene un JWT real con esas credenciales; si no, entra en modo demo local.
 
 ## Funciones implementadas
 
@@ -32,21 +36,29 @@ La pestaña **Demostración** permite elegir un perfil directamente. El formular
 - Diseño adaptable a escritorio, tablet y celular, foco visible y movimiento reducido.
 - Acción **Restablecer demo** para volver a los datos iniciales.
 
-El estado se almacena de forma versionada en `localStorage`. Recargar la aplicación conserva sesión, favoritos, HOLD, órdenes, tickets, reembolsos, eventos, check-ins y auditoría.
+En la web, lo que todavía es demo local (checkout, órdenes, tickets, check-in, auditoría) se almacena de forma versionada en `localStorage` y sobrevive a recargas.
+
+### Backend (API NestJS)
+
+- Login con JWT, roles (`JwtAuthGuard`, `RolesGuard`), rate limiting y cabeceras de seguridad.
+- Eventos, inventario con HOLD temporales, favoritos, órdenes con máquina de estados, tickets, check-in y reembolsos.
+- Pagos por SOAP (`SoapClientService` + Adapter) con Circuit Breaker, timeout y fallback.
+- Notificaciones por RabbitMQ con outbox transaccional, DLQ y consumidor idempotente.
+- Asistente de IA (`AiAdvisorService`) con guardrails.
+- Errores en formato Problem Details y contrato OpenAPI en `GET /openapi.json`.
 
 ## Fuera del alcance actual
 
-- Migración completa de órdenes, tickets y check-in al backend.
-- Pasarela de pagos, correo, mensajería e integraciones REST/SOAP reales.
+- Conectar el checkout, las entradas y el check-in de la web con los endpoints de la API.
 - Generación directa de PDF; el demo entrega PNG.
 - Sincronización automática de los cambios de código hacia Figma.
 
 ## Tecnologías
 
-- React 19, TypeScript y Vite.
-- Tailwind CSS 4 y estilos CSS del sistema visual.
-- Vitest para las reglas de negocio del demo y suite de testing.
-- pnpm.
+- Frontend: React 19, TypeScript, Vite y Tailwind CSS 4.
+- Backend: NestJS, TypeORM, PostgreSQL, RabbitMQ y `soap`.
+- Testing: Vitest, Playwright, Stryker, Newman, k6 y OWASP ZAP.
+- pnpm y Docker Compose.
 
 ## Ejecución Reproducible desde Cero (Condición G1 - Cátedra)
 
@@ -67,11 +79,16 @@ El comando espera a que PostgreSQL, RabbitMQ, la API y la web estén `healthy`. 
 
 ### Ejecución Local Alternativa (Sin Docker)
 
+Requiere PostgreSQL 15+ (puerto 5432, usuario `user`, contraseña `password`, base `evenhub`) y RabbitMQ 3+ (puerto 5672, `user` / `password`). También se pueden levantar solo esos dos servicios con `docker compose up -d postgres rabbitmq`.
+
 ```bash
+cp apps/api/.env.example apps/api/.env   # ajustar si cambian credenciales o puertos
 pnpm install
-pnpm --filter api start:dev
-pnpm --filter @evenhub/web dev
+pnpm --filter api start:dev              # terminal 1: API en :3000
+pnpm --filter @evenhub/web dev           # terminal 2: web en :5173
 ```
+
+Solo con el frontend (`pnpm --filter @evenhub/web dev`) la web funciona en modo demo local.
 
 ## Verificación y Pruebas Automatizadas (Ejes A, B, C, D, E)
 
@@ -123,18 +140,14 @@ Las brechas y el plan para cerrarlas están en [`INFORME_CUMPLIMIENTO_TESTING.md
 ```text
 EvenHub/
 ├── apps/
-│   ├── api/
-│   └── web/
-│       ├── src/
-│       ├── package.json
-│       └── vite.config.ts
-├── infra/
-│   └── docker-compose.yml
-├── pnpm-workspace.yaml
-├── PRODUCT.md
-├── DESIGN.md
-├── REQUIREMENTS.md
-└── ARCHITECTURE.md
+│   ├── api/              API NestJS (src/modules, test/ e2e)
+│   └── web/              Frontend React (src/, e2e/ Playwright)
+├── docs/                 Entregables, contratos, Postman y evidencias
+├── infra/                docker-compose alternativo (PostgreSQL, RabbitMQ y API)
+├── load-tests/           Script k6
+├── .github/workflows/    Pipeline de CI
+├── docker-compose.yml    Stack completo (comando único)
+└── pnpm-workspace.yaml
 ```
 
 ## Documentación
@@ -142,9 +155,14 @@ EvenHub/
 - [`PRODUCT.md`](./PRODUCT.md): propósito, usuarios y principios.
 - [`DESIGN.md`](./DESIGN.md): sistema visual, componentes y accesibilidad.
 - [`REQUIREMENTS.md`](./REQUIREMENTS.md): requisitos y criterios de aceptación.
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md): arquitectura objetivo y evolución técnica.
+- [`ARCHITECTURE.md`](./ARCHITECTURE.md): arquitectura objetivo y diferencias con lo implementado.
+- [`criterios_de_testing.md`](./criterios_de_testing.md): criterios de la cátedra para la prueba del TP.
+- [`INFORME_CUMPLIMIENTO_TESTING.md`](./INFORME_CUMPLIMIENTO_TESTING.md): estado de cumplimiento de cada criterio.
+- [`docs/Clase15_GrupoEventHub_Testing.md`](./docs/Clase15_GrupoEventHub_Testing.md): plan, trazabilidad, ejecución y defectos (ISO/IEC 29119-3).
+- [`docs/MANUAL_USUARIO.md`](./docs/MANUAL_USUARIO.md): manual de usuario.
+- [`docs/DECLARACION_IA.md`](./docs/DECLARACION_IA.md): declaración de uso de IA.
 - [Prototipo original en Figma Make](https://www.figma.com/make/h8xncc6mVYtRn61S6zNKQg/Event-Management-System?p=f).
 
 ## Uso de inteligencia artificial
 
-El prototipo visual inicial fue generado con Figma Make. Codex se utilizó para trasladarlo al repositorio, definir la documentación e implementar y verificar el demo frontend. El equipo debe revisar, comprender y mantener los cambios antes de una entrega académica.
+El prototipo visual inicial fue generado con Figma Make. El detalle de las herramientas de IA usadas en el desarrollo y el testing, con prompts y verificación, está en [`docs/DECLARACION_IA.md`](./docs/DECLARACION_IA.md).

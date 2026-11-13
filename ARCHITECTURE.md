@@ -9,14 +9,24 @@ Este documento define una arquitectura técnica mínima, verificable y compatibl
 | Decisión | Estado | Motivo |
 |---|---|---|
 | React + TypeScript + Vite para frontend | Adoptada | Es el stack del prototipo existente. |
-| NestJS para backend | Propuesta base | Mantiene TypeScript de punta a punta y está permitido por la cátedra. |
-| PostgreSQL | Propuesta base | Ofrece transacciones, restricciones e integridad adecuada para inventario y ventas. |
-| TypeORM | Propuesta base | Integración directa con NestJS y soporte de transacciones y migraciones. |
-| RabbitMQ | Propuesta base | Resuelve cola punto a punto y publicación/suscripción con un único broker. |
-| Monolito modular inicial | Propuesta base | Permite componentes y capas explícitas sin costo operativo prematuro de microservicios. |
-| Docker Compose local | Propuesta base | La nube no es obligatoria y el entorno queda reproducible para demos. |
-| Pasarela de pagos REST | Pendiente de proveedor | La interfaz será estable aunque el proveedor inicial sea simulado. |
-| Sistema de recinto legado SOAP | Pendiente de aprobación docente | Debe confirmarse que el escenario resulta válido y natural para el dominio. |
+| NestJS para backend | Adoptada | Mantiene TypeScript de punta a punta y está permitido por la cátedra. |
+| PostgreSQL | Adoptada | Ofrece transacciones, restricciones e integridad adecuada para inventario y ventas. |
+| TypeORM | Adoptada | Integración directa con NestJS y soporte de transacciones y migraciones. |
+| RabbitMQ | Adoptada | Resuelve cola punto a punto y publicación/suscripción con un único broker. |
+| Monolito modular inicial | Adoptada | Permite componentes y capas explícitas sin costo operativo prematuro de microservicios. |
+| Docker Compose local | Adoptada | La nube no es obligatoria y el entorno queda reproducible para demos. |
+| Pasarela de pagos | Adoptada como SOAP | El sistema legado SOAP terminó siendo la pasarela de pagos (`SoapClientService` + Adapter, contrato en `docs/contracts/payments.wsdl`), en lugar de una pasarela REST. |
+| Sistema de recinto legado SOAP | Descartada | Se reemplazó por la pasarela de pagos SOAP. |
+
+### Diferencias con lo implementado
+
+Este documento describe la arquitectura objetivo. A noviembre de 2026, el código difiere en estos puntos:
+
+- La API no usa el prefijo `/api/v1`: las rutas no tienen prefijo y el `/api` lo agrega el proxy de Vite. El contrato OpenAPI se publica en `GET /openapi.json` y se versiona en `docs/contracts/openapi.json`.
+- No hay endpoints `/health/*`: los healthchecks de Docker consultan `GET /events`.
+- No hay un worker separado: el consumidor de RabbitMQ corre en el mismo proceso NestJS (aplicación híbrida). El outbox transaccional sí está implementado (`apps/api/src/common/broker`).
+- TypeORM usa `synchronize` fuera de producción en lugar de migraciones.
+- En la web, el checkout, las entradas y el check-in todavía usan el estado local (`demoStore.ts`), aunque la API ya los soporta.
 
 ## 3. Supuestos
 
