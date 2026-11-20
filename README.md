@@ -10,7 +10,7 @@ EventHub está preparado para desplegarse de manera inmediata en la nube:
 - **Backend API & PostgreSQL:** Desplegados en [Render](https://render.com) mediante el archivo [render.yaml](./render.yaml) (Blueprint de 1 clic).
 - **Frontend Web:** Desplegado en [Cloudflare Pages](https://pages.cloudflare.com) (Vite + React 19 SPA con soporte de enrutamiento y proxy).
 
-👉 **[Consulta la Guía Completa de Despliegue Paso a Paso (Render + Cloudflare Pages)](./docs/GUIA_DEPLOYMENT.md)**
+👉 **[Consulta la Guía Completa de Despliegue Paso a Paso (Render + Cloudflare Pages)](./docs/despliegue/GUIA_DEPLOYMENT.md)**
 
 ---
 
@@ -30,18 +30,18 @@ docker compose up -d --build --wait
 
 ---
 
-## 📚 Documentación Centralizada
+## 📚 Documentación Centralizada y Discriminada
 
-Toda la documentación técnica, arquitectónica y de testing se encuentra organizada en la carpeta **[`docs/`](./docs/README.md)**:
+Toda la documentación técnica, arquitectónica y de testing se encuentra clasificada en subcarpetas temáticas dentro de **[`docs/`](./docs/README.md)**:
 
-| Categoría | Documentos Principales |
+| Subcarpeta | Contenido y Enlaces Principales |
 |---|---|
-| **🚀 Despliegue e Infraestructura** | • [Guía de Despliegue en Render y Cloudflare Pages](./docs/GUIA_DEPLOYMENT.md)<br>• [Guía de Ejecución Local](./docs/GUIA_LOCAL.md)<br>• [Orquestación Docker Compose](./docker-compose.yml) |
-| **🏗️ Arquitectura y Patrones** | • [Documento de Arquitectura](./docs/ARCHITECTURE.md)<br>• [Documento Técnico](./docs/documento_tecnico_eventhub.md)<br>• [Diseño de API REST](./docs/documento_diseño_api.md)<br>• [Diseño Frontend UI/UX](./docs/DESIGN.md)<br>• **[Registros de Decisiones de Arquitectura (8 ADRs)](./docs/adr/README.md)** (State 409, Strategy, Factory, DAO, Adapter SOAP, Circuit Breaker, Outbox, AI Gateway) |
-| **🧪 Testing y Calidad (QA)** | • [Informe de Testing ISO/IEC/IEEE 29119-3](./docs/Clase15_GrupoEventHub_Testing.md) ([Versión PDF](./docs/Clase15_GrupoEventHub_Testing.pdf))<br>• [Informe de Cumplimiento de Criterios (G1-G9, Ejes A-E)](./docs/INFORME_CUMPLIMIENTO_TESTING.md)<br>• [Manual de Usuario por Roles](./docs/MANUAL_USUARIO.md)<br>• [Registro de Prueba Exploratoria](./docs/PRUEBA_EXPLORATORIA.md)<br>• [Contratos OpenAPI y WSDL](./docs/contracts/)<br>• [Colección Postman Newman (96 requests)](./docs/postman/) |
-| **🤖 Inteligencia Artificial** | • [Declaración Formal de Uso de IA](./docs/DECLARACION_IA.md)<br>• [Evidencia de Testing del Asistente de IA (Guardrails e Inyecciones)](./docs/evidencias/ai/) |
-| **📋 Estado y Seguimiento** | • [Estado Unificado y Guion de Demo](./docs/ESTADO_UNIFICADO.md)<br>• [Trazabilidad Jira y Teams](./docs/EVIDENCIA_G4_G5.md)<br>• [Guía de Estudio para la Defensa Individual](./docs/guia_estudio_defensa.md) |
-| **📦 Producto y Requerimientos** | • [Definición de Producto](./docs/PRODUCT.md)<br>• [Matriz de Requerimientos](./docs/REQUIREMENTS.md) |
+| **🚀 [`docs/despliegue/`](./docs/despliegue/)** | • [Guía de Despliegue en Render y Cloudflare Pages](./docs/despliegue/GUIA_DEPLOYMENT.md)<br>• [Guía de Ejecución Local](./docs/despliegue/GUIA_LOCAL.md)<br>• [Orquestación Docker Compose](./docker-compose.yml) |
+| **🏗️ [`docs/arquitectura/`](./docs/arquitectura/)** | • [Documento de Arquitectura](./docs/arquitectura/ARCHITECTURE.md)<br>• [Documento Técnico](./docs/arquitectura/documento_tecnico_eventhub.md)<br>• [Diseño de API REST](./docs/arquitectura/documento_diseño_api.md)<br>• [Diseño Frontend UI/UX](./docs/arquitectura/DESIGN.md)<br>• **[Registros de Decisiones de Arquitectura (8 ADRs)](./docs/arquitectura/adr/README.md)** (State 409, Strategy, Factory, DAO, Adapter SOAP, Circuit Breaker, Outbox, AI Gateway) |
+| **🧪 [`docs/testing/`](./docs/testing/)** | • [Informe de Testing ISO/IEC/IEEE 29119-3](./docs/testing/Clase15_GrupoEventHub_Testing.md) ([Versión PDF](./docs/testing/Clase15_GrupoEventHub_Testing.pdf))<br>• [Informe de Cumplimiento de Criterios (G1-G9, Ejes A-E)](./docs/testing/INFORME_CUMPLIMIENTO_TESTING.md)<br>• [Manual de Usuario por Roles](./docs/testing/MANUAL_USUARIO.md)<br>• [Registro de Prueba Exploratoria](./docs/testing/PRUEBA_EXPLORATORIA.md)<br>• [Contratos OpenAPI y WSDL](./docs/contracts/)<br>• [Colección Postman Newman (96 requests)](./docs/postman/) |
+| **🤖 [`docs/ia/`](./docs/ia/)** | • [Declaración Formal de Uso de IA](./docs/ia/DECLARACION_IA.md)<br>• [Evidencia de Testing del Asistente de IA (Guardrails e Inyecciones)](./docs/evidencias/ai/) |
+| **📋 [`docs/seguimiento/`](./docs/seguimiento/)** | • [Estado Unificado y Guion de Demo](./docs/seguimiento/ESTADO_UNIFICADO.md)<br>• [Trazabilidad Jira y Teams](./docs/seguimiento/EVIDENCIA_G4_G5.md)<br>• [Guía de Estudio para la Defensa Individual](./docs/seguimiento/guia_estudio_defensa.md) |
+| **📦 [`docs/producto/`](./docs/producto/)** | • [Definición de Producto](./docs/producto/PRODUCT.md)<br>• [Matriz de Requerimientos](./docs/producto/REQUIREMENTS.md) |
 
 ---
 
