@@ -1,5 +1,6 @@
 import type { UserProfile, UserRole } from '../types'
 import { seedUsers } from '../data/seed'
+import { apiUrl } from './client'
 
 type ApiUser = {
   id: string
@@ -33,7 +34,7 @@ function mapUser(user: ApiUser): UserProfile {
 }
 
 export async function login(email: string, password: string): Promise<UserProfile> {
-  const response = await fetch('/api/auth/login', {
+  const response = await fetch(apiUrl('/api/auth/login'), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),

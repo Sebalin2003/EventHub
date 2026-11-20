@@ -1,5 +1,6 @@
 import type { Event, EventModality, EventStatus, TicketType } from '../types'
 import { seedUsers } from '../data/seed'
+import { apiUrl } from './client'
 
 const AUTH_TOKEN_KEY = 'eventhub-access-token'
 
@@ -12,7 +13,7 @@ async function authed(path: string, init: RequestInit = {}): Promise<unknown> {
   headers.set('Content-Type', 'application/json')
   const token = accessToken()
   if (token) headers.set('Authorization', `Bearer ${token}`)
-  const response = await fetch(path, { ...init, headers })
+  const response = await fetch(apiUrl(path), { ...init, headers })
   if (!response.ok) {
     const body = await response.json().catch(() => null) as { message?: string | string[] } | null
     const detail = Array.isArray(body?.message) ? body.message.join(', ') : body?.message
@@ -111,7 +112,7 @@ export function mapApiEvent(raw: ApiEvent): Event {
 }
 
 export async function fetchEvents(): Promise<Event[]> {
-  const response = await fetch('/api/events')
+  const response = await fetch(apiUrl('/api/events'))
   if (!response.ok) throw new Error(`Events request failed: ${response.status}`)
   const data = await response.json() as ApiEvent[]
   return data.map(mapApiEvent)

@@ -26,16 +26,28 @@ import { NestModule, MiddlewareConsumer } from '@nestjs/common';
     }),
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
-      useFactory: (configService: ConfigService) => ({
-        type: 'postgres',
-        host: configService.get<string>('DB_HOST', 'localhost'),
-        port: configService.get<number>('DB_PORT', 5432),
-        username: configService.get<string>('DB_USERNAME', 'user'),
-        password: configService.get<string>('DB_PASSWORD', 'password'),
-        database: configService.get<string>('DB_DATABASE', 'evenhub'),
-        autoLoadEntities: true,
-        synchronize: configService.get<string>('NODE_ENV') !== 'production',
-      }),
+      useFactory: (configService: ConfigService) => {
+        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const isProd = configService.get<string>('NODE_ENV') === 'production';
+        const sync = configService.get<string>('DB_SYNCHRONIZE') === 'true' || !isProd;
+        const sslRequired = configService.get<string>('DB_SSL') === 'true' || (Boolean(databaseUrl) && isProd);
+
+        return {
+          type: 'postgres',
+          ...(databaseUrl
+            ? { url: databaseUrl }
+            : {
+                host: configService.get<string>('DB_HOST', 'localhost'),
+                port: configService.get<number>('DB_PORT', 5432),
+                username: configService.get<string>('DB_USERNAME', 'user'),
+                password: configService.get<string>('DB_PASSWORD', 'password'),
+                database: configService.get<string>('DB_DATABASE', 'evenhub'),
+              }),
+          ssl: sslRequired ? { rejectUnauthorized: false } : false,
+          autoLoadEntities: true,
+          synchronize: sync,
+        };
+      },
       inject: [ConfigService],
     }),
     OutboxModule,
