@@ -33,7 +33,7 @@ import { NestModule, MiddlewareConsumer } from '@nestjs/common';
         const dbSslEnv = configService.get<string>('DB_SSL');
         const sslRequired = dbSslEnv !== undefined
           ? dbSslEnv === 'true'
-          : Boolean(databaseUrl) && isProd && !databaseUrl.includes('railway.internal');
+          : (databaseUrl ? (isProd && !databaseUrl.includes('railway.internal')) : false);
 
         return {
           type: 'postgres',

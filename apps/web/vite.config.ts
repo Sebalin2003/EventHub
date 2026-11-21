@@ -5,6 +5,9 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
+    host: '0.0.0.0',
+    port: process.env.PORT ? parseInt(process.env.PORT, 10) : 5173,
+    allowedHosts: true,
     proxy: {
       '/api': {
         // Docker Compose sets API_PROXY_TARGET=http://api:3000.
@@ -13,5 +16,10 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },
+  },
+  preview: {
+    host: '0.0.0.0',
+    port: process.env.PORT ? parseInt(process.env.PORT, 10) : 4173,
+    allowedHosts: true,
   },
 })
