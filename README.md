@@ -7,10 +7,10 @@ Plataforma integral para la venta de entradas, gestión de inventario en tiempo 
 ## 🚀 Despliegue en la Nube (Producción)
 
 EventHub está preparado para desplegarse de manera inmediata en la nube:
-- **Backend API & PostgreSQL:** Desplegados en [Render](https://render.com) mediante el archivo [render.yaml](./render.yaml) (Blueprint de 1 clic).
-- **Frontend Web:** Desplegado en [Cloudflare Pages](https://pages.cloudflare.com) (Vite + React 19 SPA con soporte de enrutamiento y proxy).
+- **Backend API & Base de Datos:** Desplegados en [Railway](https://railway.app) (con red privada interna y PostgreSQL) o en [Render](https://render.com) (mediante [render.yaml](./render.yaml)).
+- **Frontend Web:** Desplegado en [Cloudflare Pages](https://pages.cloudflare.com) o directamente en [Railway](https://railway.app) (Vite + React 19 SPA con soporte de enrutamiento y proxy).
 
-👉 **[Consulta la Guía Completa de Despliegue Paso a Paso (Render + Cloudflare Pages)](./docs/despliegue/GUIA_DEPLOYMENT.md)**
+👉 **[Consulta la Guía Completa de Despliegue Paso a Paso (Railway + Cloudflare Pages)](./docs/despliegue/GUIA_DEPLOYMENT.md)**
 
 ---
 

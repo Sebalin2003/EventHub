@@ -30,7 +30,10 @@ import { NestModule, MiddlewareConsumer } from '@nestjs/common';
         const databaseUrl = configService.get<string>('DATABASE_URL');
         const isProd = configService.get<string>('NODE_ENV') === 'production';
         const sync = configService.get<string>('DB_SYNCHRONIZE') === 'true' || !isProd;
-        const sslRequired = configService.get<string>('DB_SSL') === 'true' || (Boolean(databaseUrl) && isProd);
+        const dbSslEnv = configService.get<string>('DB_SSL');
+        const sslRequired = dbSslEnv !== undefined
+          ? dbSslEnv === 'true'
+          : Boolean(databaseUrl) && isProd && !databaseUrl.includes('railway.internal');
 
         return {
           type: 'postgres',

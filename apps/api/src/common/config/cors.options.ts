@@ -11,11 +11,13 @@ export const corsOptions: CorsOptions = {
       .map((o) => o.trim())
       .filter(Boolean);
 
-    // Allow localhost dev servers, Cloudflare Pages (.pages.dev), eventhub domains, or configured origins
+    // Allow localhost dev servers, Cloudflare Pages (.pages.dev), Railway (.railway.app), eventhub domains, or configured origins
     if (
       !origin ||
       /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
       origin.endsWith('.pages.dev') ||
+      origin.endsWith('.railway.app') ||
+      origin.endsWith('.up.railway.app') ||
       origin.endsWith('eventhub.com') ||
       origin.endsWith('eventhub.com.ar') ||
       configuredOrigins.includes(origin)

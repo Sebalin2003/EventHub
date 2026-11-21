@@ -1,133 +1,179 @@
-# Guía Completa de Despliegue: Render (Backend) + Cloudflare Pages (Frontend)
+# Guía Completa de Despliegue: Railway (Backend + BD) + Cloudflare Pages / Railway (Frontend)
 
-Esta guía detalla el paso a paso para desplegar **EventHub** en producción utilizando la infraestructura en la nube:
-- **Backend API & Base de Datos:** [Render](https://render.com) (Web Service NestJS + Managed PostgreSQL).
-- **Frontend Web:** [Cloudflare Pages](https://pages.cloudflare.com) (Vite + React 19 SPA).
+Esta guía explica paso a paso cómo desplegar **EventHub** en producción utilizando [Railway](https://railway.app), una de las plataformas en la nube más ágiles y robustas para stacks modernos.
 
 ---
 
-## 1. Despliegue del Backend en Render
+## 🌟 ¿Por qué Railway para EventHub?
 
-Render permite desplegar el backend y la base de datos PostgreSQL de dos formas: **automática con Blueprint** o **manual paso a paso**.
-
-### Opción A: Despliegue Automático con Blueprint (`render.yaml`)
-
-El repositorio incluye el archivo [render.yaml](file:///C:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/render.yaml) preconfigurado.
-
-1. Inicia sesión en tu cuenta de [Render Dashboard](https://dashboard.render.com/).
-2. Haz clic en **New +** $\rightarrow$ **Blueprint**.
-3. Conecta tu repositorio de GitHub `EventHub`.
-4. Render detectará automáticamente `render.yaml` y te mostrará los dos recursos a crear:
-   - **eventhub-db:** Base de datos PostgreSQL gestionada (plan Free).
-   - **eventhub-api:** Web Service de Node.js (plan Free).
-5. Haz clic en **Apply**. Render creará la base de datos, inyectará `DATABASE_URL` y levantará la API automáticamente.
+1. **Sin Cold Starts molestos:** A diferencia de planes gratuitos que se duermen a los 15 minutos (demorando ~50 segundos en reaccionar), los servicios en Railway permanecen activos y responden inmediatamente.
+2. **Red Privada Interna (`.railway.internal`):** La API de NestJS se conecta a PostgreSQL y RabbitMQ a través de una red privada cifrada de alta velocidad sin exponer los puertos de la base de datos a internet.
+3. **Inyección Dinámica de Variables:** Puedes referenciar credenciales directamente entre servicios (ej. `${{Postgres.DATABASE_URL}}`) sin copiar ni exponer contraseñas manualmente.
+4. **Soporte Nativo de Monorepo:** Permite configurar el subdirectorio raíz (`apps/api` y `apps/web`) con detección automática de Nixpacks/Node.js.
 
 ---
 
-### Opción B: Despliegue Manual Paso a Paso en Render
+## 🛠️ Arquitectura de Despliegue
 
-Si prefieres configurarlo manualmente desde el dashboard:
+```mermaid
+flowchart TD
+    Client["Navegador / Cliente"] -->|HTTPS| Web["Frontend React 19<br/>(Cloudflare Pages o Railway)"]
+    Web -->|REST / JWT| API["Backend NestJS API<br/>(Railway Service: apps/api)"]
+    
+    subgraph Red Privada Railway
+        API -->|TCP 5432: DATABASE_URL| Postgres[("PostgreSQL 15<br/>Railway Database")]
+        API -.->|AMQP 5672: RABBITMQ_URL| RabbitMQ["RabbitMQ Broker<br/>Railway Docker Service"]
+    end
+    
+    API -.->|SOAP/WSDL| SOAP["Pasarela de Pagos Legada"]
+```
 
-#### Paso 1: Crear la Base de Datos PostgreSQL en Render
-1. En Render Dashboard: **New +** $\rightarrow$ **PostgreSQL**.
-2. Completa los datos:
-   - **Name:** `eventhub-db`
-   - **Database:** `evenhub`
-   - **User:** `user`
-   - **Region:** Elige la más cercana (ej. Oregon o Frankfurt).
-   - **Plan:** Free.
-3. Haz clic en **Create Database**.
-4. Una vez creada, copia el valor de **Internal Database URL** (o External si te conectas desde fuera de Render).
+---
 
-#### Paso 2: Crear el Web Service de la API en Render
-1. En Render Dashboard: **New +** $\rightarrow$ **Web Service**.
-2. Selecciona tu repositorio GitHub `EventHub`.
-3. Configura los parámetros principales:
-   - **Name:** `eventhub-api`
-   - **Root Directory:** `apps/api`
-   - **Environment:** `Node`
-   - **Build Command:** `npm install --include=dev && npm run build`
+## 🚀 Paso 1: Crear el Proyecto en Railway
+
+1. Ingresa a [Railway](https://railway.app) e inicia sesión con tu cuenta de GitHub.
+2. Haz clic en **New Project** (o **+ Project**).
+3. Selecciona **Empty Project**. Esto creará un espacio de trabajo limpio donde añadiremos los servicios.
+
+---
+
+## 🗄️ Paso 2: Agregar la Base de Datos PostgreSQL
+
+1. En el lienzo de tu proyecto de Railway, presiona `Ctrl + K` (o haz clic en **+ Create** / **+ New**).
+2. Selecciona **Database** $\rightarrow$ **Add PostgreSQL**.
+3. Railway creará el contenedor de PostgreSQL en segundos.
+4. *(Opcional)* Haz clic sobre la tarjeta de PostgreSQL y cámbiale el nombre a `Postgres` para simplificar las referencias de variables.
+5. Railway genera automáticamente la variable `${{Postgres.DATABASE_URL}}` lista para ser consumida por la API.
+
+---
+
+## 🐇 Paso 3: (Opcional) Agregar el Broker RabbitMQ
+
+Si deseas contar con el broker real de mensajería para notificaciones asíncronas y Dead Letter Queue:
+
+1. Haz clic en **+ Create** $\rightarrow$ **Docker Image**.
+2. Escribe: `rabbitmq:3-management-alpine` y presiona Enter.
+3. Haz clic en la tarjeta del servicio creado y ve a la pestaña **Variables**:
+   - `RABBITMQ_DEFAULT_USER`: `user`
+   - `RABBITMQ_DEFAULT_PASS`: `password`
+4. En la pestaña **Settings**, renombra el servicio a `RabbitMQ`.
+5. En la sección **Networking**, haz clic en **Add Port** y agrega el puerto `5672` (AMQP).
+
+---
+
+## 🔌 Paso 4: Desplegar el Backend API (NestJS)
+
+1. En el mismo proyecto, haz clic en **+ Create** $\rightarrow$ **GitHub Repo**.
+2. Selecciona tu repositorio: `EventHub`.
+3. Haz clic sobre la tarjeta del nuevo servicio y ve a la pestaña **Settings**:
+   - **Service Name:** Cámbialo a `eventhub-api`.
+   - **Root Directory:** Escribe `apps/api` (¡fundamental para monorepo!).
+   - **Build Command:** `npm install --include=dev && npm run build` (o déjalo vacío para usar el archivo [apps/api/railway.json](file:///C:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/apps/api/railway.json) incluido).
    - **Start Command:** `npm run start:prod`
-   - **Plan:** Free
-4. En la sección **Environment Variables**, agrega:
+   - **Healthcheck Path:** `/events`
 
-| Variable | Valor Recomendado / Descripción |
-|---|---|
-| `NODE_ENV` | `production` |
-| `PORT` | `3000` (o déjalo vacío, Render inyecta su propio puerto) |
-| `JWT_SECRET` | Genera una cadena aleatoria segura (ej. `mi-clave-secreta-prod-2026`) |
-| `DATABASE_URL` | Pega el enlace de conexión de tu base de datos Render |
-| `DB_SYNCHRONIZE` | `true` (crea las tablas automáticamente al iniciar) |
-| `DB_SSL` | `true` |
-| `FRONTEND_URL` | La URL de tu Cloudflare Pages (ej. `https://eventhub.pages.dev`) |
-| `PAYMENTS_WSDL_URL` | `https://www.dataaccess.com/webservicesserver/NumberConversion.wso?WSDL` |
-| `RABBITMQ_URL` | *(Opcional)* URL de CloudAMQP o dejar vacío para que use el outbox/fallback local |
+4. Ve a la pestaña **Variables** y agrega las siguientes variables de entorno:
 
-5. En **Health Check Path**, configura: `/events`
-6. Haz clic en **Create Web Service**.
-7. Una vez finalizado el build, copia la URL asignada a tu backend (ej. `https://eventhub-api.onrender.com`).
+| Variable | Valor en Railway | Explicación |
+|---|---|---|
+| `NODE_ENV` | `production` | Modo producción optimizado. |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Referencia automática a tu base PostgreSQL. |
+| `DB_SYNCHRONIZE` | `true` | Crea automáticamente las tablas de EventHub al primer inicio. |
+| `DB_SSL` | `false` | En la red interna de Railway la conexión no requiere SSL. |
+| `JWT_SECRET` | `super-secreto-eventhub-railway-2026` | Clave secreta para firmar y validar tokens JWT. |
+| `PAYMENTS_WSDL_URL` | `https://www.dataaccess.com/webservicesserver/NumberConversion.wso?WSDL` | WSDL para el cliente SOAP legado. |
+| `FRONTEND_URL` | `https://...` *(se completa tras el paso 5)* | Dominio de tu frontend para permitir peticiones CORS. |
+| `RABBITMQ_URL` | `amqp://user:password@${{RabbitMQ.RAILWAY_PRIVATE_DOMAIN}}:5672` | *(Solo si añadiste RabbitMQ en el paso 3)* |
 
----
-
-## 2. Despliegue del Frontend en Cloudflare Pages
-
-Cloudflare Pages ofrece hosting global ultrarrápido, certificados SSL automáticos y CDN perimetral para aplicaciones Vite/React.
-
-### Paso 1: Conectar el Repositorio a Cloudflare Pages
-1. Inicia sesión en [Cloudflare Dashboard](https://dash.cloudflare.com/) y entra a **Workers & Pages**.
-2. Haz clic en **Create application** $\rightarrow$ pestaña **Pages** $\rightarrow$ **Connect to Git**.
-3. Selecciona tu repositorio de GitHub `EventHub`.
-
-### Paso 2: Configurar el Build de Cloudflare Pages
-Configura los campos de compilación:
-- **Project name:** `eventhub-web` (o el nombre que prefieras).
-- **Production branch:** `main`.
-- **Framework preset:** `Vite` (o `None`).
-- **Root directory:** `apps/web`
-- **Build command:** `pnpm run build` (o `npm run build`)
-- **Build output directory:** `dist`
-
-### Paso 3: Variables de Entorno del Frontend
-En la sección **Environment variables (production)**, agrega:
-
-| Variable | Valor |
-|---|---|
-| `VITE_API_URL` | La URL completa de tu backend en Render **sin barra al final** (ej. `https://eventhub-api.onrender.com`) |
-| `NODE_VERSION` | `22` (para asegurar compatibilidad con Node 22) |
-
-### Paso 4: Desplegar
-1. Haz clic en **Save and Deploy**.
-2. Cloudflare clonará el repositorio, compilará el frontend con Tailwind y publicará la aplicación.
-3. El archivo [apps/web/public/_redirects](file:///C:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/apps/web/public/_redirects) incluido en el proyecto (`/* /index.html 200`) garantiza que el enrutamiento SPA de React funcione al recargar cualquier página interna sin dar error 404.
+5. Generar URL pública para la API:
+   - Ve a **Settings** $\rightarrow$ sección **Networking**.
+   - Haz clic en **Generate Domain**.
+   - Railway te asignará un dominio público, por ejemplo:
+     `https://eventhub-api-production.up.railway.app`
+   - Guarda esta URL, la usarás en el frontend.
 
 ---
 
-## 3. Conexión y Verificación de Extremo a Extremo
+## 🌐 Paso 5: Desplegar el Frontend Web
 
-Una vez que ambos servicios están activos:
+Tienes dos opciones excelentes: **Cloudflare Pages** (gratuito e instantáneo con CDN global) o **Railway** (todo en el mismo panel).
 
-1. **Configurar CORS en Render:**
-   En el servicio `eventhub-api` de Render, asegúrate de que la variable `FRONTEND_URL` coincida con el dominio asignado por Cloudflare Pages (ej. `https://eventhub-web.pages.dev`). La API de EventHub acepta automáticamente cualquier subdominio de `.pages.dev`.
+### Opción 5.A: En Cloudflare Pages (Recomendado)
 
-2. **Probar la Conectividad:**
-   - Abre la URL de Cloudflare Pages en el navegador.
-   - Deberías ver el catálogo de eventos cargado desde la base de datos de Render.
-   - Ve a la pestaña **Iniciar sesión** $\rightarrow$ **Demostración** y prueba ingresar como:
+1. Ingresa a [Cloudflare Dashboard](https://dash.cloudflare.com/) $\rightarrow$ **Workers & Pages** $\rightarrow$ **Create Application** $\rightarrow$ pestaña **Pages** $\rightarrow$ **Connect to Git**.
+2. Selecciona el repositorio `EventHub`.
+3. Configura los parámetros:
+   - **Project Name:** `eventhub-web`
+   - **Production Branch:** `main`
+   - **Root Directory:** `apps/web`
+   - **Build Command:** `pnpm run build` (o `npm run build`)
+   - **Build Output Directory:** `dist`
+4. En **Environment Variables (Production)**, agrega:
+   - `VITE_API_URL`: Pega la URL pública de tu API generada en Railway **sin barra final**, por ejemplo:
+     `https://eventhub-api-production.up.railway.app`
+5. Haz clic en **Save and Deploy**.
+6. Gracias al archivo [apps/web/public/_redirects](file:///C:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/apps/web/public/_redirects) (`/* /index.html 200`), las rutas internas de React funcionan perfectamente al recargar en Cloudflare.
+
+---
+
+### Opción 5.B: Directamente en Railway
+
+Si prefieres tener backend, frontend y base de datos en un solo panel de Railway:
+
+1. En el mismo proyecto de Railway, haz clic en **+ Create** $\rightarrow$ **GitHub Repo** $\rightarrow$ selecciona `EventHub`.
+2. Renombra el servicio a `eventhub-web`.
+3. En la pestaña **Settings**:
+   - **Root Directory:** `apps/web`
+   - **Build Command:** `npm install && npm run build` (utiliza el archivo [apps/web/railway.json](file:///C:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/apps/web/railway.json)).
+   - **Start Command:** `npx -y serve -s dist -l $PORT`
+4. En la pestaña **Variables**:
+   - `VITE_API_URL`: Pega la URL pública de la API (ej. `https://eventhub-api-production.up.railway.app`).
+5. En **Settings** $\rightarrow$ **Networking**, haz clic en **Generate Domain**.
+
+---
+
+## 🔒 Paso 6: Vincular CORS en la API
+
+Una vez que tengas el dominio público de tu Frontend (sea de Cloudflare Pages o de Railway):
+
+1. Vuelve al servicio `eventhub-api` en Railway.
+2. En la pestaña **Variables**, añade o actualiza:
+   - `FRONTEND_URL`: URL completa de tu frontend (ej. `https://eventhub-web.pages.dev` o `https://eventhub-web-production.up.railway.app`).
+3. Railway redesplegará la API en pocos segundos aplicando la nueva regla CORS.
+
+> [!TIP]
+> La API de EventHub incluye soporte nativo en su configuración de CORS para todos los dominios que terminen en `.pages.dev`, `.railway.app` y `.up.railway.app`, por lo que las peticiones desde estos entornos están autorizadas por defecto.
+
+---
+
+## ✅ Paso 7: Verificación de Funcionamiento
+
+1. **Healthcheck del Backend:**
+   Abre en tu navegador:
+   `https://tu-api.up.railway.app/events`
+   Deberías recibir un JSON con la lista de eventos del seed precargados.
+
+2. **Acceso al Frontend:**
+   Abre la URL pública de tu frontend.
+   - Verás el catálogo de eventos interactivo cargado en tiempo real desde la API.
+   - Ve a **Iniciar sesión** $\rightarrow$ pestaña **Demostración**.
+   - Ingresa con cualquiera de los perfiles:
      - Asistente: `maria@eventhub.com.ar` / `password`
      - Organizador: `eventos@eventhub.com.ar` / `password`
      - Staff: `staff@eventhub.com.ar` / `password`
      - Admin: `admin@eventhub.com.ar` / `password`
-   - Si el backend responde correctamente, el token JWT se almacena y podrás crear eventos, filtrar catálogo, gestionar órdenes y reservar inventario.
+   - Prueba crear un evento como Organizador o comprar una entrada como Asistente: la orden se creará en PostgreSQL, tomará un HOLD de inventario y emitirá el ticket digital.
 
 ---
 
-## 4. Solución de Problemas Comunes
+## 🔧 Solución de Problemas Frecuentes
 
-- **Error de CORS en la consola del navegador:**
-  Verifica que `FRONTEND_URL` en Render contenga la URL exacta de Cloudflare Pages (incluyendo `https://` y sin barra al final `/`).
-- **Error 404 al recargar páginas secundarias en Cloudflare:**
-  El archivo `_redirects` en `apps/web/public/` resuelve esto redirigiendo todas las rutas a `/index.html`.
-- **La API no conecta a PostgreSQL en Render:**
-  Verifica que `DATABASE_URL` esté configurado y que `DB_SSL=true`. Render exige SSL para conexiones gestionadas.
-- **Tardanza en la primera petición (Cold Start):**
-  En el plan Free de Render, las aplicaciones que no reciben tráfico durante 15 minutos entran en reposo ("spin down"). La primera petición puede demorar ~45 segundos en reactivar el contenedor.
+- **Error de conexión a PostgreSQL:**
+  Verifica que `DATABASE_URL` esté configurado con `${{Postgres.DATABASE_URL}}`. Si usas la red interna de Railway, asegúrate de que `DB_SSL` esté en `false`.
+- **CORS bloqueado en la consola:**
+  Verifica que `FRONTEND_URL` no tenga barra al final (`/`). Ejemplo correcto: `https://mi-web.pages.dev`.
+- **El frontend muestra datos vacíos:**
+  Abre la consola de desarrollador (`F12` $\rightarrow$ pestaña Red / Network) y confirma que las peticiones hacia `/events` o `/auth/login` estén apuntando a la URL correcta de Railway y devuelvan código `200`.
+- **Cold start o reinicios:**
+  En Railway los despliegues tardan habitualmente entre 30 y 60 segundos gracias a la caché de Nixpacks.

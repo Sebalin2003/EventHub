@@ -24,7 +24,7 @@ docs/
 ## 📖 Índice Detallado por Subcarpeta
 
 ### 1. 🚀 [`docs/despliegue/`](./despliegue/)
-- **[GUIA_DEPLOYMENT.md](./despliegue/GUIA_DEPLOYMENT.md):** Manual paso a paso para desplegar en producción: **Backend en Render** (NestJS + PostgreSQL) y **Frontend en Cloudflare Pages** (Vite + React 19 SPA).
+- **[GUIA_DEPLOYMENT.md](./despliegue/GUIA_DEPLOYMENT.md):** Manual paso a paso para desplegar en producción: **Backend en Railway o Render** (NestJS + PostgreSQL) y **Frontend en Cloudflare Pages o Railway** (Vite + React 19 SPA).
 - **[GUIA_LOCAL.md](./despliegue/GUIA_LOCAL.md):** Instrucciones para levantar el stack completo localmente con Docker Compose o en modo desarrollo.
 
 ### 2. 🏗️ [`docs/arquitectura/`](./arquitectura/)
