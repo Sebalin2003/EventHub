@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, Logger, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller.js';
@@ -16,7 +16,6 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
 import { AiModule } from './modules/ai/ai.module.js';
 import { OutboxModule } from './common/broker/outbox.module.js';
 import { SecurityHeadersMiddleware } from './common/middleware/security-headers.middleware.js';
-import { NestModule, MiddlewareConsumer } from '@nestjs/common';
 
 @Module({
   imports: [
@@ -27,24 +26,95 @@ import { NestModule, MiddlewareConsumer } from '@nestjs/common';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const databaseUrl = configService.get<string>('DATABASE_URL');
-        const isProd = configService.get<string>('NODE_ENV') === 'production';
-        const sync = configService.get<string>('DB_SYNCHRONIZE') === 'true' || !isProd;
-        const dbSslEnv = configService.get<string>('DB_SSL');
+        const databaseUrl =
+          configService.get<string>('DATABASE_URL') ||
+          process.env.DATABASE_URL ||
+          configService.get<string>('POSTGRES_URL') ||
+          process.env.POSTGRES_URL ||
+          configService.get<string>('POSTGRESQL_URL') ||
+          process.env.POSTGRESQL_URL ||
+          configService.get<string>('DATABASE_PUBLIC_URL') ||
+          process.env.DATABASE_PUBLIC_URL ||
+          configService.get<string>('DATABASE_PRIVATE_URL') ||
+          process.env.DATABASE_PRIVATE_URL ||
+          configService.get<string>('DB_URL') ||
+          process.env.DB_URL;
+
+        const dbHost =
+          configService.get<string>('DB_HOST') ||
+          process.env.DB_HOST ||
+          configService.get<string>('PGHOST') ||
+          process.env.PGHOST;
+
+        const rawPort =
+          configService.get<string | number>('DB_PORT') ||
+          process.env.DB_PORT ||
+          configService.get<string | number>('PGPORT') ||
+          process.env.PGPORT ||
+          5432;
+        const dbPort = typeof rawPort === 'number' ? rawPort : parseInt(String(rawPort), 10) || 5432;
+
+        const dbUsername =
+          configService.get<string>('DB_USERNAME') ||
+          process.env.DB_USERNAME ||
+          configService.get<string>('PGUSER') ||
+          process.env.PGUSER ||
+          configService.get<string>('POSTGRES_USER') ||
+          process.env.POSTGRES_USER ||
+          'user';
+
+        const dbPassword =
+          configService.get<string>('DB_PASSWORD') ||
+          process.env.DB_PASSWORD ||
+          configService.get<string>('PGPASSWORD') ||
+          process.env.PGPASSWORD ||
+          configService.get<string>('POSTGRES_PASSWORD') ||
+          process.env.POSTGRES_PASSWORD ||
+          'password';
+
+        const dbDatabase =
+          configService.get<string>('DB_DATABASE') ||
+          process.env.DB_DATABASE ||
+          configService.get<string>('PGDATABASE') ||
+          process.env.PGDATABASE ||
+          configService.get<string>('POSTGRES_DB') ||
+          process.env.POSTGRES_DB ||
+          'evenhub';
+
+        const isProd = configService.get<string>('NODE_ENV') === 'production' || process.env.NODE_ENV === 'production';
+        const sync = configService.get<string>('DB_SYNCHRONIZE') === 'true' || process.env.DB_SYNCHRONIZE === 'true' || !isProd;
+        const dbSslEnv = configService.get<string>('DB_SSL') ?? process.env.DB_SSL;
+
         const sslRequired = dbSslEnv !== undefined
           ? dbSslEnv === 'true'
-          : (databaseUrl ? (isProd && !databaseUrl.includes('railway.internal')) : false);
+          : (databaseUrl
+              ? (isProd && !databaseUrl.includes('railway.internal'))
+              : (dbHost ? (isProd && !dbHost.includes('railway.internal') && dbHost !== 'localhost' && dbHost !== '127.0.0.1') : false));
+
+        const logger = new Logger('TypeOrmConfig');
+        if (databaseUrl) {
+          const masked = databaseUrl.replace(/:([^:@]+)@/, ':****@');
+          logger.log(`Conectando a PostgreSQL via URL: ${masked}`);
+        } else if (dbHost) {
+          logger.log(`Conectando a PostgreSQL en host: ${dbHost}:${dbPort}, db: ${dbDatabase}`);
+        } else {
+          logger.warn(
+            '¡ADVERTENCIA! No se detectó DATABASE_URL ni PGHOST en las variables de entorno. ' +
+            'El backend intentará conectarse a localhost:5432. ' +
+            'Si estás en Railway, revisa la pestaña Variables de tu servicio y asegúrate de agregar DATABASE_URL.'
+          );
+        }
 
         return {
           type: 'postgres',
           ...(databaseUrl
             ? { url: databaseUrl }
             : {
-                host: configService.get<string>('DB_HOST', 'localhost'),
-                port: configService.get<number>('DB_PORT', 5432),
-                username: configService.get<string>('DB_USERNAME', 'user'),
-                password: configService.get<string>('DB_PASSWORD', 'password'),
-                database: configService.get<string>('DB_DATABASE', 'evenhub'),
+                host: dbHost || 'localhost',
+                port: dbPort,
+                username: dbUsername,
+                password: dbPassword,
+                database: dbDatabase,
               }),
           ssl: sslRequired ? { rejectUnauthorized: false } : false,
           autoLoadEntities: true,
