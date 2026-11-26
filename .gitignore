@@ -5,6 +5,8 @@ coverage/
 playwright-report/
 test-results/
 
+.cursor/
+
 .env
 .env.*
 !.env.example
