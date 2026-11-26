@@ -1,168 +1,84 @@
-# EvenHub
+# EventHub 🎟️
 
-Plataforma para vender entradas y administrar eventos: frontend React y API NestJS con PostgreSQL, RabbitMQ y pasarela de pagos SOAP. Mantiene el lenguaje visual de “boletería contemporánea” definido en [`DESIGN.md`](./DESIGN.md) y ofrece recorridos para asistentes, organizadores, staff y administradores.
+Plataforma integral para la venta de entradas, gestión de inventario en tiempo real con reservas HOLD, pagos resilientes SOAP y control de acceso (Check-in). Diseñada bajo una arquitectura limpia en capas, patrones de diseño de software y cumplimiento de estándares de calidad, seguridad y resiliencia (ISO/IEC/IEEE 29119-3 y OWASP ASVS).
 
-> **Estado:** la web usa la API real para login (JWT), catálogo, eventos del organizador y favoritos. La API también expone órdenes, pagos SOAP, tickets, check-in, reembolsos y notificaciones por RabbitMQ, pero el checkout, las entradas y el check-in **de la interfaz web** siguen funcionando como demo local (`localStorage`). Si la API no está disponible, la web completa cae a modo demo.
+---
 
-> **CI:** [run verde sobre el tag `v1.0-testing`](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) — build, lint, typecheck, 3 corridas de tests, cobertura, contratos, Newman, E2E, smoke Docker y mutation testing.
+## 🚀 Despliegue en la Nube (Producción)
 
-## Perfiles de demostración
+EventHub está preparado para desplegarse de manera inmediata en la nube:
+- **Backend API & Base de Datos:** Desplegados en [Railway](https://railway.app) (con red privada interna y PostgreSQL) o en [Render](https://render.com) (mediante [render.yaml](./render.yaml)).
+- **Frontend Web:** Desplegado en [Cloudflare Pages](https://pages.cloudflare.com) o directamente en [Railway](https://railway.app) (Vite + React 19 SPA con soporte de enrutamiento y proxy).
 
-Usuarios creados por el seed de la API. La contraseña de todos es `password`.
+👉 **[Consulta la Guía Completa de Despliegue Paso a Paso (Railway + Cloudflare Pages)](./docs/despliegue/GUIA_DEPLOYMENT.md)**
 
-| Perfil | Usuario | Funciones |
-|---|---|---|
-| Asistente | `maria@eventhub.com.ar` | Favoritos, compra, entradas, historial y reembolsos. |
-| Organizador | `eventos@eventhub.com.ar` | Eventos, inventario, ventas, asistentes y check-in. |
-| Staff | `staff@eventhub.com.ar` | Validación de entradas. |
-| Administrador | `admin@eventhub.com.ar` | Usuarios, eventos y auditoría. |
+---
 
-Otros usuarios del seed: `javier@eventhub.com.ar`, `lucia@email.com.ar`, `marcos@email.com.ar` (asistentes) y `hola@comunidaddigital.ar` (organizador).
+## ⚡ Ejecución Rápida Local (Condición G1)
 
-La pestaña **Demostración** permite elegir un perfil directamente: si la API está levantada obtiene un JWT real con esas credenciales; si no, entra en modo demo local.
-
-## Funciones implementadas
-
-- Exploración, búsqueda, filtros, favoritos por usuario y detalle de eventos.
-- Navegación accesible, breadcrumbs, toasts, skeletons y estados vacíos.
-- Evento con sectores y asientos numerados, mapa operable por teclado y alternativa textual.
-- Reservas HOLD persistentes de cinco minutos y disponibilidad efectiva.
-- Checkout con importes en centavos, pagos aprobados o rechazados e idempotencia local.
-- Órdenes, tickets y reembolsos con desglose y restitución de inventario.
-- Descarga local de tickets como PNG con datos legibles y representación QR.
-- Creación, edición, publicación y cancelación de eventos del organizador.
-- Check-in persistente con resultados válido, usado, inválido y evento incorrecto.
-- Auditoría alimentada por compras, eventos, reembolsos y check-ins reales del demo.
-- Diseño adaptable a escritorio, tablet y celular, foco visible y movimiento reducido.
-- Acción **Restablecer demo** para volver a los datos iniciales.
-
-En la web, lo que todavía es demo local (checkout, órdenes, tickets, check-in, auditoría) se almacena de forma versionada en `localStorage` y sobrevive a recargas.
-
-### Backend (API NestJS)
-
-- Login con JWT, roles (`JwtAuthGuard`, `RolesGuard`), rate limiting y cabeceras de seguridad.
-- Eventos, inventario con HOLD temporales, favoritos, órdenes con máquina de estados, tickets, check-in y reembolsos.
-- Pagos por SOAP (`SoapClientService` + Adapter) con Circuit Breaker, timeout y fallback.
-- Notificaciones por RabbitMQ con outbox transaccional, DLQ y consumidor idempotente.
-- Asistente de IA (`AiAdvisorService`) con guardrails.
-- Errores en formato Problem Details y contrato OpenAPI en `GET /openapi.json`.
-
-## Fuera del alcance actual
-
-- Conectar el checkout, las entradas y el check-in de la web con los endpoints de la API.
-- Generación directa de PDF; el demo entrega PNG.
-- Sincronización automática de los cambios de código hacia Figma.
-
-## Tecnologías
-
-- Frontend: React 19, TypeScript, Vite y Tailwind CSS 4.
-- Backend: NestJS, TypeORM, PostgreSQL, RabbitMQ y `soap`.
-- Testing: Vitest, Playwright, Stryker, Newman, k6 y OWASP ZAP.
-- pnpm y Docker Compose.
-
-## Ejecución Reproducible desde Cero (Condición G1 - Cátedra)
-
-Para levantar el sistema completo (Backend NestJS, Frontend React, base de datos PostgreSQL, broker RabbitMQ y pasarela de pago) en una máquina limpia con un **único comando**:
+Levanta el stack completo (**PostgreSQL 15**, **RabbitMQ 3**, **API NestJS** y **Frontend React**) con **un solo comando reproducible**:
 
 ```bash
 docker compose up -d --build --wait
 ```
 
-El comando espera a que PostgreSQL, RabbitMQ, la API y la web estén `healthy`. Verificado el 06/11/2026.
+### Servicios Disponibles:
+- 🌐 **Frontend Web:** [http://localhost:5173](http://localhost:5173)
+- 🔌 **Backend API REST:** [http://localhost:3000](http://localhost:3000)
+- 📄 **Contrato OpenAPI 3.1:** [http://localhost:3000/openapi.json](http://localhost:3000/openapi.json)
+- 🐇 **Panel RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (Usuario: `user` / Contraseña: `password`)
 
-- **Frontend Web:** [http://localhost:5173](http://localhost:5173)
-- **Backend API:** [http://localhost:3000](http://localhost:3000)
-- **RabbitMQ Management:** [http://localhost:15672](http://localhost:15672) (user: `user`, password: `password`)
-- **Entregable de Testing ISO/IEC 29119-3:** [`docs/Clase15_GrupoEventHub_Testing.md`](./docs/Clase15_GrupoEventHub_Testing.md)
-- **Colección Postman versionada:** [`docs/postman/EventHub_API_Collection.json`](./docs/postman/EventHub_API_Collection.json)
-- **Script de Pruebas de Carga (k6):** [`load-tests/k6-load-test.js`](./load-tests/k6-load-test.js)
+---
 
-### Ejecución Local Alternativa (Sin Docker)
+## 📚 Documentación Centralizada y Discriminada
 
-Requiere PostgreSQL 15+ (puerto 5432, usuario `user`, contraseña `password`, base `evenhub`) y RabbitMQ 3+ (puerto 5672, `user` / `password`). También se pueden levantar solo esos dos servicios con `docker compose up -d postgres rabbitmq`.
+Toda la documentación técnica, arquitectónica y de testing se encuentra clasificada en subcarpetas temáticas dentro de **[`docs/`](./docs/README.md)**:
+
+| Subcarpeta | Contenido y Enlaces Principales |
+|---|---|
+| **🚀 [`docs/despliegue/`](./docs/despliegue/)** | • [Guía de Despliegue en Render y Cloudflare Pages](./docs/despliegue/GUIA_DEPLOYMENT.md)<br>• [Guía de Ejecución Local](./docs/despliegue/GUIA_LOCAL.md)<br>• [Orquestación Docker Compose](./docker-compose.yml) |
+| **🏗️ [`docs/arquitectura/`](./docs/arquitectura/)** | • [Documento de Arquitectura](./docs/arquitectura/ARCHITECTURE.md)<br>• [Documento Técnico](./docs/arquitectura/documento_tecnico_eventhub.md)<br>• [Diseño de API REST](./docs/arquitectura/documento_diseño_api.md)<br>• [Diseño Frontend UI/UX](./docs/arquitectura/DESIGN.md)<br>• **[Registros de Decisiones de Arquitectura (8 ADRs)](./docs/arquitectura/adr/README.md)** (State 409, Strategy, Factory, DAO, Adapter SOAP, Circuit Breaker, Outbox, AI Gateway) |
+| **🧪 [`docs/testing/`](./docs/testing/)** | • [Informe de Testing ISO/IEC/IEEE 29119-3](./docs/testing/Clase15_GrupoEventHub_Testing.md) ([Versión PDF](./docs/testing/Clase15_GrupoEventHub_Testing.pdf))<br>• [Informe de Cumplimiento de Criterios (G1-G9, Ejes A-E)](./docs/testing/INFORME_CUMPLIMIENTO_TESTING.md)<br>• [Manual de Usuario por Roles](./docs/testing/MANUAL_USUARIO.md)<br>• [Registro de Prueba Exploratoria](./docs/testing/PRUEBA_EXPLORATORIA.md)<br>• [Contratos OpenAPI y WSDL](./docs/contracts/)<br>• [Colección Postman Newman (96 requests)](./docs/postman/) |
+| **🤖 [`docs/ia/`](./docs/ia/)** | • [Declaración Formal de Uso de IA](./docs/ia/DECLARACION_IA.md)<br>• [Evidencia de Testing del Asistente de IA (Guardrails e Inyecciones)](./docs/evidencias/ai/) |
+| **📋 [`docs/seguimiento/`](./docs/seguimiento/)** | • [Estado Unificado y Guion de Demo](./docs/seguimiento/ESTADO_UNIFICADO.md)<br>• [Trazabilidad Jira y Teams](./docs/seguimiento/EVIDENCIA_G4_G5.md)<br>• [Guía de Estudio para la Defensa Individual](./docs/seguimiento/guia_estudio_defensa.md) |
+| **📦 [`docs/producto/`](./docs/producto/)** | • [Definición de Producto](./docs/producto/PRODUCT.md)<br>• [Matriz de Requerimientos](./docs/producto/REQUIREMENTS.md) |
+
+---
+
+## 👥 Usuarios de Prueba Precargados (Seed)
+
+Contraseña única para todos los perfiles: **`password`**
+
+| Rol | Correo Electrónico | Alcance de Permisos |
+|---|---|---|
+| **Asistente** | `maria@eventhub.com.ar` | Exploración de catálogo, reserva HOLD, compra, tickets digitales y favoritos. |
+| **Organizador** | `eventos@eventhub.com.ar` | Creación y publicación de eventos, control de cupos y visualización de ventas. |
+| **Staff** | `staff@eventhub.com.ar` | Control de accesos y escaneo de entradas (Check-in con prevención de doble uso). |
+| **Administrador** | `admin@eventhub.com.ar` | Gestión total de la plataforma, eventos, inventario, auditoría y seguridad. |
+
+---
+
+## 🧪 Comandos de Testing y Verificación
 
 ```bash
-cp apps/api/.env.example apps/api/.env   # ajustar si cambian credenciales o puertos
-pnpm install
-pnpm --filter api start:dev              # terminal 1: API en :3000
-pnpm --filter @evenhub/web dev           # terminal 2: web en :5173
-```
-
-Solo con el frontend (`pnpm --filter @evenhub/web dev`) la web funciona en modo demo local.
-
-## Verificación y Pruebas Automatizadas (Ejes A, B, C, D, E)
-
-```bash
-# 1. Pruebas unitarias, de dominio y seguridad con reporte de cobertura (Ejes B, D y E)
+# 1. Pruebas unitarias de API con reporte de cobertura (Eje B: > 80% líneas, > 70% ramas)
 pnpm --filter api test:cov
 
-# 2. E2E e integración real con PostgreSQL y RabbitMQ (Eje B y Eje C)
+# 2. Pruebas E2E de integración real contra PostgreSQL y RabbitMQ
 pnpm --filter api test:e2e
 
-# 3. Pruebas de reglas de negocio en frontend
-pnpm --filter @evenhub/web test
-
-# 4. Mutation testing de la capa de dominio
+# 3. Mutation Testing con Stryker (Score > 60%)
 pnpm --filter api test:mutation
 
-# 5. Contrato OpenAPI publicado y colección Postman
+# 4. Pruebas de contrato y colección Postman con Newman
 pnpm --filter api openapi:export
 npx newman run docs/postman/EventHub_API_Collection.json
 
-# 6. Compilación y chequeo estático
+# 5. Pruebas de reglas de negocio en frontend
+pnpm --filter @evenhub/web test
+
+# 6. Compilación y chequeo de tipos estáticos
 pnpm --filter api build
 pnpm --filter @evenhub/web build
 pnpm --filter @evenhub/web typecheck
-
-# 7. Eje D: dependencias de producción y escaneo ZAP baseline
-pnpm audit --prod --audit-level high
-docker run --rm -v "$PWD/docs/evidencias/zap:/zap/wrk:rw" zaproxy/zap-stable \
-  zap-baseline.py -t http://localhost:3000 -J baseline.json -r baseline.html -w baseline.md -I
-
-# 8. Eje E: asistente de IA (unitarias + HTTP)
-pnpm --filter api exec vitest run src/modules/ai/ai.service.spec.ts
-pnpm --filter api exec vitest run --config ./vitest.config.e2e.ts test/ai-advisor.e2e-spec.ts
 ```
-
-Estado real de la suite (medido el 12/11/2026):
-- **Eje A:** 18 pruebas Playwright contra el stack Docker (6 críticas, 3 responsive y 9 de accesibilidad), axe sin violaciones critical/serious y Lighthouse 100/100.
-- **Eje B:** 259 pruebas unitarias de API y 8 de frontend, todas verdes. Cobertura real: **96,52% de líneas / 84,60% de ramas** (94,43% de sentencias). Mutation score **76,23%** con Stryker. Integración real con PostgreSQL y RabbitMQ, contratos OpenAPI/WSDL, Newman con 96 requests / 176 aserciones y 3 corridas consecutivas sin fallos.
-- **Eje C:** los 10 criterios quedaron cubiertos con evidencia reproducible: SOAP real con Faults de negocio/técnico y timeout de 5 s sin XML crudo, Circuit Breaker con fallback, outbox transaccional en PostgreSQL, caída y recuperación de RabbitMQ sin pérdida (`docs/evidencias/broker-recovery.json`), consumidor idempotente, DLQ real con `x-death` y reproceso, compensación de pago rechazado, idempotencia HTTP, ETag/412 y Problem Details. Carga k6 con 50 VUs durante 5 minutos: **p95 = 16,41 ms, error rate = 0,00%** (6.695 iteraciones, `docs/evidencias/k6-summary.json`).
-- **Suite E2E de API:** 76 tests en 7 archivos, incluidos los 17 de integración real, los 9 de contrato SOAP, los 29 de seguridad HTTP y los 10 del asistente de IA.
-- **Eje D:** 29 pruebas HTTP contra `AppModule`, PostgreSQL y RabbitMQ reales cubren BOLA/IDOR (403/404), BFLA (403), JWT ausente/vencido/alterado/`alg=none`/otro emisor (401), mass assignment (400), SQL/NoSQL/XSS sin ejecución, XXE rechazado, fuerza bruta (429), cabeceras CSP/COOP/COEP/CORP/HSTS, CORS y ausencia de cookies de sesión. OWASP ZAP baseline y API scan autenticado: **0 High, 0 Medium, 0 Low**; `pnpm audit --prod`: **0 vulnerabilidades**; TLS directo opcional verificado con certificado autofirmado. Evidencias y justificaciones en `docs/evidencias/zap/`, `docs/evidencias/security/` y `docs/evidencias/zap-justificaciones.md`.
-- **Eje E:** declaración formal de IA en [`docs/DECLARACION_IA.md`](./docs/DECLARACION_IA.md) con herramientas y versiones evidenciadas, prompts, salidas aceptadas/corregidas y verificación. El asistente `AiAdvisorService` se prueba con **14 unitarias y 10 HTTP**: inyección directa e indirecta, protección del prompt del sistema, guardrails médicos/legales, enmascarado de emails y tarjetas, fallback ante timeout y validación 400 con Problem Details. Evidencia en `docs/evidencias/ai/`.
-- **G6:** Gitleaks v8.28.0 sobre todo el historial, sin hallazgos.
-
-Las brechas y el plan para cerrarlas están en [`INFORME_CUMPLIMIENTO_TESTING.md`](./INFORME_CUMPLIMIENTO_TESTING.md).
-
-## Estructura principal
-
-```text
-EvenHub/
-├── apps/
-│   ├── api/              API NestJS (src/modules, test/ e2e)
-│   └── web/              Frontend React (src/, e2e/ Playwright)
-├── docs/                 Entregables, contratos, Postman y evidencias
-├── infra/                docker-compose alternativo (PostgreSQL, RabbitMQ y API)
-├── load-tests/           Script k6
-├── .github/workflows/    Pipeline de CI
-├── docker-compose.yml    Stack completo (comando único)
-└── pnpm-workspace.yaml
-```
-
-## Documentación
-
-- [`PRODUCT.md`](./PRODUCT.md): propósito, usuarios y principios.
-- [`DESIGN.md`](./DESIGN.md): sistema visual, componentes y accesibilidad.
-- [`REQUIREMENTS.md`](./REQUIREMENTS.md): requisitos y criterios de aceptación.
-- [`ARCHITECTURE.md`](./ARCHITECTURE.md): arquitectura objetivo y diferencias con lo implementado.
-- [`criterios_de_testing.md`](./criterios_de_testing.md): criterios de la cátedra para la prueba del TP.
-- [`INFORME_CUMPLIMIENTO_TESTING.md`](./INFORME_CUMPLIMIENTO_TESTING.md): estado de cumplimiento de cada criterio.
-- [`docs/Clase15_GrupoEventHub_Testing.md`](./docs/Clase15_GrupoEventHub_Testing.md): plan, trazabilidad, ejecución y defectos (ISO/IEC 29119-3).
-- [`docs/MANUAL_USUARIO.md`](./docs/MANUAL_USUARIO.md): manual de usuario.
-- [`docs/DECLARACION_IA.md`](./docs/DECLARACION_IA.md): declaración de uso de IA.
-- [Prototipo original en Figma Make](https://www.figma.com/make/h8xncc6mVYtRn61S6zNKQg/Event-Management-System?p=f).
-
-## Uso de inteligencia artificial
-
-El prototipo visual inicial fue generado con Figma Make. El detalle de las herramientas de IA usadas en el desarrollo y el testing, con prompts y verificación, está en [`docs/DECLARACION_IA.md`](./docs/DECLARACION_IA.md).

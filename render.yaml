@@ -1,0 +1,36 @@
+services:
+  # Backend API - NestJS Service
+  - type: web
+    name: eventhub-api
+    runtime: node
+    rootDir: apps/api
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm run start:prod
+    plan: free
+    healthCheckPath: /events
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: eventhub-db
+          property: connectionString
+      - key: DB_SYNCHRONIZE
+        value: "true"
+      - key: DB_SSL
+        value: "true"
+      - key: FRONTEND_URL
+        sync: false
+      - key: PAYMENTS_WSDL_URL
+        value: "https://www.dataaccess.com/webservicesserver/NumberConversion.wso?WSDL"
+
+databases:
+  # Managed PostgreSQL Database
+  - name: eventhub-db
+    databaseName: evenhub
+    user: user
+    plan: free

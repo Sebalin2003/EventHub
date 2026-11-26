@@ -6,8 +6,22 @@ import type { CorsOptions } from '@nestjs/common/interfaces/external/cors-option
  */
 export const corsOptions: CorsOptions = {
   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    // Allow localhost dev servers or same origin
-    if (!origin || /^http:\/\/localhost(:\d+)?$/.test(origin) || origin.endsWith('eventhub.com')) {
+    const configuredOrigins = (process.env.FRONTEND_URL || process.env.CORS_ORIGIN || '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+
+    // Allow localhost dev servers, Cloudflare Pages (.pages.dev), Railway (.railway.app), eventhub domains, or configured origins
+    if (
+      !origin ||
+      /^https?:\/\/localhost(:\d+)?$/.test(origin) ||
+      origin.endsWith('.pages.dev') ||
+      origin.endsWith('.railway.app') ||
+      origin.endsWith('.up.railway.app') ||
+      origin.endsWith('eventhub.com') ||
+      origin.endsWith('eventhub.com.ar') ||
+      configuredOrigins.includes(origin)
+    ) {
       callback(null, true);
     } else {
       callback(null, false);
