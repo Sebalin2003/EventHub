@@ -60,26 +60,17 @@ export class OrdersController {
     return order;
   }
 
-  @Patch(':id/pay')
-  async payPatch(
-    @Request() req: any,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Headers('if-match') ifMatch?: string,
-  ) {
-    return this.handlePay(req, id, ifMatch);
-  }
-
   @Post(':id/pay')
   async payPost(
     @Request() req: any,
     @Param('id', ParseUUIDPipe) id: string,
+    @Body(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true })) body: PayOrderDto,
     @Headers('if-match') ifMatch?: string,
-    @Body() body?: PayOrderDto,
   ) {
-    return this.handlePay(req, id, ifMatch, body?.card);
+    return this.handlePay(req, id, ifMatch, body.card);
   }
 
-  private async handlePay(req: any, id: string, ifMatch?: string, card?: string) {
+  private async handlePay(req: any, id: string, ifMatch: string | undefined, card: string) {
     const userId = req.user.sub || req.user.id;
     const buyer: Buyer = {
       sub: userId,
@@ -97,10 +88,7 @@ export class OrdersController {
       }
     }
 
-    if (card) {
-      return this.ordersService.pay(id, buyer, card);
-    }
-    return this.ordersService.payOrder(id, userId);
+    return this.ordersService.pay(id, buyer, card);
   }
 
   @Patch(':id/cancel')
@@ -133,7 +121,7 @@ export class OrdersController {
       }
     }
 
-    return this.ordersService.cancelOrder(id, userId);
+    return this.ordersService.cancel(id, userId);
   }
 
   // Solo administración u organizador del evento: el comprador no puede reembolsarse solo.

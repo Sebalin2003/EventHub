@@ -12,7 +12,7 @@ import {
 import { ClientProxy } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { randomUUID } from 'node:crypto';
-import { Repository } from 'typeorm';
+import { Repository, type DataSource, type EntityManager } from 'typeorm';
 import { User, UserRole } from '../identity/entities/user.entity.js';
 import { AdminCreateEventDto, CreateEventDto, TicketTypeDto, UpdateEventDto } from './dto/event.dto.js';
 import { Event, EventStatus, EventTicketType } from './entities/event.entity.js';
@@ -21,6 +21,7 @@ import { EventFactory } from './event.factory.js';
 import { OutboxService } from '../../common/broker/outbox.service.js';
 
 const GEOCODING_TIMEOUT_MS = 3000;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class EventsService implements OnModuleInit {
@@ -35,6 +36,7 @@ export class EventsService implements OnModuleInit {
     @Optional() @InjectRepository(User) userRepository?: Repository<User>,
     @Optional() @Inject('NOTIFICATIONS_SERVICE') client?: ClientProxy,
     @Optional() private readonly outbox?: OutboxService,
+    @Optional() private readonly dataSource?: DataSource,
   ) {
     if (userRepository && (userRepository as any).emit && !client) {
       this.client = userRepository as any;
@@ -75,7 +77,15 @@ export class EventsService implements OnModuleInit {
   }
 
   async remove(id: string) {
-    await this.eventDao.delete(id);
+    try {
+      await this.eventDao.delete(id);
+    } catch (error: any) {
+      const code = error?.driverError?.code ?? error?.code;
+      if (code === '23503') {
+        throw new ConflictException('Cannot delete event with existing orders or tickets');
+      }
+      throw error;
+    }
   }
 
   listByOrganizer(organizerId: string) {
@@ -162,30 +172,67 @@ export class EventsService implements OnModuleInit {
     return this.eventDao.save(event);
   }
 
-  // Registra entradas vendidas en el tipo de entrada y en el contador del evento.
-  async registerSale(eventId: string, ticketTypeId: string, quantity: number) {
-    const event = await this.eventDao.findOne(eventId);
-    const ticketType = event.ticketTypes.find(ticket => ticket.id === ticketTypeId);
-    if (ticketType) {
-      ticketType.sold += quantity;
-      ticketType.status = ticketType.sold >= ticketType.totalQuantity ? 'VENDIDO' : 'DISPONIBLE';
-      event.ticketTypes = [...event.ticketTypes];
-    }
-    event.registered += quantity;
-    return this.eventDao.save(event);
+  // Registra entradas vendidas en el tipo de entrada y en el contador del evento de forma atómica.
+  async registerSale(eventId: string, ticketTypeId: string, quantity: number, manager?: EntityManager) {
+    const run = async (em?: EntityManager) => {
+      const event = em
+        ? await em
+            .getRepository(Event)
+            .createQueryBuilder('event')
+            .setLock('pessimistic_write')
+            .where(UUID_REGEX.test(eventId) ? 'event.id = :id' : 'event.legacyId = :id', { id: eventId })
+            .getOne()
+        : await this.eventDao.findOne(eventId);
+      if (!event) throw new NotFoundException('Event not found');
+
+      const ticketType = event.ticketTypes.find(
+        ticket => ticket.id === ticketTypeId || ticket.name === ticketTypeId,
+      );
+      if (ticketType) {
+        if (ticketType.sold + quantity > ticketType.totalQuantity) {
+          throw new ConflictException(`Not enough "${ticketType.name}" tickets available`);
+        }
+        ticketType.sold += quantity;
+        ticketType.status = ticketType.sold >= ticketType.totalQuantity ? 'VENDIDO' : 'DISPONIBLE';
+        event.ticketTypes = [...event.ticketTypes];
+      }
+      event.registered += quantity;
+      return em ? em.getRepository(Event).save(event) : this.eventDao.save(event);
+    };
+
+    if (manager) return run(manager);
+    if (this.dataSource) return this.dataSource.transaction(run);
+    return run(undefined);
   }
 
-  // Revierte una venta (reembolso): resta lo vendido sin bajar de cero.
-  async releaseSale(eventId: string, ticketTypeId: string, quantity: number) {
-    const event = await this.eventDao.findOne(eventId);
-    const ticketType = event.ticketTypes.find(ticket => ticket.id === ticketTypeId);
-    if (ticketType) {
-      ticketType.sold = Math.max(0, ticketType.sold - quantity);
-      ticketType.status = ticketType.sold >= ticketType.totalQuantity ? 'VENDIDO' : 'DISPONIBLE';
-      event.ticketTypes = [...event.ticketTypes];
-    }
-    event.registered = Math.max(0, event.registered - quantity);
-    return this.eventDao.save(event);
+  // Revierte una venta (reembolso): resta lo vendido sin bajar de cero de forma atómica.
+  async releaseSale(eventId: string, ticketTypeId: string, quantity: number, manager?: EntityManager) {
+    const run = async (em?: EntityManager) => {
+      const event = em
+        ? await em
+            .getRepository(Event)
+            .createQueryBuilder('event')
+            .setLock('pessimistic_write')
+            .where(UUID_REGEX.test(eventId) ? 'event.id = :id' : 'event.legacyId = :id', { id: eventId })
+            .getOne()
+        : await this.eventDao.findOne(eventId);
+      if (!event) throw new NotFoundException('Event not found');
+
+      const ticketType = event.ticketTypes.find(
+        ticket => ticket.id === ticketTypeId || ticket.name === ticketTypeId,
+      );
+      if (ticketType) {
+        ticketType.sold = Math.max(0, ticketType.sold - quantity);
+        ticketType.status = ticketType.sold >= ticketType.totalQuantity ? 'VENDIDO' : 'DISPONIBLE';
+        event.ticketTypes = [...event.ticketTypes];
+      }
+      event.registered = Math.max(0, event.registered - quantity);
+      return em ? em.getRepository(Event).save(event) : this.eventDao.save(event);
+    };
+
+    if (manager) return run(manager);
+    if (this.dataSource) return this.dataSource.transaction(run);
+    return run(undefined);
   }
 
   private async applyData(event: Event, data: UpdateEventDto) {

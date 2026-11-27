@@ -310,24 +310,9 @@ export const openApiDocument = {
           { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
           { name: 'If-Match', in: 'header', required: false, schema: { type: 'string' } },
         ],
-        requestBody: { required: false, content: { 'application/json': { schema: { $ref: '#/components/schemas/PayOrderRequest' } } } },
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/PayOrderRequest' } } } },
         responses: {
           '201': { description: 'Orden pagada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Order' } } } },
-          '402': { description: 'Pago rechazado', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
-          '409': { $ref: '#/components/responses/Conflict' },
-          '412': { description: 'ETag desactualizado', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
-        },
-      },
-      patch: {
-        tags: ['Órdenes'],
-        summary: 'Pagar orden (alias PATCH)',
-        security: [{ bearerAuth: [] }],
-        parameters: [
-          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
-          { name: 'If-Match', in: 'header', required: false, schema: { type: 'string' } },
-        ],
-        responses: {
-          '200': { description: 'Orden pagada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Order' } } } },
           '402': { description: 'Pago rechazado', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
           '409': { $ref: '#/components/responses/Conflict' },
           '412': { description: 'ETag desactualizado', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },

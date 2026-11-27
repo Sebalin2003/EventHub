@@ -3,7 +3,7 @@ import { ClientProxy } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
-import { Repository } from 'typeorm';
+import { Repository, type EntityManager } from 'typeorm';
 import { OutboxMessage, OutboxStatus } from './outbox-message.entity.js';
 
 export type OutboxFlushResult = { sent: number; pending: number };
@@ -31,9 +31,10 @@ export class OutboxService implements OnModuleInit, OnModuleDestroy {
     private readonly client: ClientProxy,
   ) {}
 
-  async enqueue(topic: string, payload: Record<string, unknown>): Promise<OutboxMessage> {
-    return this.outboxRepository.save(
-      this.outboxRepository.create({
+  async enqueue(topic: string, payload: Record<string, unknown>, manager?: EntityManager): Promise<OutboxMessage> {
+    const repo = manager ? manager.getRepository(OutboxMessage) : this.outboxRepository;
+    return repo.save(
+      repo.create({
         topic,
         payload,
         status: OutboxStatus.PENDING,

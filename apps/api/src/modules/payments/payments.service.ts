@@ -383,6 +383,17 @@ export class PaymentsService {
       };
     }
 
+    // Validación de Luhn y monto positivo en todos los caminos (mock, fallback y pasarela SOAP).
+    if (!(payment.amount > 0 && isValidCard(card))) {
+      this.logger.log(`SOAP Business Fault: Client.InvalidCard for order ${payment.orderId}`);
+      return {
+        success: false,
+        code: 'INVALID_CARD',
+        reason: 'Los datos de la tarjeta no son válidos.',
+        faultType: 'BUSINESS_FAULT',
+      };
+    }
+
     // Scenario 1: Deliberate Timeout Simulation (Card ending in 9999 or flag)
     if (payment.simulateTimeout || card.endsWith('9999')) {
       await new Promise(resolve => setTimeout(resolve, 6000));

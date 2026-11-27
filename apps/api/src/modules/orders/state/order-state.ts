@@ -3,6 +3,7 @@ import { OrderStatus } from '../entities/order.entity.js';
 
 export interface IOrderState {
   readonly status: OrderStatus;
+  startProcessing?(): OrderStatus;
   pay(): OrderStatus;
   cancel(): OrderStatus;
   refund(): OrderStatus;
@@ -10,6 +11,10 @@ export interface IOrderState {
 
 export class PendingOrderState implements IOrderState {
   readonly status = OrderStatus.PENDING;
+
+  startProcessing(): OrderStatus {
+    return OrderStatus.PROCESSING;
+  }
 
   pay(): OrderStatus {
     return OrderStatus.PAID;
@@ -22,6 +27,24 @@ export class PendingOrderState implements IOrderState {
   refund(): OrderStatus {
     throw new ConflictException(
       'Transición inválida de estado: No se puede reembolsar una orden que se encuentra en estado PENDING (no pagada).'
+    );
+  }
+}
+
+export class ProcessingOrderState implements IOrderState {
+  readonly status = OrderStatus.PROCESSING;
+
+  pay(): OrderStatus {
+    return OrderStatus.PAID;
+  }
+
+  cancel(): OrderStatus {
+    return OrderStatus.CANCELLED;
+  }
+
+  refund(): OrderStatus {
+    throw new ConflictException(
+      'Transición inválida de estado: No se puede reembolsar una orden que aún está en procesamiento de pago.'
     );
   }
 }
@@ -94,6 +117,8 @@ export function createOrderState(status: OrderStatus): IOrderState {
   switch (status) {
     case OrderStatus.PENDING:
       return new PendingOrderState();
+    case OrderStatus.PROCESSING:
+      return new ProcessingOrderState();
     case OrderStatus.PAID:
       return new PaidOrderState();
     case OrderStatus.CANCELLED:

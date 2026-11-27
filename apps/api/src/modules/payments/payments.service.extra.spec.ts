@@ -67,15 +67,15 @@ describe('PaymentsService - cobertura de resiliencia y validación (Eje B)', () 
 
   describe('processPayment - sobrecarga numérica', () => {
     it('devuelve true para un pago aprobado', async () => {
-      await expect(service.processPayment(1000, '4500 0000 0000 0000')).resolves.toBe(true);
+      await expect(service.processPayment(1000, '4111 1111 1111 1111')).resolves.toBe(true);
     });
 
     it('devuelve false para un pago rechazado', async () => {
-      await expect(service.processPayment(1000, '4500 0000 0000 4001')).resolves.toBe(false);
+      await expect(service.processPayment(1000, '4111 1111 0340 01')).resolves.toBe(false);
     });
 
-    it('procesa el pago sin tarjeta usando el mock local', async () => {
-      await expect(service.processPayment(1000, '')).resolves.toBe(true);
+    it('rechaza con false si no hay tarjeta (validación de Luhn en todos los caminos)', async () => {
+      await expect(service.processPayment(1000, '')).resolves.toBe(false);
     });
   });
 
@@ -85,21 +85,21 @@ describe('PaymentsService - cobertura de resiliencia y validación (Eje B)', () 
       vi.spyOn(Date, 'now').mockImplementation(() => clock);
 
       for (let i = 0; i < 3; i++) {
-        await service.processPayment({ orderId: `f-${i}`, amount: 10, cardNumber: '4500 0000 0000 5001' });
+        await service.processPayment({ orderId: `f-${i}`, amount: 10, cardNumber: '4111 1111 0050 01' });
       }
       expect(service.getCircuitState()).toBe(CircuitBreakerState.OPEN);
 
       clock += 30_001;
       expect(service.getCircuitState()).toBe(CircuitBreakerState.HALF_OPEN);
 
-      const result = await service.processPayment({ orderId: 'ok', amount: 10, cardNumber: '4500 0000 0000 0000' });
+      const result = await service.processPayment({ orderId: 'ok', amount: 10, cardNumber: '4111 1111 1111 1111' });
       expect(result.success).toBe(true);
       expect(service.getCircuitState()).toBe(CircuitBreakerState.CLOSED);
     });
 
     it('no abre el circuito con fallas de negocio (solo técnicas)', async () => {
       for (let i = 0; i < 5; i++) {
-        await service.processPayment({ orderId: `b-${i}`, amount: 10, cardNumber: '4500 0000 0000 4001' });
+        await service.processPayment({ orderId: `b-${i}`, amount: 10, cardNumber: '4111 1111 0340 01' });
       }
       expect(service.getCircuitState()).toBe(CircuitBreakerState.CLOSED);
     });

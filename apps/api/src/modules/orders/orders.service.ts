@@ -11,9 +11,11 @@ import {
   NotFoundException,
   Optional,
   PreconditionFailedException,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { createHash } from 'node:crypto';
+import { Repository, type DataSource, type EntityManager } from 'typeorm';
 import { ClientProxy } from '@nestjs/microservices';
 import { Order, OrderStatus } from './entities/order.entity.js';
 import { OrderItem } from './entities/order-item.entity.js';
@@ -49,15 +51,34 @@ export class OrdersService {
     @Optional() private readonly payments?: PaymentsService,
     @Optional() private readonly tickets?: TicketsService,
     @Optional() private readonly outbox?: OutboxService,
+    @Optional() private readonly dataSource?: DataSource,
   ) {}
+
+  private async runInTransaction<T>(work: (manager?: EntityManager) => Promise<T>): Promise<T> {
+    if (this.dataSource) {
+      return this.dataSource.transaction(manager => work(manager));
+    }
+    return work(undefined);
+  }
+
+  private computeIdempotencyHash(dto: CreateOrderDto): string {
+    const normalized = (dto.items ?? [])
+      .map(item => ({
+        eventId: item.eventId,
+        ticketType: item.ticketType,
+        quantity: item.quantity,
+      }))
+      .sort((a, b) => `${a.eventId}:${a.ticketType}`.localeCompare(`${b.eventId}:${b.ticketType}`));
+    return createHash('sha256').update(JSON.stringify(normalized)).digest('hex');
+  }
 
   /**
    * Publica por outbox cuando esta disponible (no se pierde si el broker cae).
    * En tests unitarios sin outbox conserva el emit directo historico.
    */
-  private async publish(topic: string, payload: Record<string, unknown>) {
+  private async publish(topic: string, payload: Record<string, unknown>, manager?: EntityManager) {
     if (this.outbox) {
-      await this.outbox.enqueue(topic, payload);
+      await this.outbox.enqueue(topic, payload, manager);
       return;
     }
     try {
@@ -75,6 +96,8 @@ export class OrdersService {
     const userId = typeof buyerOrUserId === 'string' ? buyerOrUserId : buyerOrUserId.sub;
     const userEmail = typeof buyerOrUserId === 'string' ? 'user@example.com' : buyerOrUserId.email;
 
+    const idempotencyHash = idempotencyKey ? this.computeIdempotencyHash(createOrderDto) : undefined;
+
     // REST Idempotency: Check if an order with this idempotency key already exists
     if (idempotencyKey) {
       const existing = await this.orderRepo.findOne({
@@ -82,6 +105,9 @@ export class OrdersService {
         relations: { items: true },
       });
       if (existing) {
+        if (existing.idempotencyHash && existing.idempotencyHash !== idempotencyHash) {
+          throw new UnprocessableEntityException('Idempotency-Key reused with a different request payload');
+        }
         this.logger.log(`Idempotent request detected. Returning existing order ${existing.id} for key ${idempotencyKey}`);
         return existing;
       }
@@ -124,12 +150,16 @@ export class OrdersService {
       }
       items = [...lines.values()];
 
-      const perEvent = new Map<string, number>();
-      for (const item of items) perEvent.set(item.eventId, (perEvent.get(item.eventId) ?? 0) + item.quantity);
       try {
-        for (const [eventId, quantity] of perEvent) {
-          const hold = await this.inventory.createHold(eventId, userId, quantity);
-          holds.push({ eventId, holdId: hold.id, expiresAt: hold.expiresAt });
+        for (const item of items) {
+          const hold = await this.inventory.createHold(
+            item.eventId,
+            userId,
+            item.quantity,
+            undefined,
+            item.ticketTypeId ?? undefined,
+          );
+          holds.push({ eventId: item.eventId, holdId: hold.id, expiresAt: hold.expiresAt });
         }
       } catch (error) {
         await this.releaseHolds(holds, userId);
@@ -155,19 +185,42 @@ export class OrdersService {
     order.total = items.reduce((sum, item) => sum + (item.subtotal || item.quantity * item.unitPrice), 0);
     order.status = OrderStatus.PENDING;
     order.idempotencyKey = idempotencyKey;
+    order.idempotencyHash = idempotencyHash;
     order.version = 1;
 
-    const savedOrder = await this.orderRepo.save(order);
-
-    // Publicacion confiable: outbox transaccional o emit directo como fallback.
-    await this.publish('order.created', {
-      orderId: savedOrder.id,
-      userId,
-      userEmail,
-      total: Number(savedOrder.total),
-      status: savedOrder.status,
-      expiresAt: holds[0]?.expiresAt,
-    });
+    let savedOrder: Order;
+    try {
+      savedOrder = await this.runInTransaction(async manager => {
+        const repo = manager ? manager.getRepository(Order) : this.orderRepo;
+        const persisted = await repo.save(order);
+        await this.publish('order.created', {
+          orderId: persisted.id,
+          userId,
+          userEmail,
+          total: Number(persisted.total),
+          status: persisted.status,
+          expiresAt: holds[0]?.expiresAt,
+        }, manager);
+        return persisted;
+      });
+    } catch (error: any) {
+      const code = error?.driverError?.code ?? error?.code;
+      if (code === '23505' && idempotencyKey) {
+        await this.releaseHolds(holds, userId);
+        const existing = await this.orderRepo.findOne({
+          where: { idempotencyKey, userId },
+          relations: { items: true },
+        });
+        if (existing) {
+          if (existing.idempotencyHash && existing.idempotencyHash !== idempotencyHash) {
+            throw new UnprocessableEntityException('Idempotency-Key reused with a different request payload');
+          }
+          return existing;
+        }
+      }
+      await this.releaseHolds(holds, userId);
+      throw error;
+    }
 
     this.logger.log(`Order created: ${savedOrder.id} for user ${userId}`);
     return savedOrder;
@@ -175,54 +228,122 @@ export class OrdersService {
 
   async pay(orderId: string, buyer: Buyer, card?: string) {
     const userId = buyer.sub;
-    const order = await this.findOne(orderId, userId);
-    if (!order) throw new NotFoundException('Order not found');
-    if (order.status !== OrderStatus.PENDING) {
-      throw new ConflictException(`Order is already ${order.status}`);
-    }
 
-    if (this.inventory && order.holds && order.holds.length > 0) {
-      if (order.holds.some(hold => !this.inventory!.isHoldActive(hold.holdId, userId))) {
-        await this.cancelPending(order);
-        throw new GoneException('Reservation expired; the order was cancelled');
+    // Fase 1: Bloquear la orden con FOR UPDATE antes de cobrar para evitar doble cobro concurrente.
+    let order: Order;
+    if (this.dataSource) {
+      order = await this.dataSource.transaction(async manager => {
+        const locked = await manager
+          .getRepository(Order)
+          .createQueryBuilder('order')
+          .setLock('pessimistic_write')
+          .where('order.id = :id', { id: orderId })
+          .getOne();
+
+        if (!locked) throw new NotFoundException('Order not found');
+        if (locked.userId !== userId) {
+          throw new ForbiddenException('Acceso denegado: No posee permisos para acceder a este recurso');
+        }
+        if (locked.status === OrderStatus.PROCESSING) {
+          throw new ConflictException('Order payment is already in progress');
+        }
+        if (locked.status !== OrderStatus.PENDING) {
+          throw new ConflictException(`Order is already ${locked.status}`);
+        }
+
+        locked.items = await manager.getRepository(OrderItem).find({ where: { orderId } });
+
+        if (this.inventory && locked.holds && locked.holds.length > 0) {
+          if (locked.holds.some(hold => !this.inventory!.isHoldActive(hold.holdId, userId))) {
+            await this.cancelPending(locked, manager);
+            throw new GoneException('Reservation expired; the order was cancelled');
+          }
+        }
+
+        locked.startProcessing();
+        return manager.getRepository(Order).save(locked);
+      });
+    } else {
+      order = await this.findOne(orderId, userId);
+      if (!order) throw new NotFoundException('Order not found');
+      if (order.status !== OrderStatus.PENDING) {
+        throw new ConflictException(`Order is already ${order.status}`);
+      }
+      if (this.inventory && order.holds && order.holds.length > 0) {
+        if (order.holds.some(hold => !this.inventory!.isHoldActive(hold.holdId, userId))) {
+          await this.cancelPending(order);
+          throw new GoneException('Reservation expired; the order was cancelled');
+        }
       }
     }
 
+    // Fase 2: Cobrar en la pasarela externa con la orden ya bloqueada en PROCESSING.
     if (this.payments && card) {
-      const approved = await this.payments.processPayment(Number(order.total), card);
+      let approved: boolean;
+      try {
+        approved = await this.payments.processPayment(Number(order.total), card);
+      } catch (err) {
+        if (this.dataSource && order.status === OrderStatus.PROCESSING) {
+          await this.orderRepo.update({ id: order.id, status: OrderStatus.PROCESSING }, { status: OrderStatus.PENDING });
+        }
+        throw err;
+      }
       if (!approved) {
-        await this.cancelPending(order);
-        throw new HttpException({ statusCode: HttpStatus.PAYMENT_REQUIRED, message: 'Payment declined; the order was cancelled', orderId: order.id }, HttpStatus.PAYMENT_REQUIRED);
+        await this.runInTransaction(manager => this.cancelPending(order, manager));
+        throw new HttpException(
+          { statusCode: HttpStatus.PAYMENT_REQUIRED, message: 'Payment declined; the order was cancelled', orderId: order.id },
+          HttpStatus.PAYMENT_REQUIRED,
+        );
       }
     }
 
-    if (this.inventory && order.holds) {
-      for (const hold of order.holds) {
-        await this.inventory.commitHold(hold.eventId, hold.holdId, userId);
+    // Fase 3: Confirmar holds, pasar a PAID, registrar venta, emitir tickets y encolar outbox en la misma transacción.
+    const result = await this.runInTransaction(async manager => {
+      if (this.inventory && order.holds) {
+        for (const hold of order.holds) {
+          await this.inventory.commitHold(hold.eventId, hold.holdId, userId);
+        }
       }
-    }
 
-    order.pay();
-    await this.orderRepo.save(order);
+      order.pay();
+      const repo = manager ? manager.getRepository(Order) : this.orderRepo;
+      await repo.save(order);
 
-    const tickets: any[] = [];
-    if (this.eventsService && this.tickets) {
-      for (const item of order.items) {
-        await this.eventsService.registerSale(item.eventId, item.ticketTypeId ?? '', item.quantity);
-        tickets.push(...await this.tickets.emit(order.id, item.eventId, userId, item.quantity, item.ticketType));
+      const tickets: any[] = [];
+      if (this.eventsService && this.tickets) {
+        for (const item of order.items) {
+          await this.eventsService.registerSale(
+            item.eventId,
+            item.ticketTypeId ?? '',
+            item.quantity,
+            ...(manager ? [manager] : []),
+          );
+          tickets.push(
+            ...await this.tickets.emit(
+              order.id,
+              item.eventId,
+              userId,
+              item.quantity,
+              item.ticketType,
+              ...(manager ? [manager] : []),
+            ),
+          );
+        }
       }
-    }
 
-    await this.publish('order.paid', {
-      orderId: order.id,
-      userId,
-      userEmail: buyer.email,
-      total: Number(order.total),
-      ticketCodes: tickets.map(ticket => ticket.code),
+      await this.publish('order.paid', {
+        orderId: order.id,
+        userId,
+        userEmail: buyer.email,
+        total: Number(order.total),
+        ticketCodes: tickets.map(ticket => ticket.code),
+      }, manager);
+
+      return tickets;
     });
 
-    this.logger.log(`Order paid: ${order.id} (${tickets.length} tickets)`);
-    return { ...order, tickets };
+    this.logger.log(`Order paid: ${order.id} (${result.length} tickets)`);
+    return { ...order, tickets: result };
   }
 
   async cancel(orderId: string, userId: string) {
@@ -268,6 +389,9 @@ export class OrdersService {
 
   async cancelOrder(id: string, userId: string): Promise<Order> {
     const order = await this.findOne(id, userId);
+    if (this.inventory && order.holds && order.status === OrderStatus.PENDING) {
+      await this.releaseHolds(order.holds, order.userId);
+    }
     order.cancel();
     return this.orderRepo.save(order);
   }
@@ -275,51 +399,74 @@ export class OrdersService {
   /**
    * Reembolso (Eje D / patrón State). Solo lo puede hacer un administrador o el organizador
    * dueño de todos los eventos de la orden: el comprador no se reembolsa a sí mismo.
-   * Cancela las entradas sin usar y devuelve el cupo, así una entrada reembolsada no sirve
-   * para ingresar. Si alguna entrada ya se usó, el reembolso se rechaza con 409.
+   * Cancela las entradas sin usar y devuelve el cupo dentro de la misma transacción ACID + Outbox.
    */
   async refundOrder(id: string, actor: Actor, expectedVersion?: string): Promise<Order> {
-    const order = await this.orderRepo.findOne({ where: { id }, relations: { items: true } });
-    if (!order) throw new NotFoundException(`Order with ID ${id} not found`);
+    return this.runInTransaction(async manager => {
+      const repo = manager ? manager.getRepository(Order) : this.orderRepo;
+      const order = manager
+        ? await repo.createQueryBuilder('order').setLock('pessimistic_write').where('order.id = :id', { id }).getOne()
+        : await repo.findOne({ where: { id }, relations: { items: true } });
 
-    if (actor.role !== UserRole.ADMIN) {
-      const events = actor.role === UserRole.ORGANIZER && this.eventDao
-        ? await Promise.all((order.items ?? []).map(item => this.eventDao!.findOne(item.eventId)))
-        : [];
-      const ownsAll = events.length > 0 && events.every(event => event.organizerId === actor.sub);
-      if (!ownsAll) {
-        throw new ForbiddenException('Only an administrator or the event organizer can refund an order');
+      if (!order) throw new NotFoundException(`Order with ID ${id} not found`);
+      if (manager) {
+        order.items = await manager.getRepository(OrderItem).find({ where: { orderId: id } });
       }
-    }
 
-    if (expectedVersion !== undefined && expectedVersion !== String(order.version)) {
-      throw new PreconditionFailedException('Actualización concurrente rechazada: El ETag provisto está desactualizado.');
-    }
+      if (actor.role !== UserRole.ADMIN) {
+        const events = actor.role === UserRole.ORGANIZER && this.eventDao
+          ? await Promise.all((order.items ?? []).map(item => this.eventDao!.findOne(item.eventId)))
+          : [];
+        const ownsAll = events.length > 0 && events.every(event => event.organizerId === actor.sub);
+        if (!ownsAll) {
+          throw new ForbiddenException('Only an administrator or the event organizer can refund an order');
+        }
+      }
 
-    const issued = this.tickets ? await this.tickets.findByOrder(order.id) : [];
-    if (issued.some(ticket => ticket.status === TicketStatus.USED || ticket.status === TicketStatus.SCANNED)) {
-      throw new ConflictException('Cannot refund an order whose tickets were already used');
-    }
+      if (expectedVersion !== undefined && expectedVersion !== String(order.version)) {
+        throw new PreconditionFailedException('Actualización concurrente rechazada: El ETag provisto está desactualizado.');
+      }
 
-    order.refund(); // State: solo PAID -> REFUNDED; cualquier otra transición responde 409.
-    const saved = await this.orderRepo.save(order);
+      const issued = this.tickets ? await this.tickets.findByOrder(order.id) : [];
+      if (issued.some(ticket => ticket.status === TicketStatus.USED || ticket.status === TicketStatus.SCANNED)) {
+        throw new ConflictException('Cannot refund an order whose tickets were already used');
+      }
 
-    if (this.tickets) await this.tickets.cancelByOrder(order.id);
-    for (const item of order.items ?? []) {
-      if (this.eventsService) await this.eventsService.releaseSale(item.eventId, item.ticketTypeId ?? '', item.quantity);
-      if (this.inventory) await this.inventory.restock(item.eventId, item.quantity);
-    }
+      order.refund(); // State: solo PAID -> REFUNDED; cualquier otra transición responde 409.
+      const saved = await repo.save(order);
 
-    this.logger.log(`Order refunded: ${order.id} by ${actor.role}`);
-    return saved;
+      if (this.tickets) await this.tickets.cancelByOrder(order.id, ...(manager ? [manager] : []));
+      for (const item of order.items ?? []) {
+        if (this.eventsService) {
+          await this.eventsService.releaseSale(
+            item.eventId,
+            item.ticketTypeId ?? '',
+            item.quantity,
+            ...(manager ? [manager] : []),
+          );
+        }
+        if (this.inventory) await this.inventory.restock(item.eventId, item.quantity);
+      }
+
+      await this.publish('order.refunded', {
+        orderId: order.id,
+        userId: order.userId,
+        total: Number(order.total),
+        refundedBy: actor.sub,
+      }, manager);
+
+      this.logger.log(`Order refunded: ${order.id} by ${actor.role}`);
+      return saved;
+    });
   }
 
-  private async cancelPending(order: Order) {
+  private async cancelPending(order: Order, manager?: EntityManager) {
     if (this.inventory && order.holds) {
       await this.releaseHolds(order.holds, order.userId);
     }
     order.cancel();
-    return this.orderRepo.save(order);
+    const repo = manager ? manager.getRepository(Order) : this.orderRepo;
+    return repo.save(order);
   }
 
   private async releaseHolds(holds: Order['holds'], userId: string) {

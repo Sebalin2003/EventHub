@@ -87,7 +87,7 @@ describe('OrdersService - cobertura de flujo de negocio (Eje B)', () => {
       expect(result.holds).toEqual([
         { eventId: 'evt-1', holdId: 'hold-1', expiresAt: '2026-01-01T00:00:00.000Z' },
       ]);
-      expect(inventory.createHold).toHaveBeenCalledWith('evt-1', 'user-1', 3);
+      expect(inventory.createHold).toHaveBeenCalledWith('evt-1', 'user-1', 3, undefined, 'tt-1');
       expect(rabbitClient.emit).toHaveBeenCalledWith(
         'order.created',
         expect.objectContaining({ userEmail: 'buyer@eventhub.com', expiresAt: '2026-01-01T00:00:00.000Z' }),

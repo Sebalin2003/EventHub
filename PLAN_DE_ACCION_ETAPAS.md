@@ -3,8 +3,9 @@
 > **Estado general del plan:**
 > - **Etapa 1:** ✅ **COMPLETADA** (Mergeada en `main` - Commit `00ee70e`)
 > - **Etapa 2:** ✅ **COMPLETADA** (Mergeada en `main` - Commit `00ee70e`)
-> - **Etapa 3:** ⏳ **PRÓXIMA A EJECUTAR (Integridad de datos)**
-> - **Etapas 4 a 8:** 📋 **PLANIFICADAS / PENDIENTES**
+> - **Etapa 3:** ✅ **COMPLETADA** (Integridad de datos y concurrencia implementada)
+> - **Etapa 4:** ⏳ **PRÓXIMA A EJECUTAR (Integraciones obligatorias)**
+> - **Etapas 5 a 8:** 📋 **PLANIFICADAS / PENDIENTES**
 
 ---
 
@@ -57,20 +58,20 @@ Hice las etapas en orden de dependencia. Las tres primeras desbloquean la aproba
 
 ---
 
-## Etapa 3 — Integridad de datos · 1 o 2 personas de backend · media — [⏳ PENDIENTE / SIGUIENTE]
+## Etapa 3 — Integridad de datos · 1 o 2 personas de backend · media — [✅ COMPLETADA]
 **Objetivo:** que no haya sobreventa ni estados inconsistentes (Eje C y requisito del TP).
 
 | Tarea | Archivos | Ref. | Estado |
 |---|---|---|:---:|
-| Transacción en pago y reembolso, con el outbox dentro de la misma transacción | `orders.service.ts`, `outbox.service.ts` | P-14, E2-12 | ⏳ Pendiente |
-| Reserva por tipo de entrada y decremento atómico de `sold` | `orders.service.ts`, `events.service.ts`, `inventory.service.ts` | P-05 | ⏳ Pendiente |
-| Bloqueo de la orden al pagar, y cobro recién después de bloquearla | `orders.service.ts` | P-12 | ⏳ Pendiente |
-| Eliminar el `PATCH /orders/:id/pay` sin tarjeta | `orders.controller.ts` | P-12, E2-06 | ⏳ Pendiente |
-| Liberar la reserva al cancelar y poner un tope de reservas por usuario | `orders.service.ts`, `inventory.controller.ts`, `inventory.dto.ts` | P-12 | ⏳ Pendiente |
-| Idempotencia: índice `(userId, idempotencyKey)`, atrapar la clave duplicada y responder 422 si cambia el cuerpo | `orders.service.ts`, `order.entity.ts` | P-16 | ⏳ Pendiente |
-| Deduplicación persistente: `messageId` único en `notifications` | `notifications.service.ts`, `notification.entity.ts` | P-10 | ⏳ Pendiente |
-| Validación de Luhn en todos los caminos | `payments.service.ts` | P-12 | ⏳ Pendiente |
-| Respuesta 409 cuando un conflicto de base hoy da 500 (por ejemplo, borrar un evento con órdenes) | `problem-details.filter.ts`, `events.service.ts` | P-12 | ⏳ Pendiente |
+| Transacción en pago y reembolso, con el outbox dentro de la misma transacción | `orders.service.ts`, `outbox.service.ts` | P-14, E2-12 | ✅ Hecho |
+| Reserva por tipo de entrada y decremento atómico de `sold` | `orders.service.ts`, `events.service.ts`, `inventory.service.ts` | P-05 | ✅ Hecho |
+| Bloqueo de la orden al pagar, y cobro recién después de bloquearla | `orders.service.ts` | P-12 | ✅ Hecho |
+| Eliminar el `PATCH /orders/:id/pay` sin tarjeta | `orders.controller.ts` | P-12, E2-06 | ✅ Hecho |
+| Liberar la reserva al cancelar y poner un tope de reservas por usuario | `orders.service.ts`, `inventory.controller.ts`, `inventory.dto.ts` | P-12 | ✅ Hecho |
+| Idempotencia: índice `(userId, idempotencyKey)`, atrapar la clave duplicada y responder 422 si cambia el cuerpo | `orders.service.ts`, `order.entity.ts` | P-16 | ✅ Hecho |
+| Deduplicación persistente: `messageId` único en `notifications` | `notifications.service.ts`, `notification.entity.ts` | P-10 | ✅ Hecho |
+| Validación de Luhn en todos los caminos | `payments.service.ts` | P-12 | ✅ Hecho |
+| Respuesta 409 cuando un conflicto de base hoy da 500 (por ejemplo, borrar un evento con órdenes) | `problem-details.filter.ts`, `events.service.ts` | P-12 | ✅ Hecho |
 
 **Criterio de salida:**
 - Tests de concurrencia con `Promise.all`: cupo 2 con 5 compradores emite 2 entradas; 5 POST con la misma clave crean 1 orden.
@@ -180,7 +181,7 @@ Día 3→     Etapa 6 (va sumando tests de 2-4) ──────────�
 **Si el tiempo no alcanza, mínimo para aprobar:**
 - [x] Etapa 1 completa.
 - [x] De la etapa 2: pagos con guard, secreto JWT, reembolso y check-in atómico.
-- [ ] De la etapa 3: transacción del pago y sobreventa.
+- [x] De la etapa 3: transacción del pago y sobreventa.
 - [ ] Etapa 5, o su plan B declarado.
 - [ ] Etapa 7 sin recortes: la honestidad del informe es eliminatoria.
 - [ ] Etapa 8.

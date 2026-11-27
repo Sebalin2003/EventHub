@@ -185,7 +185,7 @@ describe.sequential('Eje B - Integracion con PostgreSQL y RabbitMQ reales', () =
 
   it('rechaza un ETag desactualizado con 412 Problem Details', async () => {
     const response = await request(API())
-      .patch(`/orders/${orderId}/pay`)
+      .post(`/orders/${orderId}/pay`)
       .set('Authorization', `Bearer ${attendeeToken}`)
       .set('If-Match', 'W/"999"')
       .send({ card: '4111 1111 1111 1111' })

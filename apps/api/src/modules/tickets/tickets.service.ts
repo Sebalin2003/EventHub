@@ -5,7 +5,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, Repository, type EntityManager } from 'typeorm';
 import { Ticket, TicketStatus } from './entities/ticket.entity.js';
 import { randomBytes } from 'crypto';
 
@@ -27,10 +27,12 @@ export class TicketsService {
     userId: string,
     quantity: number,
     ticketType: string | null = null,
+    manager?: EntityManager,
   ): Promise<Ticket[]> {
+    const repo = manager ? manager.getRepository(Ticket) : this.ticketsRepository;
     const tickets: Ticket[] = [];
     for (let i = 0; i < quantity; i++) {
-      const ticket = this.ticketsRepository.create({
+      const ticket = repo.create({
         orderId,
         eventId,
         userId,
@@ -40,7 +42,7 @@ export class TicketsService {
       });
       tickets.push(ticket);
     }
-    return this.ticketsRepository.save(tickets);
+    return repo.save(tickets);
   }
 
   async findByUserId(userId: string): Promise<Ticket[]> {
@@ -131,8 +133,9 @@ export class TicketsService {
   }
 
   /** Cancela las entradas sin usar de una orden (reembolso). Devuelve cuántas canceló. */
-  async cancelByOrder(orderId: string): Promise<number> {
-    const result = await this.ticketsRepository.update(
+  async cancelByOrder(orderId: string, manager?: EntityManager): Promise<number> {
+    const repo = manager ? manager.getRepository(Ticket) : this.ticketsRepository;
+    const result = await repo.update(
       { orderId, status: In(UNUSED_STATUSES) },
       { status: TicketStatus.CANCELLED },
     );

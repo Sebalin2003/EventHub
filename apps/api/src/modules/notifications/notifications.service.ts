@@ -27,10 +27,19 @@ export class NotificationsService {
     // Generate deterministic idempotency key
     const deduplicationKey = messageId || `${messageType}:${payload?.orderId || payload?.eventId || JSON.stringify(payload)}`;
 
-    // 1. Idempotency Check: if message already processed, acknowledge and discard duplicate
+    // 1. Idempotency Check (in-memory + persistent DB check across API restarts)
     if (this.processedMessageKeys.has(deduplicationKey)) {
       this.logger.warn(`[IDEMPOTENT CONSUMER] Mensaje duplicado detectado y descartado: "${deduplicationKey}". Se evita reprocesamiento.`);
       return { status: 'DUPLICATE_SKIPPED' };
+    }
+
+    if (typeof this.notificationRepository.findOne === 'function') {
+      const existing = await this.notificationRepository.findOne({ where: { messageId: deduplicationKey } });
+      if (existing) {
+        this.processedMessageKeys.add(deduplicationKey);
+        this.logger.warn(`[IDEMPOTENT CONSUMER] Mensaje duplicado detectado en BD tras reinicio: "${deduplicationKey}".`);
+        return { status: 'DUPLICATE_SKIPPED' };
+      }
     }
 
     // 2. Validation & Poison Pill Detection
@@ -59,6 +68,7 @@ export class NotificationsService {
     const templateByType: Record<string, { subject: string; template: string }> = {
       'order.created': { subject: 'Confirmación de tu compra en EventHub', template: 'order-confirmation' },
       'order.paid': { subject: 'Tus entradas están listas', template: 'order-paid' },
+      'order.refunded': { subject: 'Confirmación de reembolso en EventHub', template: 'order-refunded' },
       'event.created': { subject: 'Nuevo evento publicado en EventHub', template: 'event-notification' },
     };
     const { subject, template } = templateByType[messageType] ?? {
@@ -67,13 +77,25 @@ export class NotificationsService {
     };
 
     const notification = this.notificationRepository.create({
+      messageId: deduplicationKey,
       to: recipient,
       subject,
       template,
       payload,
     });
 
-    const saved = await this.notificationRepository.save(notification);
+    let saved: Notification;
+    try {
+      saved = await this.notificationRepository.save(notification);
+    } catch (error: any) {
+      const code = error?.driverError?.code ?? error?.code;
+      if (code === '23505') {
+        this.processedMessageKeys.add(deduplicationKey);
+        this.logger.warn(`[IDEMPOTENT CONSUMER] Colisión concurrente por messageId único "${deduplicationKey}". Descartado.`);
+        return { status: 'DUPLICATE_SKIPPED' };
+      }
+      throw error;
+    }
     this.processedMessageKeys.add(deduplicationKey);
 
     // Eje D: no registrar el email completo (PII) en los logs.

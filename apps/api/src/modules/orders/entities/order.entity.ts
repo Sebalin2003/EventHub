@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn } from 'typeorm';
+import { ConflictException } from '@nestjs/common';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn, Index } from 'typeorm';
 import type { Relation } from 'typeorm';
 import { User } from '../../identity/entities/user.entity.js';
 import { OrderItem } from './order-item.entity.js';
@@ -6,12 +7,14 @@ import { createOrderState } from '../state/order-state.js';
 
 export enum OrderStatus {
   PENDING = 'pending',
+  PROCESSING = 'processing',
   PAID = 'paid',
   CANCELLED = 'cancelled',
   REFUNDED = 'refunded',
 }
 
 @Entity('orders')
+@Index(['userId', 'idempotencyKey'], { unique: true })
 export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -36,8 +39,11 @@ export class Order {
   @Column({ type: 'enum', enum: OrderStatus, default: OrderStatus.PENDING })
   status: OrderStatus;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ nullable: true })
   idempotencyKey?: string;
+
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  idempotencyHash?: string;
 
   @Column({ type: 'int', default: 1 })
   version: number;
@@ -47,6 +53,15 @@ export class Order {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  startProcessing(): void {
+    const state = createOrderState(this.status);
+    if (!state.startProcessing) {
+      throw new ConflictException(`Transición inválida: la orden ya está en estado ${this.status}.`);
+    }
+    this.status = state.startProcessing();
+    this.version++;
+  }
 
   pay(): void {
     const state = createOrderState(this.status);

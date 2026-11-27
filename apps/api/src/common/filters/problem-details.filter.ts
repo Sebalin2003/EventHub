@@ -81,8 +81,17 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         }
       }
     } else if (exception instanceof Error) {
-      // Eje D: un error no controlado nunca debe reflejar el mensaje interno al cliente.
-      detail = 'An unexpected internal error occurred';
+      const dbCode = (exception as any)?.driverError?.code ?? (exception as any)?.code;
+      if (dbCode === '23505') {
+        status = HttpStatus.CONFLICT;
+        detail = 'Resource already exists or conflicts with an existing record';
+      } else if (dbCode === '23503') {
+        status = HttpStatus.CONFLICT;
+        detail = 'Operation conflicts with existing related records';
+      } else {
+        // Eje D: un error no controlado nunca debe reflejar el mensaje interno al cliente.
+        detail = 'An unexpected internal error occurred';
+      }
     }
 
     const title = STATUS_TITLES[status] || 'Error';

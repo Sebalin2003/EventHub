@@ -18,7 +18,7 @@ export class InventoryController {
     @Body() body: CreateHoldDto,
   ) {
     const ttlMs = body.ttlSeconds === undefined ? undefined : body.ttlSeconds * 1000;
-    return this.inventory.createHold(eventId, req.user.sub, body.quantity, ttlMs);
+    return this.inventory.createHold(eventId, req.user.sub, body.quantity, ttlMs, body.ticketTypeId);
   }
 
   @Delete(':eventId/holds/:holdId')

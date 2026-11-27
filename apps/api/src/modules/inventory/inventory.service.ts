@@ -17,6 +17,7 @@ import { UserRole } from '../identity/entities/user.entity.js';
 export type InventoryHold = {
   id: string;
   eventId: string;
+  ticketTypeId?: string;
   userId: string;
   quantity: number;
   status: 'active' | 'released' | 'committed';
@@ -26,6 +27,8 @@ export type InventoryHold = {
 
 const DEFAULT_HOLD_TTL_MS = 5 * 60 * 1000;
 const HOLD_EXPIRY_CHECK_MS = 1000;
+const DEFAULT_MAX_HOLDS_PER_USER = 5;
+const DEFAULT_MAX_HELD_TICKETS_PER_USER = 20;
 
 @Injectable()
 export class InventoryService implements OnModuleInit, OnModuleDestroy {
@@ -83,7 +86,13 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
-  async createHold(rawEventId: string, userId: string, quantity: number, ttlMs = DEFAULT_HOLD_TTL_MS) {
+  async createHold(
+    rawEventId: string,
+    userId: string,
+    quantity: number,
+    ttlMs = DEFAULT_HOLD_TTL_MS,
+    ticketTypeId?: string,
+  ) {
     this.ensureInitialized();
     if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new BadRequestException('Quantity must be a positive integer');
@@ -97,15 +106,40 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
 
     return this.serializeMutation(async () => {
       this.expireHolds();
+
+      const maxHoldsPerUser = Number(process.env.MAX_ACTIVE_HOLDS_PER_USER ?? DEFAULT_MAX_HOLDS_PER_USER);
+      const maxTicketsPerUser = Number(process.env.MAX_HELD_TICKETS_PER_USER ?? DEFAULT_MAX_HELD_TICKETS_PER_USER);
+      const userStats = this.getUserHoldStats(userId);
+      if (userStats.count >= maxHoldsPerUser) {
+        throw new ConflictException(`User cannot have more than ${maxHoldsPerUser} active holds`);
+      }
+      if (userStats.quantity + quantity > maxTicketsPerUser) {
+        throw new ConflictException(`User cannot hold more than ${maxTicketsPerUser} tickets simultaneously`);
+      }
+
       const available = (await this.storedAvailable(event)) - this.getHeldQuantity(eventId);
       if (quantity > available) {
         throw new ConflictException('Not enough inventory available');
+      }
+
+      let resolvedTicketTypeId: string | undefined = ticketTypeId;
+      if (ticketTypeId && event.ticketTypes?.length) {
+        const ticketType = event.ticketTypes.find(t => t.id === ticketTypeId || t.name === ticketTypeId);
+        if (!ticketType) {
+          throw new BadRequestException(`Ticket type "${ticketTypeId}" does not exist for this event`);
+        }
+        resolvedTicketTypeId = ticketType.id;
+        const typeRemaining = (ticketType.totalQuantity - ticketType.sold) - this.getHeldQuantity(eventId, ticketType.id);
+        if (quantity > typeRemaining) {
+          throw new ConflictException(`Not enough "${ticketType.name}" tickets available`);
+        }
       }
 
       const now = Date.now();
       const hold: InventoryHold = {
         id: randomUUID(),
         eventId,
+        ...(resolvedTicketTypeId ? { ticketTypeId: resolvedTicketTypeId } : {}),
         userId,
         quantity,
         status: 'active',
@@ -179,12 +213,26 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     return Boolean(hold && hold.userId === userId);
   }
 
-  private getHeldQuantity(eventId: string) {
+  private getHeldQuantity(eventId: string, ticketTypeId?: string) {
     let total = 0;
     for (const hold of this.activeHolds.values()) {
-      if (hold.eventId === eventId) total += hold.quantity;
+      if (hold.eventId !== eventId) continue;
+      if (ticketTypeId !== undefined && hold.ticketTypeId !== ticketTypeId) continue;
+      total += hold.quantity;
     }
     return total;
+  }
+
+  private getUserHoldStats(userId: string) {
+    let count = 0;
+    let quantity = 0;
+    for (const hold of this.activeHolds.values()) {
+      if (hold.userId === userId) {
+        count += 1;
+        quantity += hold.quantity;
+      }
+    }
+    return { count, quantity };
   }
 
   private expireHolds(now = Date.now()) {

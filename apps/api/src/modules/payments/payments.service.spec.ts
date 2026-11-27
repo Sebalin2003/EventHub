@@ -13,7 +13,7 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       const result = await service.processPayment({
         orderId: 'order-1',
         amount: 15000,
-        cardNumber: '4500 1234 5678 0000',
+        cardNumber: '4111 1111 1111 1111',
         cardHolder: 'Carlos Asistente',
       });
 
@@ -23,6 +23,19 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       expect(result.authCode).toBeDefined();
       expect(result.faultType).toBe('NONE');
     });
+
+    it('debe rechazar tarjetas que no pasan validación de Luhn en todos los caminos', async () => {
+      const result = await service.processPayment({
+        orderId: 'order-invalid-luhn',
+        amount: 15000,
+        cardNumber: '4500 0000 0000 0000',
+        cardHolder: 'Tarjeta Invalida',
+      });
+
+      expect(result.success).toBe(false);
+      expect(result.code).toBe('INVALID_CARD');
+      expect(result.faultType).toBe('BUSINESS_FAULT');
+    });
   });
 
   describe('Mapeo de SOAP Faults (Sin filtrar XML crudo al usuario)', () => {
@@ -30,7 +43,7 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       const result = await service.processPayment({
         orderId: 'order-2',
         amount: 50000,
-        cardNumber: '4500 0000 0000 4001',
+        cardNumber: '4111 1111 0340 01',
         cardHolder: 'Usuario Sin Fondos',
       });
 
@@ -44,7 +57,7 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       const result = await service.processPayment({
         orderId: 'order-3',
         amount: 10000,
-        cardNumber: '4500 0000 0000 4002',
+        cardNumber: '4111 1111 0240 02',
         cardHolder: 'Usuario Tarjeta Vencida',
       });
 
@@ -57,7 +70,7 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       const result = await service.processPayment({
         orderId: 'order-4',
         amount: 10000,
-        cardNumber: '4500 0000 0000 5001',
+        cardNumber: '4111 1111 0050 01',
         cardHolder: 'Usuario Falla Banco',
       });
 
@@ -74,7 +87,7 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       const result = await service.processPayment({
         orderId: 'order-timeout',
         amount: 10000,
-        cardNumber: '4500 0000 0000 9999', // Simula demora de 6s
+        cardNumber: '4111 1111 0699 99', // Simula demora de 6s
       });
       const duration = Date.now() - start;
 
@@ -89,11 +102,11 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       expect(service.getCircuitState()).toBe(CircuitBreakerState.CLOSED);
 
       // Falla 1
-      await service.processPayment({ orderId: 'f1', amount: 100, cardNumber: '4500 0000 0000 5001' });
+      await service.processPayment({ orderId: 'f1', amount: 100, cardNumber: '4111 1111 0050 01' });
       // Falla 2
-      await service.processPayment({ orderId: 'f2', amount: 100, cardNumber: '4500 0000 0000 5001' });
+      await service.processPayment({ orderId: 'f2', amount: 100, cardNumber: '4111 1111 0050 01' });
       // Falla 3 -> abre el circuito
-      await service.processPayment({ orderId: 'f3', amount: 100, cardNumber: '4500 0000 0000 5001' });
+      await service.processPayment({ orderId: 'f3', amount: 100, cardNumber: '4111 1111 0050 01' });
 
       expect(service.getCircuitState()).toBe(CircuitBreakerState.OPEN);
 
@@ -101,7 +114,7 @@ describe('PaymentsService (Eje C: SOAP, Resiliencia, Circuit Breaker y Timeout)'
       const fastFailResult = await service.processPayment({
         orderId: 'f4',
         amount: 100,
-        cardNumber: '4500 0000 0000 0000', // Tarjeta válida
+        cardNumber: '4111 1111 1111 1111', // Tarjeta válida
       });
 
       expect(fastFailResult.success).toBe(false);

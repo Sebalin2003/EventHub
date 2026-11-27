@@ -5,6 +5,9 @@ export class Notification {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Column({ type: 'varchar', nullable: true, unique: true })
+  messageId?: string | null;
+
   @Column()
   to: string;
 

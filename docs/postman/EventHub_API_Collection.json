@@ -1629,9 +1629,9 @@
           ]
         },
         {
-          "name": "PATCH /orders/:id/pay - ETag desactualizado (412)",
+          "name": "POST /orders/:id/pay - ETag desactualizado (412)",
           "request": {
-            "method": "PATCH",
+            "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
@@ -1705,9 +1705,9 @@
           ]
         },
         {
-          "name": "PATCH /orders/:id/pay - Orden ya pagada (409)",
+          "name": "POST /orders/:id/pay - Orden ya pagada (409)",
           "request": {
-            "method": "PATCH",
+            "method": "POST",
             "header": [
               {
                 "key": "Content-Type",
