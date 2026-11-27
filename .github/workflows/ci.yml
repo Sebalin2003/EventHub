@@ -84,7 +84,7 @@ jobs:
         run: pnpm --filter @evenhub/web typecheck
 
       - name: Eje B - SonarCloud Quality Gate
-        if: ${{ secrets.SONAR_TOKEN != '' }}
+        if: ${{ vars.SONAR_ENABLED == 'true' }}
         uses: SonarSource/sonarqube-scan-action@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
