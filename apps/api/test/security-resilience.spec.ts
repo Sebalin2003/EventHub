@@ -17,7 +17,8 @@ describe('Security & Resilience Suite (Ejes C y D: OWASP ASVS, RFC 9457, BOLA, B
         verify: (token: string) => {
           if (token.includes('expired-token')) throw new Error('jwt expired');
           if (token.includes('tampered-token')) throw new Error('invalid signature');
-          return { sub: 'usr-1', email: 'user@test.com', role: 'attendee' };
+          if (token.includes('no-exp')) return { sub: 'usr-1', email: 'user@test.com', role: 'admin' };
+          return { sub: 'usr-1', email: 'user@test.com', role: 'attendee', exp: Math.floor(Date.now() / 1000) + 3600 };
         },
       };
       guard = new JwtAuthGuard(jwtServiceMock);
@@ -87,6 +88,14 @@ describe('Security & Resilience Suite (Ejes C y D: OWASP ASVS, RFC 9457, BOLA, B
       expect(result).toBe(true);
       expect(req.user.id).toBe('usr-1');
       expect(req.user.sub).toBe('usr-1');
+    });
+
+    it('debe rechazar con 401 un token con firma válida pero sin vencimiento (exp)', () => {
+      const req: any = { headers: { authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.no-exp.valid-sig' } };
+      const contextMock: any = { switchToHttp: () => ({ getRequest: () => req }) };
+
+      expect(() => guard.canActivate(contextMock)).toThrow(UnauthorizedException);
+      expect(req.user).toBeUndefined();
     });
   });
 
