@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EventHub — Presentación Final y 3.er Checkpoint</title>
+  <style>
+    :root {
+      --bg: #090d16;
+      --bg-elevated: #111827;
+      --bg-card: rgba(22, 30, 48, 0.86);
+      --border: rgba(148, 163, 184, 0.16);
+      --text: #f1f5f9;
+      --text-muted: #94a3b8;
+      --primary: #6366f1;
+      --primary-light: #818cf8;
+      --cyan: #06b6d4;
+      --emerald: #10b981;
+      --amber: #f59e0b;
+      --rose: #f43f5e;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background: radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.14), transparent 40%),
+                  radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.12), transparent 45%),
+                  var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top Progress Bar */
+    .progress-track {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: rgba(255,255,255,0.06);
+      z-index: 100;
+    }
+    .progress-fill {
+      height: 100%;
+      width: 5%;
+      background: linear-gradient(90deg, var(--primary), var(--cyan), var(--emerald));
+      transition: width 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Main Deck Viewport */
+    .deck {
+      flex: 1;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px 42px 76px;
+    }
+
+    .slide {
+      display: none;
+      width: 100%;
+      max-width: 1220px;
+      height: 100%;
+      max-height: 700px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 44px;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+      backdrop-filter: blur(12px);
+      flex-direction: column;
+      justify-content: flex-start;
+      overflow-y: auto;
+      animation: fadeSlide 0.28s ease-out;
+    }
+
+    .slide.active { display: flex; }
+
+    @keyframes fadeSlide {
+      from { opacity: 0; transform: translateY(10px) scale(0.99); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* Slide Header */
+    .slide-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 14px;
+      margin-bottom: 22px;
+      gap: 16px;
+    }
+    .slide-kicker {
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--cyan);
+      margin-bottom: 4px;
+    }
+    .slide-title {
+      font-size: 1.75rem;
+      font-weight: 800;
+      line-height: 1.2;
+      background: linear-gradient(135deg, #fff 30%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .slide-badge {
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(99, 102, 241, 0.18);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      color: var(--primary-light);
+      white-space: nowrap;
+    }
+
+    /* Typography & Layout Helpers */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+
+    .card {
+      background: rgba(15, 23, 42, 0.72);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+    }
+    .card h3 {
+      font-size: 1.02rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #fff;
+    }
+    .card p, .card li {
+      font-size: 0.92rem;
+      line-height: 1.52;
+      color: #cbd5e1;
+    }
+    .card ul { padding-left: 18px; display: flex; flex-direction: column; gap: 7px; }
+    .card strong { color: #f8fafc; }
+
+    .accent-indigo { border-top: 3px solid var(--primary); }
+    .accent-cyan { border-top: 3px solid var(--cyan); }
+    .accent-emerald { border-top: 3px solid var(--emerald); }
+    .accent-amber { border-top: 3px solid var(--amber); }
+    .accent-rose { border-top: 3px solid var(--rose); }
+
+    /* Cover Slide */
+    .cover-center {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      gap: 18px;
+    }
+    .cover-logo {
+      font-size: 3.6rem;
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #818cf8 0%, #22d3ee 55%, #34d399 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .cover-subtitle {
+      font-size: 1.28rem;
+      color: #cbd5e1;
+      max-width: 780px;
+      line-height: 1.45;
+    }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 6px; }
+    .pill {
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.84rem;
+      font-weight: 600;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--border);
+      color: #e2e8f0;
+    }
+    .pill.ok { background: rgba(16, 185, 129, 0.16); border-color: rgba(16, 185, 129, 0.4); color: #6ee7b7; }
+    .team-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(260px, 1fr));
+      gap: 12px;
+      width: 100%;
+      max-width: 820px;
+      margin-top: 12px;
+      text-align: left;
+    }
+    .team-member {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 16px;
+    }
+    .team-member .role { font-size: 0.76rem; color: var(--cyan); font-weight: 700; text-transform: uppercase; }
+    .team-member .name { font-size: 0.96rem; font-weight: 600; margin-top: 2px; color: #f8fafc; }
+
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+    th, td {
+      padding: 9px 12px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      color: var(--cyan);
+      font-weight: 700;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      background: rgba(15, 23, 42, 0.6);
+    }
+    td { color: #cbd5e1; }
+    tr:hover td { background: rgba(255, 255, 255, 0.025); }
+
+    code {
+      font-family: var(--font-mono);
+      font-size: 0.82em;
+      background: rgba(99, 102, 241, 0.15);
+      color: #c7d2fe;
+      padding: 2px 6px;
+      border-radius: 5px;
+    }
+    pre {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.45;
+      background: #070a12;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px 16px;
+      color: #a5f3fc;
+      overflow-x: auto;
+    }
+
+    /* Status tags & KPIs */
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+    .tag-ok { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.35); }
+    .tag-warn { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.35); }
+    .tag-err { background: rgba(244, 63, 94, 0.2); color: #fda4af; border: 1px solid rgba(244, 63, 94, 0.35); }
+
+    .kpi-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      text-align: center;
+    }
+    .kpi-val {
+      font-size: 2rem;
+      font-weight: 800;
+      color: #34d399;
+      line-height: 1.1;
+    }
+    .kpi-val.cyan { color: #22d3ee; }
+    .kpi-val.indigo { color: #818cf8; }
+    .kpi-label { font-size: 0.8rem; color: var(--text-muted); margin-top: 6px; font-weight: 600; }
+    .kpi-sub { font-size: 0.75rem; color: #64748b; margin-top: 3px; }
+
+    /* Progress Bars for Metrics */
+    .bar-row { margin-bottom: 12px; }
+    .bar-head { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 5px; }
+    .bar-bg { height: 10px; background: rgba(255,255,255,0.08); border-radius: 999px; overflow: hidden; }
+    .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--primary), var(--emerald)); }
+
+    /* Flow steps */
+    .flow-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .flow-step {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+      position: relative;
+    }
+    .flow-num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 24px; height: 24px; border-radius: 50%;
+      background: var(--primary); color: #fff; font-size: 0.76rem; font-weight: 800;
+      margin-bottom: 6px;
+    }
+    .flow-step h4 { font-size: 0.88rem; color: #f8fafc; margin-bottom: 4px; }
+    .flow-step p { font-size: 0.78rem; color: var(--text-muted); line-height: 1.4; }
+
+    /* Bottom Controls */
+    .controls {
+      position: fixed;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid var(--border);
+      padding: 8px 16px;
+      border-radius: 999px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+      z-index: 90;
+    }
+    .btn {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 6px 13px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .btn:hover { background: rgba(99, 102, 241, 0.25); border-color: var(--primary); }
+    .counter { font-size: 0.84rem; font-weight: 700; color: var(--text-muted); min-width: 64px; text-align: center; }
+
+    /* Overview Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(9, 13, 22, 0.94);
+      z-index: 200;
+      padding: 32px;
+      overflow-y: auto;
+    }
+    .modal.open { display: block; }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+    .overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 14px;
+    }
+    .overview-item {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      cursor: pointer;
+      transition: transform 0.15s, border-color 0.15s;
+    }
+    .overview-item:hover, .overview-item.current { border-color: var(--primary); transform: translateY(-2px); }
+    .overview-item .num { font-size: 0.74rem; color: var(--cyan); font-weight: 700; }
+    .overview-item .title { font-size: 0.9rem; font-weight: 600; margin-top: 4px; color: #f8fafc; }
+
+    /* Speaker Notes Drawer */
+    .notes-drawer {
+      display: none;
+      position: fixed;
+      bottom: 66px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(860px, 92vw);
+      background: rgba(15, 23, 42, 0.96);
+      border: 1px solid rgba(99, 102, 241, 0.45);
+      border-radius: 14px;
+      padding: 14px 18px;
+      z-index: 85;
+      font-size: 0.86rem;
+      line-height: 1.5;
+      color: #e2e8f0;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.6);
+    }
+    .notes-drawer.open { display: block; }
+    .notes-label { font-size: 0.72rem; font-weight: 800; color: var(--amber); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; }
+
+    @media print {
+      body { overflow: visible; height: auto; background: #0b0f19; }
+      .controls, .progress-track, .notes-drawer, .modal { display: none !important; }
+      .deck { display: block; padding: 0; }
+      .slide { display: flex !important; page-break-after: always; max-height: none; margin: 0 auto 20px; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+
+<main class="deck" id="deck">
+
+  <!-- SLIDE 1 -->
+  <section class="slide active" data-title="Portada y Presentación del Equipo" data-notes="Orador 1: Bienvenidos. Presentamos EventHub, plataforma de venta concurrente de entradas. Hoy defendemos la integración completa del 3.er Checkpoint junto con los criterios eliminatorios G1-G9 y Ejes A-E de la Entrega Final.">
+    <div class="cover-center">
+      <div class="pill-row">
+        <span class="pill">Diseño y Arquitectura de Sistemas</span>
+        <span class="pill ok">Tag: v1.0-final · main</span>
+        <span class="pill ok">CI: 6 Jobs en Verde</span>
+      </div>
+      <div class="cover-logo">EVENTHUB</div>
+      <p class="cover-subtitle">
+        Plataforma de Alta Concurrencia para Venta y Gestión de Entradas<br/>
+        <strong>Defensa Conjunta: 3.er Checkpoint + Entrega Final</strong>
+      </p>
+      <div class="team-grid">
+        <div class="team-member">
+          <div class="role">Arquitectura &amp; Backend Core</div>
+          <div class="name">[Integrante 1 — Líder Técnico]</div>
+        </div>
+        <div class="team-member">
+          <div class="role">Resiliencia, Integraciones &amp; Mensajería</div>
+          <div class="name">[Integrante 2 — Backend &amp; Broker]</div>
+        </div>
+        <div class="team-member">
+          <div class="role">Frontend, Accesibilidad &amp; E2E</div>
+          <div class="name">[Integrante 3 — Frontend &amp; DevOps]</div>
+        </div>
+        <div class="team-member">
+          <div class="role">QA Lead, Seguridad Ofensiva &amp; IA</div>
+          <div class="name">[Integrante 4 — QA Designado]</div>
+        </div>
+      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 8px;">
+        Repositorio: <code>https://github.com/Sebalin2003/EventHub</code> · Teclas: <code>←</code> <code>→</code> navegar · <code>G</code> vista general · <code>N</code> notas · <code>F</code> pantalla completa
+      </p>
+    </div>
+  </section>
+
+  <!-- SLIDE 2 -->
+  <section class="slide" data-title="Visión del Negocio y Desafíos de Dominio" data-notes="Orador 1: El dominio exige evitar sobreventa en picos de demanda y tolerar pasarelas bancarias lentas. Lo resolvemos con HOLD temporal, máquina de estados con 409, check-in atómico e IA segura.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Contexto &amp; Dominio</div>
+        <h2 class="slide-title">Diapositiva 2: Visión del Negocio y Desafíos de Dominio</h2>
+      </div>
+      <span class="slide-badge">HU-01 a HU-11</span>
+    </div>
+    <div class="grid-2" style="flex:1; align-items: stretch;">
+      <div class="card accent-rose">
+        <h3>⚠️ El Problema de Negocio</h3>
+        <ul>
+          <li><strong>Picos de demanda masiva:</strong> cientos de compradores intentando adquirir las últimas entradas al mismo tiempo.</li>
+          <li><strong>Riesgo crítico de overbooking:</strong> condiciones de carrera (*race conditions*) que emiten más tickets que la capacidad del recinto.</li>
+          <li><strong>Inconsistencia de inventario:</strong> cupos bloqueados indefinidamente si el comprador abandona o falla el pago.</li>
+          <li><strong>Integración bancaria legada:</strong> pasarelas SOAP lentas o inestables que pueden colgar hilos del servidor.</li>
+        </ul>
+      </div>
+      <div class="card accent-emerald">
+        <h3>✅ La Solución EventHub</h3>
+        <ul>
+          <li><strong>Reserva Temporal (HOLD stateful):</strong> bloqueo atómico de cupo por 5 minutos por tipo de entrada antes de cobrar.</li>
+          <li><strong>Máquina de Estados Finita (State Pattern):</strong> transiciones estrictas (<code>PENDING → PROCESSING → PAID / CANCELLED / REFUNDED</code>), devolviendo <strong>HTTP 409</strong> ante saltos inválidos.</li>
+          <li><strong>Emisión y Check-in Atómico:</strong> códigos QR únicos (<code>EVT-...</code>) con <code>UPDATE ... WHERE status='ISSUED'</code> para impedir doble ingreso.</li>
+          <li><strong>AI Advisor Gateway:</strong> recomendaciones personalizadas con enmascaramiento PII y guardrails anti-inyección.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 3 -->
+  <section class="slide" data-title="Arquitectura en Capas y Despliegue" data-notes="Orador 1: Monolito modular en NestJS 12 con separación estricta de capas. Despliegue reproducible local en Docker Compose y cloud en Railway.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Estructura Técnica</div>
+        <h2 class="slide-title">Diapositiva 3: Arquitectura en Capas y Despliegue</h2>
+      </div>
+      <span class="slide-badge">Monolito Modular</span>
+    </div>
+    <div class="card" style="margin-bottom: 16px; padding: 14px;">
+      <svg viewBox="0 0 1000 260" style="width:100%; height:auto; display:block;">
+        <!-- Boxes -->
+        <rect x="20" y="55" width="210" height="145" rx="12" fill="#0f172a" stroke="#06b6d4" stroke-width="2"/>
+        <text x="125" y="84" text-anchor="middle" fill="#22d3ee" font-size="14" font-weight="700">FRONTEND (apps/web)</text>
+        <text x="125" y="112" text-anchor="middle" fill="#cbd5e1" font-size="12">React 19 + TypeScript</text>
+        <text x="125" y="134" text-anchor="middle" fill="#cbd5e1" font-size="12">Tailwind 4 + Vite / Nginx</text>
+        <text x="125" y="156" text-anchor="middle" fill="#94a3b8" font-size="11">Accesibilidad 100/100</text>
+
+        <rect x="300" y="25" width="350" height="210" rx="12" fill="#0f172a" stroke="#6366f1" stroke-width="2"/>
+        <text x="475" y="52" text-anchor="middle" fill="#818cf8" font-size="14" font-weight="700">API REST &amp; DOMINIO (apps/api - NestJS)</text>
+        <rect x="320" y="68" width="310" height="36" rx="8" fill="#1e293b" stroke="#475569"/>
+        <text x="475" y="91" text-anchor="middle" fill="#e2e8f0" font-size="12">Controllers + ValidationPipe + ProblemDetailsFilter</text>
+        <rect x="320" y="114" width="310" height="36" rx="8" fill="#1e293b" stroke="#475569"/>
+        <text x="475" y="137" text-anchor="middle" fill="#e2e8f0" font-size="12">JwtAuthGuard + RolesGuard + RateLimiter</text>
+        <rect x="320" y="160" width="310" height="56" rx="8" fill="#1e293b" stroke="#475569"/>
+        <text x="475" y="183" text-anchor="middle" fill="#e2e8f0" font-size="12">Módulos: Orders, Inventory, Events, Tickets,</text>
+        <text x="475" y="201" text-anchor="middle" fill="#94a3b8" font-size="11">Payments, Check-in, Notifications, AI</text>
+
+        <rect x="730" y="18" width="250" height="72" rx="10" fill="#0f172a" stroke="#10b981" stroke-width="2"/>
+        <text x="855" y="44" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">PostgreSQL 15 (TypeORM)</text>
+        <text x="855" y="66" text-anchor="middle" fill="#cbd5e1" font-size="11">Negocio + Locks + outbox_events</text>
+
+        <rect x="730" y="102" width="250" height="72" rx="10" fill="#0f172a" stroke="#f59e0b" stroke-width="2"/>
+        <text x="855" y="128" text-anchor="middle" fill="#fbbf24" font-size="13" font-weight="700">RabbitMQ 3 (AMQP)</text>
+        <text x="855" y="150" text-anchor="middle" fill="#cbd5e1" font-size="11">Topic Exchange + Notif + Audit + DLQ</text>
+
+        <rect x="730" y="186" width="250" height="62" rx="10" fill="#0f172a" stroke="#f43f5e" stroke-width="2"/>
+        <text x="855" y="211" text-anchor="middle" fill="#fb7185" font-size="13" font-weight="700">Pasarela SOAP + Geocode</text>
+        <text x="855" y="232" text-anchor="middle" fill="#cbd5e1" font-size="11">WSDL 1.1/1.2 + Timeout 5s + CB</text>
+
+        <!-- Arrows -->
+        <line x1="230" y1="128" x2="296" y2="128" stroke="#22d3ee" stroke-width="2.5" marker-end="url(#arrow)"/>
+        <text x="263" y="118" text-anchor="middle" fill="#94a3b8" font-size="10">JWT/REST</text>
+        <line x1="650" y1="75" x2="726" y2="54" stroke="#34d399" stroke-width="2"/>
+        <line x1="650" y1="138" x2="726" y2="138" stroke="#fbbf24" stroke-width="2" stroke-dasharray="5,4"/>
+        <line x1="650" y1="195" x2="726" y2="215" stroke="#fb7185" stroke-width="2"/>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L7,3 z" fill="#22d3ee"/>
+          </marker>
+        </defs>
+      </svg>
+    </div>
+    <div class="grid-2">
+      <div class="card accent-indigo">
+        <h3>🧱 Monolito Modular Desacoplado</h3>
+        <p>Separación explícita en 10 módulos de negocio dentro de <code>apps/api/src/modules/</code> con DAOs, DTOs validados y contratos OpenAPI 3.1 + WSDL.</p>
+      </div>
+      <div class="card accent-cyan">
+        <h3>🚀 Despliegue Híbrido Reproducible</h3>
+        <p><strong>Local:</strong> <code>docker compose up -d --build --wait</code> (PostgreSQL, RabbitMQ, API, Web, <code>soap-mock</code>, <code>geocode-mock</code>).<br/><strong>Cloud:</strong> Railway con red privada <code>.railway.internal</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 4 -->
+  <section class="slide" data-title="Patrones de Diseño Implementados y sus ADRs" data-notes="Orador 1: Cada decisión de diseño está justificada en su ADR dentro de docs/arquitectura/adr/. Destacar State, Strategy, Adapter, Circuit Breaker, Outbox y AI Gateway.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Decisiones de Arquitectura</div>
+        <h2 class="slide-title">Diapositiva 4: Patrones de Diseño Implementados y sus ADRs</h2>
+      </div>
+      <span class="slide-badge">8 ADRs Documentados</span>
+    </div>
+    <div class="card" style="padding: 10px 14px;">
+      <table>
+        <thead>
+          <tr>
+            <th>ADR</th>
+            <th>Patrón</th>
+            <th>Problema Resuelto</th>
+            <th>Ubicación</th>
+            <th>Impacto / Respuesta</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>ADR-001</strong></td><td><strong>State</strong></td><td>Transiciones ilegales de la orden</td><td><code>orders/state/order-state.ts</code></td><td><strong>HTTP 409 Conflict</strong> ante salto inválido</td></tr>
+          <tr><td><strong>ADR-002</strong></td><td><strong>Strategy</strong></td><td>Hashing criptográfico intercambiable</td><td><code>identity/strategies/</code></td><td><code>scrypt</code> (N=16384, r=8, p=1) + sal 16 bytes</td></tr>
+          <tr><td><strong>ADR-003</strong></td><td><strong>Factory</strong></td><td>Creación polimórfica de eventos</td><td><code>events/event.factory.ts</code></td><td>Desacopla instanciación y reglas por modalidad</td></tr>
+          <tr><td><strong>ADR-004</strong></td><td><strong>DAO / Repo</strong></td><td>Aislamiento de SQL relacional</td><td>TypeORM Repositories</td><td>Desacopla lógica de dominio de PostgreSQL</td></tr>
+          <tr><td><strong>ADR-005</strong></td><td><strong>Adapter</strong></td><td>Protocolo bancario SOAP legado</td><td><code>payments/payments.service.ts</code></td><td>Traduce REST/JSON a sobres XML SOAP con WSDL</td></tr>
+          <tr><td><strong>ADR-006</strong></td><td><strong>Circuit Breaker</strong></td><td>Evitar saturación por pasarela lenta</td><td><code>payments/payments.service.ts</code></td><td>3 fallas → <code>OPEN</code> (30s) + fallback 503/504</td></tr>
+          <tr><td><strong>ADR-007</strong></td><td><strong>Outbox</strong></td><td>Publicación confiable en broker</td><td><code>common/broker/outbox.service.ts</code></td><td>Persistencia ACID en BD; tolera broker caído</td></tr>
+          <tr><td><strong>ADR-008</strong></td><td><strong>AI Gateway</strong></td><td>Blindaje con modelos de IA</td><td><code>modules/ai/ai.service.ts</code></td><td>Enmascara PII, bloquea Prompt Injection</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SLIDE 5 -->
+  <section class="slide" data-title="Integraciones Heterogéneas (SOAP, REST y AMQP)" data-notes="Orador 2: Integramos tres protocolos reales: SOAP 1.1/1.2 bancario con protección XXE, REST moderno con OpenAPI 3.1 y RabbitMQ con Topic Exchange.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Protocolos Heterogéneos</div>
+        <h2 class="slide-title">Diapositiva 5: Integraciones (SOAP Legado, REST y AMQP)</h2>
+      </div>
+      <span class="slide-badge">SOAP · REST · AMQP</span>
+    </div>
+    <div class="grid-3" style="flex:1;">
+      <div class="card accent-rose">
+        <h3>🏦 SOAP Sistema Legado</h3>
+        <ul>
+          <li>Contrato formal en <code>docs/contracts/payments.wsdl</code> y servicio <code>soap-mock</code> en Compose.</li>
+          <li><strong>Faults Tipados:</strong> separa <code>BUSINESS_FAULT</code> (402) de <code>TECHNICAL_FAULT</code> (503).</li>
+          <li><strong>Defensa XXE:</strong> rechaza <code>&lt;!DOCTYPE</code> y <code>&lt;!ENTITY</code> con <code>XXE_INJECTION_REJECTED</code> tanto en cliente como en servidor.</li>
+          <li><strong>Higienización:</strong> <code>sanitizeSoapMessage</code> limpia XML antes de exponer mensajes.</li>
+        </ul>
+      </div>
+      <div class="card accent-cyan">
+        <h3>🌐 REST Moderno + Geocode</h3>
+        <ul>
+          <li>Contrato <strong>OpenAPI 3.1</strong> publicado en <code>GET /openapi.json</code>.</li>
+          <li>Validación estricta con <code>whitelist: true</code> y <code>forbidNonWhitelisted: true</code>.</li>
+          <li><strong>Geocodificación REST:</strong> servicio <code>geocode-mock</code> con timeout de 3s y fallback seguro (<code>lat: null, lon: null</code>).</li>
+        </ul>
+      </div>
+      <div class="card accent-amber">
+        <h3>📨 RabbitMQ Topic Exchange</h3>
+        <ul>
+          <li>Exchange durable <code>eventhub.events</code> de tipo <code>topic</code>.</li>
+          <li>Enruta eventos (<code>order.created</code>, <code>order.paid</code>, <code>order.refunded</code>, <code>event.created</code>) a <strong>2 colas independientes</strong>:</li>
+          <li><code>notifications_queue</code> (emails) y <code>audit_queue</code> (auditoría).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 6 -->
+  <section class="slide" data-title="Resiliencia I — Timeout 5s, Circuit Breaker y Fallback" data-notes="Orador 2: Timeout estricto de 5000ms con unref(). Ante 3 fallos técnicos abre el Circuit Breaker por 30s. En ambos casos responde 503 o 504 con Retry-After: 30 y deja la orden en pending para no perder el hold.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Tácticas de Resiliencia</div>
+        <h2 class="slide-title">Diapositiva 6: Timeout de 5s, Circuit Breaker y Fallback</h2>
+      </div>
+      <span class="slide-badge">503 / 504 + Retry-After</span>
+    </div>
+    <div class="flow-row">
+      <div class="flow-step">
+        <span class="flow-num">1</span>
+        <h4>Bloqueo Previo</h4>
+        <p><code>OrdersService.pay</code> toma <code>FOR UPDATE</code> y pasa la orden a <code>PROCESSING</code> antes de cobrar.</p>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <h4>Validación Luhn + XXE</h4>
+        <p>Rechaza tarjetas inválidas o inyecciones XML antes de abrir conexión externa.</p>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <h4>Carrera 5.000 ms</h4>
+        <p><code>Promise.race</code> con timer <code>.unref()</code>. Si SOAP supera 5s aborta sin colgar hilos.</p>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">4</span>
+        <h4>Fallback Seguro</h4>
+        <p>Timeout → <strong>504</strong>; Circuito abierto → <strong>503</strong>. Cabecera <code>Retry-After: 30</code> y orden vuelve a <code>pending</code>.</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card accent-amber">
+        <h3>⚡ Máquina de Estados del Circuit Breaker</h3>
+        <ul>
+          <li><span class="tag tag-ok">CLOSED</span> Operación normal hacia la pasarela SOAP.</li>
+          <li><span class="tag tag-err">OPEN</span> Se abre tras <strong>3 fallos técnicos consecutivos</strong> (cooldown 30s). Responde <em>fast-fail</em> <strong>503 Service Unavailable</strong>.</li>
+          <li><span class="tag tag-warn">HALF_OPEN</span> Pasados 30s deja pasar una petición de prueba; si triunfa, cierra el circuito.</li>
+        </ul>
+      </div>
+      <div class="card accent-emerald">
+        <h3>🛡️ Integridad Durante Contingencia</h3>
+        <ul>
+          <li>A diferencia de un rechazo de negocio (402 fondos insuficientes, que cancela la orden), ante falla técnica o timeout la orden <strong>permanece en <code>pending</code></strong>.</li>
+          <li>El usuario conserva su reserva (HOLD) y puede reintentar el pago cuando la pasarela se recupere.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 7 -->
+  <section class="slide" data-title="Resiliencia II — Patrón Outbox y Caída del Broker" data-notes="Orador 2: El patrón Outbox evita el problema de doble escritura. Si RabbitMQ se apaga con docker stop, la orden igual responde 201 y cuando vuelve RabbitMQ el dispatcher envía todo sin perder mensajes.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Tácticas de Resiliencia</div>
+        <h2 class="slide-title">Diapositiva 7: Transactional Outbox y Caída del Broker</h2>
+      </div>
+      <span class="slide-badge">ADR-007 · Cero Pérdida</span>
+    </div>
+    <div class="grid-2" style="flex:1;">
+      <div class="card accent-indigo">
+        <h3>🔄 Transacción Única ACID + Outbox</h3>
+        <ul>
+          <li><strong>El Problema:</strong> confirmar una orden en PostgreSQL y fallar al publicar en RabbitMQ deja el sistema desincronizado.</li>
+          <li><strong>Solución:</strong> dentro de la misma transacción <code>dataSource.transaction</code> donde se guarda la orden (o reembolso), se inserta en <code>outbox_messages</code> con estado <code>PENDING</code>.</li>
+          <li><strong>Dispatcher Polling:</strong> <code>OutboxService</code> sondea cada 2s, publica al Exchange Topic y marca <code>SENT</code> tras confirmación.</li>
+        </ul>
+      </div>
+      <div class="card accent-cyan">
+        <h3>🧪 Ensayo Real con Broker Apagado</h3>
+        <pre>1. docker stop eventhub_broker
+2. POST /orders → HTTP 201 Created ✅
+   └─ outbox_messages: status = 'PENDING'
+3. docker start eventhub_broker
+4. OutboxService reconecta automáticamente:
+   └─ Publica al topic exchange → status = 'SENT' ✅</pre>
+        <p style="margin-top:10px;"><strong>Resultado:</strong> 0 mensajes perdidos ante caída total o reinicio del broker RabbitMQ.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 8 -->
+  <section class="slide" data-title="Resiliencia III — Consumidores Idempotentes y DLQ" data-notes="Orador 2: Tenemos deduplicación persistente por messageId único en la tabla notifications (sobrevive reinicios de la API), 2 consumidores en el exchange topic y DLQ real con x-death.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Mensajería Confiable</div>
+        <h2 class="slide-title">Diapositiva 8: Consumidores Idempotentes, Topic y DLQ</h2>
+      </div>
+      <span class="slide-badge">2 Colas + DLQ Real</span>
+    </div>
+    <div class="grid-3">
+      <div class="card accent-emerald">
+        <h3>♻️ Deduplicación Persistente</h3>
+        <ul>
+          <li>Columna única <code>messageId</code> en tabla <code>notifications</code> + caché en memoria.</li>
+          <li>Si RabbitMQ reenvía un mensaje o la API se reinicia, detecta el <code>messageId</code> existente, responde <code>DUPLICATE_SKIPPED</code> y hace <code>ack</code> sin duplicar filas.</li>
+        </ul>
+      </div>
+      <div class="card accent-cyan">
+        <h3>📡 2 Consumidores en Topic</h3>
+        <ul>
+          <li>Exchange <code>eventhub.events</code> (<code>topic</code>) distribuye cada evento a:</li>
+          <li><strong>1. <code>notifications_queue</code>:</strong> <code>NotificationsController</code> (emails).</li>
+          <li><strong>2. <code>audit_queue</code>:</strong> <code>AuditConsumerService</code> (registro de auditoría).</li>
+        </ul>
+      </div>
+      <div class="card accent-rose">
+        <h3>☠️ Dead Letter Queue (DLQ)</h3>
+        <ul>
+          <li>Exchange DLX: <code>eventhub.dlx</code> → Cola durable <code>notifications_dlq</code>.</li>
+          <li>Ante <em>poison pills</em> (payload inválido), reintenta 3 veces y ejecuta <code>nack(requeue: false)</code>.</li>
+          <li>RabbitMQ lo mueve a <code>notifications_dlq</code> con cabecera <code>x-death</code>.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 9 -->
+  <section class="slide" data-title="Estándares REST — Idempotency-Key, ETag y Problem Details" data-notes="Orador 2: Cumplimiento estricto de estándares REST: índice único (userId, idempotencyKey) con 422 si cambia el body, ETag con 412 ante concurrencia y errores RFC 9457.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Contrato HTTP</div>
+        <h2 class="slide-title">Diapositiva 9: Idempotency-Key, ETag y Problem Details</h2>
+      </div>
+      <span class="slide-badge">RFC 9457</span>
+    </div>
+    <div class="grid-2">
+      <div style="display:flex; flex-direction:column; gap:14px;">
+        <div class="card accent-indigo">
+          <h3>🔑 Idempotency-Key + Hash SHA-256</h3>
+          <p>Índice único compuesto <code>(userId, idempotencyKey)</code> en <code>orders</code>. Si 5 <code>POST</code> simultáneos llegan con la misma clave, se crea <strong>1 sola orden</strong>. Si cambia el cuerpo con la misma clave → <strong>HTTP 422</strong>.</p>
+        </div>
+        <div class="card accent-cyan">
+          <h3>🏷️ Concurrencia Optimista (ETag / If-Match)</h3>
+          <p><code>GET /orders/:id</code> expone <code>ETag: W/"1"</code>. Al pagar, cancelar o reembolsar con <code>If-Match</code> desactualizado, responde <strong>HTTP 412 Precondition Failed</strong> evitando *lost updates*.</p>
+        </div>
+      </div>
+      <div class="card accent-rose">
+        <h3>📋 Problem Details (application/problem+json)</h3>
+        <pre>{
+  "type": "https://eventhub.com/errors/conflict",
+  "title": "Conflict",
+  "status": 409,
+  "detail": "Cannot delete event with existing orders or tickets",
+  "instance": "/events/e1",
+  "timestamp": "2026-11-27T11:20:00.000Z"
+}</pre>
+        <p style="margin-top:10px;">Incluso violaciones de BD (<code>23503</code> / <code>23505</code>) se mapean a <strong>409 Conflict</strong> sin filtrar trazas SQL internas.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 10 -->
+  <section class="slide" data-title="Inteligencia Artificial a través de su Gateway" data-notes="Orador 4: El módulo AI Advisor opera detrás de un Gateway que enmascara tarjetas/emails (PII), bloquea inyecciones de prompt y aplica guardrails temáticos.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Módulo IA</div>
+        <h2 class="slide-title">Diapositiva 10: IA Integrada a través de su Gateway</h2>
+      </div>
+      <span class="slide-badge">ADR-008 · Eje E</span>
+    </div>
+    <div class="grid-2" style="flex:1;">
+      <div class="card accent-indigo">
+        <h3>🤖 AiAdvisorService &amp; Gateway</h3>
+        <ul>
+          <li>Asistente contextual para recomendación de eventos por categoría, ubicación y presupuesto.</li>
+          <li><strong>Fallback Determinístico:</strong> si el proveedor externo supera el timeout o no está disponible, el gateway responde con motor de reglas local sin degradar la UX.</li>
+        </ul>
+      </div>
+      <div class="card accent-emerald">
+        <h3>🛡️ Blindaje de Seguridad en IA</h3>
+        <ul>
+          <li><strong>Anti Prompt Injection:</strong> bloquea intentos directos (<em>"Ignora instrucciones previas"</em>, jailbreak DAN) e indirectos vía <code>categoryPreference</code>.</li>
+          <li><strong>Protección System Prompt:</strong> nunca filtra directivas internas.</li>
+          <li><strong>Guardrails Temáticos:</strong> rechaza consultas fuera del dominio de eventos.</li>
+          <li><strong>Anonimización PII:</strong> enmascara tarjetas (<code>****</code>) y correos antes del procesamiento.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 11 -->
+  <section class="slide" data-title="Condiciones Eliminatorias G1 a G9" data-notes="Orador 4: Repaso completo de las 9 condiciones eliminatorias G1 a G9. Todas cuentan con evidencia verificable en el repositorio.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Condiciones Eliminatorias</div>
+        <h2 class="slide-title">Diapositiva 11: Cumplimiento de Condiciones G1 a G9</h2>
+      </div>
+      <span class="slide-badge">9 / 9 Cumplidas</span>
+    </div>
+    <div class="card" style="padding: 10px 14px;">
+      <table>
+        <thead>
+          <tr><th>Cond.</th><th>Requisito Eliminatorio</th><th>Estado</th><th>Evidencia Verificable</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>G1</strong></td><td>Build reproducible en 1 comando</td><td><span class="tag tag-ok">CUMPLE</span></td><td><code>docker compose up -d --build --wait</code> (PostgreSQL, RabbitMQ, API, Web, SOAP, Geocode)</td></tr>
+          <tr><td><strong>G2</strong></td><td>Tag <code>v1.0-final</code> en <code>main</code></td><td><span class="tag tag-ok">CUMPLE</span></td><td>Tag publicado y verificado sobre la rama principal en GitHub</td></tr>
+          <tr><td><strong>G3</strong></td><td>Pipeline CI en verde</td><td><span class="tag tag-ok">CUMPLE</span></td><td>6/6 jobs en verde: build/unit, mutation, Playwright, Docker smoke, k6, security</td></tr>
+          <tr><td><strong>G4</strong></td><td>Documentación completa</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Carpeta <code>docs/</code> ordenada (8 ADRs, Testing, Despliegue, Seguridad, Manual)</td></tr>
+          <tr><td><strong>G5</strong></td><td>Jira al día con QA designado</td><td><span class="tag tag-ok">CUMPLE</span></td><td>11 HUs MoSCoW, criterios Gherkin vinculados, defectos y QA asignado</td></tr>
+          <tr><td><strong>G6</strong></td><td>Sin secretos en historial Git</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Escaneo Gitleaks v8.28.0: <code>no leaks found</code>; sin JWT secret hardcodeado</td></tr>
+          <tr><td><strong>G7</strong></td><td>Demo en vivo funcional</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Flujo completo: Login → Catálogo → Compra → Pago SOAP → Ticket → Check-in QR</td></tr>
+          <tr><td><strong>G8</strong></td><td>Declaración honesta de IA</td><td><span class="tag tag-ok">CUMPLE</span></td><td><code>docs/ia/DECLARACION_IA.md</code> con herramientas, errores corregidos y prompts</td></tr>
+          <tr><td><strong>G9</strong></td><td>Informe honesto de testing</td><td><span class="tag tag-ok">CUMPLE</span></td><td><code>docs/testing/INFORME_CUMPLIMIENTO_TESTING.md</code> con métricas reales y defectos</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- SLIDE 12 -->
+  <section class="slide" data-title="Eje A — Historias de Usuario, E2E y Accesibilidad" data-notes="Orador 3: Eje A al 100%. 11 Historias de Usuario, 43 criterios Gherkin aprobados, E2E Playwright contra Docker real y Lighthouse 100/100.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Eje A · Funcionalidad y UX</div>
+        <h2 class="slide-title">Diapositiva 12: Historias de Usuario, E2E y Accesibilidad</h2>
+      </div>
+      <span class="slide-badge">100 / 100 Lighthouse</span>
+    </div>
+    <div class="grid-4" style="margin-bottom: 18px;">
+      <div class="kpi-card">
+        <div class="kpi-val indigo">11</div>
+        <div class="kpi-label">Historias de Usuario</div>
+        <div class="kpi-sub">HU-01 a HU-11 (MoSCoW)</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">43 / 43</div>
+        <div class="kpi-label">Criterios Gherkin</div>
+        <div class="kpi-sub">100% verificados</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val cyan">100 / 100</div>
+        <div class="kpi-label">Lighthouse Score</div>
+        <div class="kpi-sub">Desktop y Mobile</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">0</div>
+        <div class="kpi-label">Violaciones axe-core</div>
+        <div class="kpi-sub">En las 9 pantallas</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card accent-cyan">
+        <h3>🎭 E2E Real en Navegador (Playwright)</h3>
+        <p>Suite <code>apps/web/e2e/critical-flows.spec.ts</code> con <code>retries: 0</code> ejecutada contra el stack Docker real: login JWT, catálogo, compra, publicación de evento, credenciales inválidas y check-in.</p>
+      </div>
+      <div class="card accent-emerald">
+        <h3>📱 Responsive &amp; Accesibilidad</h3>
+        <p>Verificado a <strong>360 px</strong> (mobile), <strong>768 px</strong> (tablet) y <strong>1280 px</strong> (desktop) sin scroll horizontal ni desbordes, con contraste AA y navegación por teclado.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 13 -->
+  <section class="slide" data-title="Eje B — Cobertura (96.5%) y Mutación (76.2%)" data-notes="Orador 3: Superamos ampliamente los umbrales del Eje B: 96.52% líneas, 84.60% ramas, 76.23% mutation score en Stryker y 96 requests Newman sin fallos.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Eje B · Calidad de Pruebas</div>
+        <h2 class="slide-title">Diapositiva 13: Cobertura (96.5%) y Mutación (76.2%)</h2>
+      </div>
+      <span class="slide-badge">307 Unit Tests</span>
+    </div>
+    <div class="grid-2">
+      <div class="card accent-emerald">
+        <h3>📊 Métricas vs Umbral Exigido</h3>
+        <div class="bar-row">
+          <div class="bar-head"><span>Cobertura de Líneas (Umbral &ge; 80%)</span><strong>96,52%</strong></div>
+          <div class="bar-bg"><div class="bar-fill" style="width:96.5%;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-head"><span>Cobertura de Ramas (Umbral &ge; 70%)</span><strong>84,60%</strong></div>
+          <div class="bar-bg"><div class="bar-fill" style="width:84.6%;"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-head"><span>Mutation Score Stryker (Umbral &ge; 60%)</span><strong>76,23%</strong></div>
+          <div class="bar-bg"><div class="bar-fill" style="width:76.2%;"></div></div>
+        </div>
+        <div class="bar-row" style="margin-bottom:0;">
+          <div class="bar-head"><span>Colección Postman / Newman</span><strong>96 req / 0 fail</strong></div>
+          <div class="bar-bg"><div class="bar-fill" style="width:100%;"></div></div>
+        </div>
+      </div>
+      <div class="card accent-indigo">
+        <h3>🧬 Mutation Testing (Stryker) &amp; Estabilidad</h3>
+        <ul>
+          <li>Ejecutado sobre lógica nuclear: <code>orders/state</code>, <code>orders.service</code>, <code>payments.service</code>, <code>tickets.service</code>.</li>
+          <li><strong>617 mutantes eliminados</strong> (killed), demostrando aserciones reales en bordes y operadores.</li>
+          <li><strong>0 Flaky Tests:</strong> 3 corridas consecutivas en verde sin reintentos.</li>
+          <li><strong>Duración del Pipeline CI:</strong> ~12 min 15 s (&le; 15 min exigidos).</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 14 -->
+  <section class="slide" data-title="Eje C — Integración Real y Carga k6" data-notes="Orador 3: Suite de integración real contra PostgreSQL y RabbitMQ, tests de concurrencia con Promise.all y prueba de carga k6 con p95 de 16.41 ms.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Eje C · Integración &amp; Performance</div>
+        <h2 class="slide-title">Diapositiva 14: Integración Real y Pruebas de Carga k6</h2>
+      </div>
+      <span class="slide-badge">p95 = 16,41 ms</span>
+    </div>
+    <div class="grid-3" style="margin-bottom: 18px;">
+      <div class="kpi-card">
+        <div class="kpi-val">16,41 ms</div>
+        <div class="kpi-label">Latencia p95 (k6)</div>
+        <div class="kpi-sub">Umbral cátedra: &lt; 500 ms</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val cyan">0,00%</div>
+        <div class="kpi-label">Tasa de Error HTTP</div>
+        <div class="kpi-sub">6.695 requests exitosas</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val indigo">17 + 16</div>
+        <div class="kpi-label">Tests Integración &amp; Etapas 3-4</div>
+        <div class="kpi-sub">Postgres 15 + RabbitMQ 3 reales</div>
+      </div>
+    </div>
+    <div class="card accent-cyan">
+      <h3>⚙️ Escenarios Verificados en Eje C</h3>
+      <ul>
+        <li><strong>Concurrencia <code>Promise.all</code>:</strong> 5 compradores por cupo 2 → exactamente 2 holds y 3 rechazos 409; 5 <code>POST</code> con misma <code>Idempotency-Key</code> → 1 sola orden.</li>
+        <li><strong>Carga k6:</strong> 50 Usuarios Virtuales concurrentes durante 5 minutos ininterrumpidos (<code>docs/evidencias/k6-summary.json</code>).</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- SLIDE 15 -->
+  <section class="slide" data-title="Eje D — Seguridad Ofensiva, BOLA/BFLA, XXE y ZAP" data-notes="Orador 4: 29 pruebas HTTP de seguridad reales cubriendo OWASP API Top 10, además de OWASP ZAP con 0 alertas High/Medium/Low y 0 CVEs en producción.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Eje D · Seguridad</div>
+        <h2 class="slide-title">Diapositiva 15: Seguridad Ofensiva, BOLA/BFLA, XXE y ZAP</h2>
+      </div>
+      <span class="slide-badge">OWASP ZAP: 0 Alertas</span>
+    </div>
+    <div class="grid-2">
+      <div class="card accent-rose">
+        <h3>⚔️ Suite HTTP de Seguridad (29 tests E2E)</h3>
+        <ul>
+          <li><strong>BOLA / IDOR:</strong> usuario leyendo órdenes o tickets ajenos → <code>403</code> / <code>404</code>.</li>
+          <li><strong>BFLA:</strong> comprador intentando reembolsar o pagar directo → <code>403 Forbidden</code>.</li>
+          <li><strong>JWT Endurecido:</strong> sin secreto por defecto; rechaza <code>alg=none</code>, firma falsa o sin <code>exp</code> con <code>401</code>.</li>
+          <li><strong>Fuerza Bruta:</strong> Rate Limiter responde <strong>HTTP 429</strong>.</li>
+          <li><strong>Cabeceras &amp; CORS:</strong> CSP, HSTS, X-Frame-Options <code>DENY</code> en API y Nginx; CORS por lista exacta.</li>
+        </ul>
+      </div>
+      <div class="card accent-emerald">
+        <h3>🔍 Auditoría Dinámica y Dependencias</h3>
+        <ul>
+          <li><strong>OWASP ZAP Baseline &amp; API Scan:</strong> <strong>0 High</strong>, <strong>0 Medium</strong>, <strong>0 Low</strong>.</li>
+          <li><strong><code>pnpm audit --prod</code>:</strong> <strong>0 vulnerabilidades</strong> conocidas en dependencias productivas.</li>
+          <li><strong>Contenedores Non-Root:</strong> todas las imágenes Docker (API, Web, SOAP, Geocode) corren como <code>USER node</code>.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 16 -->
+  <section class="slide" data-title="Eje E — Testing de IA y Declaración Formal" data-notes="Orador 4: Documentamos de forma transparente el uso de herramientas de IA, los errores detectados y las 24 pruebas dedicadas al módulo de IA.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Eje E · Gobernanza IA</div>
+        <h2 class="slide-title">Diapositiva 16: Testing de IA y Declaración Formal</h2>
+      </div>
+      <span class="slide-badge">14 Unit + 10 E2E</span>
+    </div>
+    <div class="grid-2" style="flex:1;">
+      <div class="card accent-indigo">
+        <h3>🧪 Verificación Automatizada de IA</h3>
+        <ul>
+          <li><strong>14 pruebas unitarias</strong> + <strong>10 pruebas HTTP E2E</strong> sobre <code>AiAdvisorService</code>.</li>
+          <li>Comprobación de bloqueo ante jailbreaks e inyecciones indirectas sin fuga del system prompt.</li>
+          <li>Verificación de enmascaramiento de tarjetas y emails en respuestas y logs.</li>
+        </ul>
+      </div>
+      <div class="card accent-amber">
+        <h3>📄 Declaración Honesta (G8)</h3>
+        <ul>
+          <li>Registrada en <code>docs/ia/DECLARACION_IA.md</code> con modelos, versiones y alcance.</li>
+          <li>Incluye casos reales donde la IA generó código con errores (comparación de tipos en script ZAP, permisos Docker, colisión en seeds) y cómo el equipo los corrigió.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 17 -->
+  <section class="slide" data-title="Guion de Demostración en Vivo" data-notes="Todos: Seguimos este guion exacto en vivo: compra feliz con SOAP, rechazo por doble check-in 409, y prueba de resiliencia apagando RabbitMQ sin perder mensajes.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Demo en Vivo</div>
+        <h2 class="slide-title">Diapositiva 17: Guion de Demostración en Vivo</h2>
+      </div>
+      <span class="slide-badge">G7 · Paso a Paso</span>
+    </div>
+    <div class="flow-row">
+      <div class="flow-step">
+        <span class="flow-num">1</span>
+        <h4>Login JWT &amp; Catálogo</h4>
+        <p>Ingreso como comprador y selección de evento futuro con stock disponible.</p>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">2</span>
+        <h4>Orden + Idempotency</h4>
+        <p><code>POST /orders</code> toma HOLD de 5 min y garantiza no duplicar cobros.</p>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">3</span>
+        <h4>Pago SOAP Real</h4>
+        <p><code>POST /orders/:id/pay</code> cruza <code>soap-mock</code>, registra venta y emite QR.</p>
+      </div>
+      <div class="flow-step">
+        <span class="flow-num">4</span>
+        <h4>Check-in &amp; Doble Escaneo</h4>
+        <p>1.er escaneo válido → 2.do escaneo rechazado con <strong>409 Conflict</strong>.</p>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card accent-amber">
+        <h3>🔌 Demostración de Resiliencia (Broker Apagado)</h3>
+        <p>Detenemos <code>eventhub_broker</code> en vivo, ejecutamos una compra (<strong>201 Created</strong>, guardada en <code>outbox_events</code>) y al reiniciar RabbitMQ el dispatcher entrega automáticamente el evento a notificaciones y auditoría.</p>
+      </div>
+      <div class="card accent-rose">
+        <h3>⏱️ Demostración de Timeout SOAP (504)</h3>
+        <p>Usando tarjeta terminada en <code>9999</code>, el gateway demora 6s → la API corta exactamente a los 5s, responde <strong>504 + Retry-After: 30</strong> y mantiene la orden <code>pending</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 18 -->
+  <section class="slide" data-title="Registro de Defectos, Jira y QA Designado" data-notes="Orador 3/4: Cero defectos bloqueantes o críticos abiertos. Reportamos con total honestidad EVH-108 (menor) con su workaround documentado.">
+    <div class="slide-header">
+      <div>
+        <div class="slide-kicker">Gestión de Defectos</div>
+        <h2 class="slide-title">Diapositiva 18: Registro de Defectos, Jira y QA Designado</h2>
+      </div>
+      <span class="slide-badge">0 Blocker · 0 Critical</span>
+    </div>
+    <div class="grid-3" style="margin-bottom: 18px;">
+      <div class="kpi-card">
+        <div class="kpi-val">0</div>
+        <div class="kpi-label">Defectos Bloqueantes</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val">0</div>
+        <div class="kpi-label">Defectos Críticos</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-val" style="color: var(--amber);">1</div>
+        <div class="kpi-label">Defecto Menor Abierto</div>
+        <div class="kpi-sub">Máximo permitido: 3 Mayores</div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="card accent-amber">
+        <h3>📌 Defecto Menor Abierto (Con Workaround)</h3>
+        <p><strong>EVH-108:</strong> Si el usuario recarga manualmente (F5) durante el paso de checkout en la web, el contexto local del navegador vuelve al catálogo.<br/>
+        <strong>Workaround:</strong> El HOLD permanece activo en el servidor durante 5 minutos sin pérdida de cupo hasta que el usuario reintenta o expira el TTL.</p>
+      </div>
+      <div class="card accent-emerald">
+        <h3>✔️ Defectos Corregidos &amp; Trazabilidad</h3>
+        <ul>
+          <li><strong>EVH-106:</strong> Doble check-in devolvía 200 en vez de 409 → corregido con <code>UPDATE</code> atómico.</li>
+          <li><strong>EVH-107:</strong> Mensaje de login distinguía usuario inexistente → unificado a <em>"Credenciales inválidas"</em>.</li>
+          <li><strong>Jira al día:</strong> QA designado con trazabilidad completa HU ↔ Caso ↔ Defecto.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- SLIDE 19 -->
+  <section class="slide" data-title="Conclusiones y Defensa Individual" data-notes="Todos: Cerramos destacando los logros técnicos y nuestra preparación individual para responder preguntas sobre arquitectura, código, concurrencia o tests.">
+    <div class="cover-center">
+      <div class="slide-kicker">Cierre de Presentación</div>
+      <h2 class="slide-title" style="font-size: 2.3rem;">Conclusiones y Defensa Individual</h2>
+      <div class="grid-2" style="width:100%; max-width:960px; text-align:left; margin-top: 8px;">
+        <div class="card accent-emerald">
+          <h3>🏆 Logros Técnicos</h3>
+          <ul>
+            <li>Integración real heterogénea: <strong>SOAP (XXE-safe)</strong>, <strong>REST (OpenAPI 3.1)</strong> y <strong>AMQP (Topic + DLQ)</strong>.</li>
+            <li>Integridad transaccional ACID: cero sobreventa, idempotencia 422 y fallback 503/504 con <code>Retry-After</code>.</li>
+            <li>Métricas sólidas: <strong>96,52%</strong> cobertura, <strong>76,23%</strong> mutación, <strong>16,41 ms</strong> p95, <strong>0</strong> alertas ZAP.</li>
+          </ul>
+        </div>
+        <div class="card accent-indigo">
+          <h3>🎓 Preparación para Defensa</h3>
+          <ul>
+            <li>Cada integrante conoce la arquitectura completa, los 8 ADRs y las pruebas automatizadas.</li>
+            <li>A disposición de la cátedra para demostrar cualquier módulo, test de concurrencia o flujo en vivo.</li>
+          </ul>
+          <p style="margin-top:14px; font-weight:700; color:#22d3ee;">¡Muchas gracias! Quedamos a disposición para sus preguntas.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Speaker Notes Drawer -->
+<div class="notes-drawer" id="notesDrawer">
+  <div class="notes-label">Guion / Notas del Orador</div>
+  <div id="notesText"></div>
+</div>
+
+<!-- Controls -->
+<nav class="controls" aria-label="Controles de presentación">
+  <button class="btn" id="prevBtn" title="Anterior (←)">← Anterior</button>
+  <span class="counter" id="counter">01 / 19</span>
+  <button class="btn" id="nextBtn" title="Siguiente (→)">Siguiente →</button>
+  <button class="btn" id="overviewBtn" title="Vista general (G)">☰ Índice</button>
+  <button class="btn" id="notesBtn" title="Notas del orador (N)">💬 Notas</button>
+  <button class="btn" id="fsBtn" title="Pantalla completa (F)">⛶</button>
+</nav>
+
+<!-- Slide Overview Modal -->
+<div class="modal" id="overviewModal">
+  <div class="modal-header">
+    <h2 style="font-size:1.3rem;">Índice de Diapositivas — EventHub</h2>
+    <button class="btn" id="closeOverview">✕ Cerrar (Esc)</button>
+  </div>
+  <div class="overview-grid" id="overviewGrid"></div>
+</div>
+
+<script>
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const counter = document.getElementById('counter');
+  const progressFill = document.getElementById('progressFill');
+  const notesDrawer = document.getElementById('notesDrawer');
+  const notesText = document.getElementById('notesText');
+  const overviewModal = document.getElementById('overviewModal');
+  const overviewGrid = document.getElementById('overviewGrid');
+  let index = 0;
+
+  function renderOverview() {
+    overviewGrid.innerHTML = slides.map((s, i) => `
+      <div class="overview-item ${i === index ? 'current' : ''}" data-index="${i}">
+        <div class="num">DIAPOSITIVA ${String(i + 1).padStart(2, '0')}</div>
+        <div class="title">${s.dataset.title || ''}</div>
+      </div>
+    `).join('');
+    overviewGrid.querySelectorAll('.overview-item').forEach(el => {
+      el.addEventListener('click', () => {
+        goTo(Number(el.dataset.index));
+        overviewModal.classList.remove('open');
+      });
+    });
+  }
+
+  function goTo(newIndex) {
+    index = Math.max(0, Math.min(slides.length - 1, newIndex));
+    slides.forEach((s, i) => s.classList.toggle('active', i === index));
+    counter.textContent = `${String(index + 1).padStart(2, '0')} / ${slides.length}`;
+    progressFill.style.width = `${((index + 1) / slides.length) * 100}%`;
+    notesText.textContent = slides[index].dataset.notes || '';
+    if (overviewModal.classList.contains('open')) renderOverview();
+  }
+
+  document.getElementById('prevBtn').addEventListener('click', () => goTo(index - 1));
+  document.getElementById('nextBtn').addEventListener('click', () => goTo(index + 1));
+  document.getElementById('notesBtn').addEventListener('click', () => notesDrawer.classList.toggle('open'));
+  document.getElementById('overviewBtn').addEventListener('click', () => {
+    renderOverview();
+    overviewModal.classList.toggle('open');
+  });
+  document.getElementById('closeOverview').addEventListener('click', () => overviewModal.classList.remove('open'));
+  document.getElementById('fsBtn').addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown' || (e.key === ' ' && !overviewModal.classList.contains('open'))) {
+      e.preventDefault();
+      goTo(index + 1);
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault();
+      goTo(index - 1);
+    } else if (e.key === 'Home') {
+      goTo(0);
+    } else if (e.key === 'End') {
+      goTo(slides.length - 1);
+    } else if (e.key.toLowerCase() === 'n') {
+      notesDrawer.classList.toggle('open');
+    } else if (e.key.toLowerCase() === 'g') {
+      renderOverview();
+      overviewModal.classList.toggle('open');
+    } else if (e.key.toLowerCase() === 'f') {
+      if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+      else document.exitFullscreen?.();
+    } else if (e.key === 'Escape') {
+      overviewModal.classList.remove('open');
+    }
+  });
+
+  goTo(0);
+</script>
+</body>
+</html>
