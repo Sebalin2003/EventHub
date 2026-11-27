@@ -6,7 +6,8 @@ export default defineConfig({
   testDir: './e2e',
   fullyParallel: false,
   workers: 1,
-  retries: process.env.CI ? 1 : 0,
+  // Sin reintentos: un test que pasa solo al segundo intento es inestable y debe fallar (Eje B).
+  retries: 0,
   forbidOnly: Boolean(process.env.CI),
   timeout: 45_000,
   expect: { timeout: 10_000 },
