@@ -35,8 +35,9 @@ services:
 
   api:
     build:
-      context: ./apps/api
-      dockerfile: Dockerfile
+      # Contexto en la raíz: la imagen se instala con pnpm-lock.yaml (el mismo que audita el CI).
+      context: .
+      dockerfile: apps/api/Dockerfile
     container_name: eventhub_api
     environment:
       - NODE_ENV=development
@@ -47,7 +48,9 @@ services:
       - DB_PASSWORD=password
       - DB_DATABASE=evenhub
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-      - JWT_SECRET=super-secret-key-eventhub-2026
+      # Sin valor fijo en el repo: se toma de un .env local o, si no existe,
+      # la API genera un secreto aleatorio al arrancar (ver apps/api/src/common/config/jwt-secret.ts).
+      - JWT_SECRET=${JWT_SECRET:-}
     ports:
       - '3000:3000'
     depends_on:
@@ -65,17 +68,16 @@ services:
 
   web:
     build:
-      context: ./apps/web
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: apps/web/Dockerfile
     container_name: eventhub_web
-    environment:
-      - API_PROXY_TARGET=http://api:3000
+    # nginx sirve el build y reenvía /api/* a http://api:3000 (ver apps/web/nginx.conf).
     ports:
       - '5173:5173'
     depends_on:
       - api
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://localhost:5173/').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:5173/ || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 12

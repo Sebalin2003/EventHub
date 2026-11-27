@@ -1,0 +1,17 @@
+# Contexto de build de las imágenes (se construyen desde la raíz del monorepo).
+.git
+**/node_modules
+**/dist
+**/coverage
+**/reports
+**/.stryker-tmp
+**/playwright-report
+**/test-results
+docs
+outputs
+load-tests
+infra
+# Nunca copiar secretos locales a una imagen.
+**/.env
+**/.env.*
+!**/.env.example
