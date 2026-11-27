@@ -94,6 +94,10 @@ export class OrdersService {
         if (!event || event.status !== EventStatus.PUBLISHED) {
           throw new BadRequestException(`Event "${event?.title || itemDto.eventId}" is not on sale`);
         }
+        // La venta cierra cuando el evento empieza: no se venden entradas de eventos ya realizados.
+        if (event.date && new Date(event.date).getTime() <= Date.now()) {
+          throw new ConflictException(`Event "${event.title}" has already started; tickets are no longer on sale`);
+        }
         const ticketType = event.ticketTypes?.find(ticket => ticket.id === itemDto.ticketType || ticket.name === itemDto.ticketType);
         if (!ticketType) {
           throw new BadRequestException(`Ticket type "${itemDto.ticketType}" does not exist for event "${event.title}"`);

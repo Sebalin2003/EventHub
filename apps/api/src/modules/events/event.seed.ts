@@ -5,6 +5,23 @@ import { User, UserRole } from '../identity/entities/user.entity.js';
 import { ScryptHashStrategy } from '../identity/strategies/scrypt-hash.strategy.js';
 import { Event, EventModality, EventStatus } from './entities/event.entity.js';
 
+/**
+ * Las fechas del seed son relativas al día en que se crea la base: se desplazan
+ * días enteros para que el primer evento (e1) quede SEED_LEAD_DAYS días adelante.
+ * Así la demo y los E2E siempre tienen eventos futuros, con el mismo orden y horario.
+ */
+const SEED_ANCHOR_MS = Date.parse('2026-09-15T09:00:00.000Z');
+const SEED_LEAD_DAYS = 14;
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function seedShiftDays(now = Date.now()): number {
+  return Math.ceil((now + SEED_LEAD_DAYS * DAY_MS - SEED_ANCHOR_MS) / DAY_MS);
+}
+
+export function shiftSeedDate(iso: string, days: number): Date {
+  return new Date(Date.parse(iso) + days * DAY_MS);
+}
+
 const events = [
   ['e1', 'Argentina Tech Summit 2026', 'Tres jornadas sobre inteligencia artificial, ciberseguridad, fintech y producto digital.', 'conferencia', 'presencial', '2026-09-15T09:00:00.000Z', '2026-09-17T18:00:00.000Z', 'Centro de Convenciones Buenos Aires', 'Av. Pres. Figueroa Alcorta 2099', 'CABA', 1200, 876, true, 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=900&h=500&fit=crop&auto=format', [['tt1a', 'General', 85000, 800, 620], ['tt1b', 'VIP', 175000, 300, 210], ['tt1c', 'Premium', 260000, 100, 46]]],
   ['e2', 'Workshop de Arquitectura de Software', 'Taller intensivo sobre sistemas distribuidos, observabilidad y decisiones de arquitectura.', 'taller', 'presencial', '2026-09-19T10:00:00.000Z', '2026-09-19T18:00:00.000Z', 'Centro Cultural Córdoba', 'Av. Poeta Lugones 401', 'Córdoba', 60, 48, false, 'https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=900&h=500&fit=crop&auto=format', [['tt2a', 'Profesional', 62000, 45, 36], ['tt2b', 'Estudiante', 35000, 15, 12]]],
@@ -92,6 +109,7 @@ export class EventSeed implements OnModuleInit {
     }
 
     const organizer = await this.userRepository.findOneOrFail({ where: { email: 'eventos@eventhub.com.ar' } });
+    const shiftDays = seedShiftDays();
 
     for (const [legacyId, title, description, category, modality, date, endDate, venue, location, city, capacity, registered, featured, imageUrl, ticketTypes] of events) {
       const eventModality = modalities[modality];
@@ -109,8 +127,8 @@ export class EventSeed implements OnModuleInit {
         description,
         category,
         modality: eventModality,
-        date: new Date(date),
-        endDate: new Date(endDate),
+        date: shiftSeedDate(date, shiftDays),
+        endDate: shiftSeedDate(endDate, shiftDays),
         duration: Math.max(1, (new Date(endDate).getTime() - new Date(date).getTime()) / 60000),
         venue,
         location: [location, city].filter(Boolean).join(', '),

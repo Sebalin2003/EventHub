@@ -105,6 +105,22 @@ describe('OrdersService - cobertura de flujo de negocio (Eje B)', () => {
       ).rejects.toThrow(BadRequestException);
     });
 
+    it('rechaza con 409 un evento que ya empezó y no toma reserva', async () => {
+      eventDao.findOne.mockResolvedValue(makeEvent({ date: new Date(Date.now() - 60_000) }));
+
+      await expect(
+        service.create('user-1', { items: [{ eventId: 'evt-1', ticketType: 'General', quantity: 1 }] } as any),
+      ).rejects.toThrow(ConflictException);
+      expect(inventory.createHold).not.toHaveBeenCalled();
+    });
+
+    it('acepta un evento con fecha futura', async () => {
+      eventDao.findOne.mockResolvedValue(makeEvent({ date: new Date(Date.now() + 86_400_000) }));
+
+      const order = await service.create('user-1', { items: [{ eventId: 'evt-1', ticketType: 'General', quantity: 1 }] } as any);
+      expect(order.status).toBe(OrderStatus.PENDING);
+    });
+
     it('rechaza un tipo de entrada inexistente con 400', async () => {
       await expect(
         service.create('user-1', { items: [{ eventId: 'evt-1', ticketType: 'Gold', quantity: 1 }] } as any),
