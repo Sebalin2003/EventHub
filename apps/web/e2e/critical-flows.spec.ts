@@ -139,22 +139,46 @@ test.describe('Eje A - escenarios críticos E2E', () => {
     expect(await page.evaluate(() => localStorage.getItem('eventhub-access-token'))).toBeNull()
   })
 
-  test('A6. El staff valida una entrada y detecta el segundo uso del mismo código', async ({ page }) => {
-    await gotoHome(page)
-    await loginWithDemo(page, 'Staff')
-    await expect(page.getByRole('heading', { name: 'Seleccionar evento' })).toBeVisible()
+  test('A6. La compra crea una entrada real y otro navegador detecta el segundo uso', async ({ browser }) => {
+    const buyerContext = await browser.newContext()
+    const staffContext = await browser.newContext()
+    const buyer = await buyerContext.newPage()
+    const staff = await staffContext.newPage()
 
-    await page.getByRole('button', { name: /Argentina Tech Summit 2026/ }).click()
-    await expect(page.getByRole('heading', { name: 'Argentina Tech Summit 2026' })).toBeVisible()
+    await gotoHome(buyer)
+    await loginWithCredentials(buyer, 'maria@eventhub.com.ar')
+    await openEventFromExplore(buyer, 'E-commerce', 'E-commerce para Emprendimientos')
+    await buyer.getByRole('button', { name: 'Elegir entradas' }).click()
+    await buyer.locator('.ticket-choice label').first().click()
+    await buyer.getByRole('button', { name: 'Reservar y continuar' }).click()
+    await buyer.getByPlaceholder('4242 4242 4242 4242').fill('4242424242424242')
+    await buyer.getByPlaceholder('NOMBRE APELLIDO').fill('MARIA GONZALEZ')
+    await buyer.getByPlaceholder('MM/AA').fill('12/30')
+    await buyer.getByPlaceholder('123').fill('123')
+    await buyer.getByRole('button', { name: /Confirmar compra/ }).click()
+    await expect(buyer.getByRole('heading', { level: 1, name: 'Compra confirmada' })).toBeVisible()
 
-    const scanInput = page.getByPlaceholder('TKT-xxx...')
-    await scanInput.fill('TKT-001')
-    await page.getByRole('button', { name: 'Validar' }).click()
-    await expect(page.getByText('Entrada válida', { exact: true })).toBeVisible()
-    await expect(page.getByText('María González', { exact: true }).last()).toBeVisible()
+    const ticketCode = await buyer.evaluate(async () => {
+      const token = localStorage.getItem('eventhub-access-token')
+      const response = await fetch('/api/tickets/me', { headers: token ? { Authorization: `Bearer ${token}` } : {} })
+      const tickets = await response.json() as Array<{ code: string }>
+      return tickets[0]?.code
+    })
+    expect(ticketCode).toBeTruthy()
 
-    await scanInput.fill('TKT-001')
-    await page.getByRole('button', { name: 'Validar' }).click()
-    await expect(page.getByText('Entrada ya utilizada', { exact: true })).toBeVisible()
+    await gotoHome(staff)
+    await loginWithDemo(staff, 'Staff')
+    await staff.getByRole('button', { name: /E-commerce para Emprendimientos/ }).click()
+    const scanInput = staff.getByPlaceholder('TKT-xxx...')
+    await scanInput.fill(ticketCode!)
+    await staff.getByRole('button', { name: 'Validar' }).click()
+    await expect(staff.getByText('Entrada válida', { exact: true })).toBeVisible()
+
+    await scanInput.fill(ticketCode!)
+    await staff.getByRole('button', { name: 'Validar' }).click()
+    await expect(staff.getByText('Entrada ya utilizada', { exact: true })).toBeVisible()
+
+    await buyerContext.close()
+    await staffContext.close()
   })
 })

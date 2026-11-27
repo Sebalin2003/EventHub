@@ -83,6 +83,13 @@ jobs:
       - name: Eje B - Typecheck (web)
         run: pnpm --filter @evenhub/web typecheck
 
+      - name: Eje B - SonarCloud Quality Gate
+        if: ${{ secrets.SONAR_TOKEN != '' }}
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
       - name: Build Backend & Frontend
         run: |
           pnpm --filter api build
@@ -380,6 +387,29 @@ jobs:
 
       - name: Build & start API, PostgreSQL and RabbitMQ
         run: docker compose up -d --build --wait postgres rabbitmq api
+
+      - name: Eje D - ZAP activo autenticado sobre la API
+        run: |
+          TOKEN=$(curl -fsS -X POST http://localhost:3000/auth/login \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"maria@eventhub.com.ar","password":"password"}' | jq -r .accessToken)
+          test -n "$TOKEN"
+          test "$TOKEN" != "null"
+          docker run --rm --network host \
+            -v "$PWD/docs/evidencias/zap:/zap/wrk:rw" \
+            zaproxy/zap-stable zap-full-scan.py \
+            -t http://localhost:3000 \
+            -J active-authenticated.json -r active-authenticated.html -w active-authenticated.md -I \
+            -z "-config replacer.full_list(0).description=eventhub-auth -config replacer.full_list(0).enabled=true -config replacer.full_list(0).matchtype=REQ_HEADER -config replacer.full_list(0).matchstr=Authorization -config replacer.full_list(0).replacement=Bearer%20${TOKEN}"
+
+      - name: Eje D - ZAP baseline sobre la web
+        run: |
+          docker compose up -d --build --wait web
+          docker run --rm --network host \
+            -v "$PWD/docs/evidencias/zap:/zap/wrk:rw" \
+            zaproxy/zap-stable zap-baseline.py \
+            -t http://localhost:5173 \
+            -J baseline-web.json -r baseline-web.html -w baseline-web.md -I
 
       - name: Eje D - ZAP baseline (0 High)
         run: |

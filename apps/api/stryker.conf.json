@@ -9,7 +9,9 @@
     "src/modules/orders/state/*.ts",
     "src/modules/orders/orders.service.ts",
     "src/modules/payments/payments.service.ts",
-    "src/modules/tickets/tickets.service.ts"
+    "src/modules/tickets/tickets.service.ts",
+    "src/modules/inventory/inventory.service.ts",
+    "src/modules/events/events.service.ts"
   ],
   "reporters": ["clear-text", "progress", "html", "json"],
   "coverageAnalysis": "perTest",

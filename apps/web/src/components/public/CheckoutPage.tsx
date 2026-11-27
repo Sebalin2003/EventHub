@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { DemoAction } from '../../demoStore'
-import { activeHolds, buildOrder, createHold, effectiveAvailability, formatMoney, isSeatUnavailable } from '../../demoStore'
-import type { CheckoutSelection, DemoState, Event, Hold, PaymentAttempt, Seat, UserProfile } from '../../types'
+import { activeHolds, effectiveAvailability, formatMoney, isSeatUnavailable } from '../../demoStore'
+import type { CheckoutSelection, DemoState, Event, Hold, Order, PaymentAttempt, Seat, Ticket, UserProfile } from '../../types'
 import { Breadcrumb, StatusBadge, useToast } from '../shared/Ui'
 import { useI18n } from '../../i18n'
+import { ApiProblemError, createOrder, payOrder } from '../../api/orders'
 
 type Props = {
   state: DemoState
@@ -16,8 +17,6 @@ type Props = {
 }
 
 type Step = 'select' | 'payment' | 'processing'
-type DemoOutcome = 'approved' | 'declined'
-
 function SeatButton({ seat, status, onToggle }: { seat: Seat; status: 'available' | 'selected' | 'hold' | 'sold'; onToggle: () => void }) {
   const unavailable = status === 'hold' || status === 'sold'
   const label = `Fila ${seat.row}, asiento ${seat.number}, ${status === 'hold' ? 'en HOLD' : status === 'sold' ? 'vendido' : status === 'selected' ? 'seleccionado' : 'disponible'}`
@@ -34,8 +33,12 @@ export default function CheckoutPage({ state, event, currentUser, dispatch, onCo
   const [hold, setHold] = useState<Hold | null>(null)
   const [timeLeft, setTimeLeft] = useState(0)
   const [payMethod, setPayMethod] = useState('card')
-  const [outcome, setOutcome] = useState<DemoOutcome>('approved')
   const [error, setError] = useState('')
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardName, setCardName] = useState('')
+  const [cardExpiry, setCardExpiry] = useState('')
+  const [cardCvv, setCardCvv] = useState('')
+  const [apiOrderId, setApiOrderId] = useState('')
   const idempotencyKey = useRef(crypto.randomUUID())
   const selectedType = event.ticketTypes.find(type => type.id === ticketTypeId)
   const selectedSector = event.sectors?.find(sector => sector.ticketTypeId === ticketTypeId)
@@ -70,7 +73,7 @@ export default function CheckoutPage({ state, event, currentUser, dispatch, onCo
     setSeatIds(current => current.includes(seatId) ? current.filter(id => id !== seatId) : current.length < event.maxTicketsPerUser ? [...current, seatId] : current)
   }
 
-  function confirmSelection() {
+  async function confirmSelection() {
     setError('')
     if (!selectedType || effectiveQuantity < 1) { setError(event.seatingMode === 'numbered' ? 'Selecciona al menos un asiento.' : 'Selecciona un tipo de entrada.'); return }
     if (effectiveQuantity > event.maxTicketsPerUser || effectiveQuantity > effectiveAvailability(state, event.id, selectedType.id)) { setError('La cantidad supera la disponibilidad o el límite por usuario.'); return }
@@ -78,11 +81,28 @@ export default function CheckoutPage({ state, event, currentUser, dispatch, onCo
       const seat = event.seats?.find(item => item.id === id)
       return !seat || isSeatUnavailable(state, event, seat, currentUser.id)
     })) { setError('Uno de los asientos dejó de estar disponible. Actualiza tu selección.'); return }
-    const nextHold = createHold(currentUser.id, event.id, selection)
-    dispatch({ type: 'CREATE_HOLD', hold: nextHold })
-    setHold(nextHold)
-    setStep('payment')
-    notify(`Reserva temporal creada por ${Math.round((new Date(nextHold.expiresAt).getTime() - Date.now()) / 60000)} minutos.`, 'info')
+    try {
+      const apiOrder = await createOrder(event.id, selectedType.id, effectiveQuantity, idempotencyKey.current)
+      setApiOrderId(apiOrder.id)
+      const apiHold = apiOrder.holds?.[0]
+      const nextHold: Hold = {
+        id: apiHold?.holdId ?? apiOrder.id,
+        userId: currentUser.id,
+        eventId: event.id,
+        items: [{ ticketTypeId: selectedType.id }],
+        createdAt: apiOrder.createdAt,
+        expiresAt: apiHold?.expiresAt ?? new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+        status: 'active',
+      }
+      dispatch({ type: 'CREATE_HOLD', hold: nextHold })
+      setHold(nextHold)
+      setStep('payment')
+      notify('Reserva creada en el backend. Completa el pago.', 'info')
+    } catch (caught) {
+      const message = caught instanceof ApiProblemError ? caught.detail ?? caught.message : 'No se pudo crear la orden'
+      setError(message)
+      notify(message, 'error')
+    }
   }
 
   function cancelCheckout() {
@@ -90,27 +110,69 @@ export default function CheckoutPage({ state, event, currentUser, dispatch, onCo
     onCancel()
   }
 
-  function pay(eventSubmit: React.FormEvent<HTMLFormElement>) {
+  async function pay(eventSubmit: React.FormEvent<HTMLFormElement>) {
     eventSubmit.preventDefault()
-    if (!hold || !selectedType) return
+    if (!hold || !selectedType || !apiOrderId) return
     setError('')
     setStep('processing')
-    window.setTimeout(() => {
-      if (outcome === 'declined') {
-        const payment: PaymentAttempt = { id: `pay-${crypto.randomUUID()}`, orderId: `failed-${crypto.randomUUID()}`, idempotencyKey: idempotencyKey.current, result: 'declined', createdAt: new Date().toISOString() }
-        dispatch({ type: 'RECORD_PAYMENT_FAILURE', holdId: hold.id, payment, actorLabel: currentUser.name })
-        setHold(null)
-        setStep('select')
-        setError('El pago fue rechazado. No se realizó ningún cargo y la reserva se liberó.')
-        idempotencyKey.current = crypto.randomUUID()
-        notify('Pago rechazado. Revisa el medio de pago y vuelve a intentarlo.', 'error')
-        return
+    try {
+      const paid = await payOrder(apiOrderId, cardNumber.replace(/\s/g, ''))
+      const paidTotalCents = Math.round(Number(paid.total) * 100)
+      const tickets = (paid.tickets ?? []) as Array<{ id: string; code: string; eventId: string; ticketType: string | null; status: string; createdAt: string }>
+      const localTickets: Ticket[] = tickets.map(ticket => ({
+        id: ticket.id,
+        orderId: apiOrderId,
+        eventId: ticket.eventId,
+        userId: currentUser.id,
+        ticketTypeId: selectedType.id,
+        ticketTypeName: selectedType.name,
+        qrCode: ticket.code,
+        status: 'activo',
+        eventTitle: event.title,
+        eventDate: event.date,
+        venueName: event.venueName,
+        address: event.address,
+        holderName: currentUser.name,
+      }))
+      const order: Order = {
+        id: apiOrderId,
+        userId: currentUser.id,
+        eventId: event.id,
+        ticketTypeId: selectedType.id,
+        ticketTypeName: selectedType.name,
+        quantity: effectiveQuantity,
+        unitPrice: selectedType.priceCents ? selectedType.priceCents / 100 : selectedType.price,
+        serviceFee: feeCents / 100,
+        total: paidTotalCents / 100,
+        unitPriceCents: selectedType.priceCents ?? Math.round(selectedType.price * 100),
+        subtotalCents,
+        serviceFeeCents: feeCents,
+        totalCents: paidTotalCents + feeCents,
+        status: 'confirmado',
+        purchasedAt: new Date().toISOString(),
+        holdId: hold.id,
+        tickets: localTickets,
       }
-      const { order, payment } = buildOrder(state, currentUser.id, currentUser.name, event, selection, hold, idempotencyKey.current)
+      const payment: PaymentAttempt = { id: `pay-${crypto.randomUUID()}`, orderId: apiOrderId, idempotencyKey: idempotencyKey.current, result: 'approved', createdAt: new Date().toISOString() }
       dispatch({ type: 'COMPLETE_PURCHASE', order, payment })
       notify('Compra confirmada. Tus entradas ya están disponibles.', 'success')
-      onComplete(order.id)
-    }, 900)
+      onComplete(apiOrderId)
+    } catch (caught) {
+      const problem = caught instanceof ApiProblemError ? caught : null
+      const payment: PaymentAttempt = { id: `pay-${crypto.randomUUID()}`, orderId: apiOrderId, idempotencyKey: idempotencyKey.current, result: 'declined', createdAt: new Date().toISOString() }
+      dispatch({ type: 'RECORD_PAYMENT_FAILURE', holdId: hold.id, payment, actorLabel: currentUser.name })
+      setHold(null)
+      setStep('payment')
+      const message = problem?.status === 402
+        ? 'El pago fue rechazado por el proveedor.'
+        : problem?.status === 409
+          ? 'La orden ya fue procesada o cambió su estado.'
+          : problem?.status === 504
+            ? `Timeout del proveedor. La orden quedó pendiente.${problem.retryAfter ? ` Reintenta después de ${problem.retryAfter} segundos.` : ''}`
+            : problem?.detail ?? 'No se pudo procesar el pago.'
+      setError(message)
+      notify(message, 'error')
+    }
   }
 
   const minutes = String(Math.floor(timeLeft / 60)).padStart(2, '0')
@@ -139,8 +201,7 @@ export default function CheckoutPage({ state, event, currentUser, dispatch, onCo
             <header><span>2</span><div><h2>{t('paymentMethod')}</h2><p>{t('paymentData')}</p></div></header>
             {step === 'payment' && <form className="checkout-step__body payment-form" onSubmit={pay}>
               <fieldset className="payment-methods"><legend>{t('paymentMethod')}</legend>{[['card', t('card')], ['paypal', t('paypal')], ['mercado-pago', t('mercadoPago')]].map(([value, label]) => <label key={value}><input type="radio" name="payment" value={value} checked={payMethod === value} onChange={() => setPayMethod(value)} />{label}</label>)}</fieldset>
-              {payMethod === 'card' && <><label>{t('cardNumber')}<input required inputMode="numeric" autoComplete="cc-number" placeholder="4242 4242 4242 4242" /></label><label>{t('cardName')}<input required autoComplete="cc-name" placeholder="NOMBRE APELLIDO" /></label><div className="field-row"><label>{t('expiration')}<input required placeholder="MM/AA" autoComplete="cc-exp" /></label><label>CVV<input required inputMode="numeric" placeholder="123" autoComplete="cc-csc" /></label></div></>}
-              <label className="demo-control">{t('demoResult')}<select value={outcome} onChange={event => setOutcome(event.target.value as DemoOutcome)}><option value="approved">{t('approved')}</option><option value="declined">{t('declined')}</option></select><small>{t('demoHelp')}</small></label>
+              {payMethod === 'card' && <><label>{t('cardNumber')}<input required inputMode="numeric" autoComplete="cc-number" placeholder="4242 4242 4242 4242" value={cardNumber} onChange={event => setCardNumber(event.target.value)} /></label><label>{t('cardName')}<input required autoComplete="cc-name" placeholder="NOMBRE APELLIDO" value={cardName} onChange={event => setCardName(event.target.value)} /></label><div className="field-row"><label>{t('expiration')}<input required placeholder="MM/AA" autoComplete="cc-exp" value={cardExpiry} onChange={event => setCardExpiry(event.target.value)} /></label><label>CVV<input required inputMode="numeric" placeholder="123" autoComplete="cc-csc" value={cardCvv} onChange={event => setCardCvv(event.target.value)} /></label></div></>}
               <button className="button button--primary button--block" type="submit">{t('confirmPurchase')} · {formatMoney(subtotalCents + feeCents, locale)}</button>
             </form>}
           </section>

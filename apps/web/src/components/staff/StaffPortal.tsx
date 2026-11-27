@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { Event, Order, CheckInRecord, UserProfile } from '../../types'
 import BrandLogo from '../shared/BrandLogo'
+import { scanTicket } from '../../api/checkin'
 
 type Props = {
   events: Event[]
@@ -29,43 +30,39 @@ export default function StaffPortal({ events, orders, currentUser, checkIns, onC
   const eventTickets = allTickets.filter(ticket => ticket.eventId === selectedEventId)
   const checkedInIds = new Set(checkIns.filter(c => c.result === 'ENTRADA_VALIDA').map(c => c.ticketId))
 
-  function handleScan(e: React.FormEvent) {
+  async function handleScan(e: React.FormEvent) {
     e.preventDefault()
     const code = scanInput.trim()
     if (!code || !selectedEventId) return
-
-    const ticket = allTickets.find(t => t.id === code || t.qrCode === code)
-    let result: CheckInRecord['result']
-    let attendeeName = 'Desconocido'
-    let ticketType = '—'
-
-    if (!ticket) {
-      result = 'ENTRADA_INVALIDA'
-    } else if (ticket.eventId !== selectedEventId) {
-      result = 'ENTRADA_EVENTO_INCORRECTO'
-      attendeeName = ticket.holderName
-      ticketType = ticket.ticketTypeName
-    } else if (ticket.status === 'usado' || checkedInIds.has(ticket.id)) {
-      result = 'ENTRADA_YA_UTILIZADA'
-      attendeeName = ticket.holderName
-      ticketType = ticket.ticketTypeName
-    } else {
-      result = 'ENTRADA_VALIDA'
-      attendeeName = ticket.holderName
-      ticketType = ticket.ticketTypeName
+    try {
+      const apiResult = await scanTicket(code, selectedEventId)
+      const ticket = allTickets.find(t => t.id === apiResult.ticketId || t.qrCode === code)
+      const record: CheckInRecord = {
+        id: `ci${Date.now()}`,
+        ticketId: apiResult.ticketId,
+        eventId: selectedEventId,
+        attendeeName: ticket?.holderName ?? 'Titular de API',
+        ticketType: ticket?.ticketTypeName ?? '—',
+        checkedInAt: apiResult.scannedAt ?? new Date().toISOString(),
+        result: 'ENTRADA_VALIDA',
+      }
+      onCheckIn({ ...record, operatorId: currentUser.id })
+      setLastResult({ ...record, flash: true })
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : 'Escaneo rechazado'
+      const alreadyUsed = /ya fue utilizada|SCANNED|USED/i.test(message)
+      const record: CheckInRecord = {
+        id: `ci${Date.now()}`,
+        ticketId: code,
+        eventId: selectedEventId,
+        attendeeName: 'Desconocido',
+        ticketType: '—',
+        checkedInAt: new Date().toISOString(),
+        result: alreadyUsed ? 'ENTRADA_YA_UTILIZADA' : 'ENTRADA_INVALIDA',
+      }
+      onCheckIn({ ...record, operatorId: currentUser.id })
+      setLastResult({ ...record, flash: true })
     }
-
-    const record: CheckInRecord = {
-      id: `ci${Date.now()}`,
-      ticketId: ticket?.id ?? code,
-      eventId: selectedEventId,
-      attendeeName,
-      ticketType,
-      checkedInAt: new Date().toISOString(),
-      result,
-    }
-    onCheckIn({ ...record, operatorId: currentUser.id })
-    setLastResult({ ...record, flash: true })
     setScanInput('')
     setTimeout(() => setLastResult(null), 5000)
   }

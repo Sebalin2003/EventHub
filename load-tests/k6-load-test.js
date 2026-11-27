@@ -67,6 +67,36 @@ export default function (data) {
   });
 
   sleep(1);
+
+  // 4. Flujo de escritura crítico: crear una orden y pagarla.
+  const resOrder = http.post(
+    `${BASE_URL}/orders`,
+    JSON.stringify({
+      items: [{ eventId: data.eventId, ticketType: 'General', quantity: 1 }],
+    }),
+    {
+      ...params,
+      headers: {
+        ...params.headers,
+        'Idempotency-Key': `k6-${__VU}-${__ITER}-${Date.now()}`,
+      },
+    },
+  );
+  check(resOrder, {
+    'POST /orders crea o retorna una orden': (r) => r.status === 200 || r.status === 201,
+  });
+
+  if (resOrder.status === 200 || resOrder.status === 201) {
+    const orderId = resOrder.json('id');
+    const resPay = http.post(
+      `${BASE_URL}/orders/${orderId}/pay`,
+      JSON.stringify({ card: '4242 4242 4242 4242' }),
+      params,
+    );
+    check(resPay, {
+      'POST /orders/:id/pay procesa el pago': (r) => r.status === 200 || r.status === 402 || r.status === 503 || r.status === 504,
+    });
+  }
 }
 
 export function handleSummary(data) {

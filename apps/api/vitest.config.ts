@@ -12,7 +12,8 @@ export default defineConfig({
     // El sandbox de Stryker contiene copias de los tests; nunca debe ejecutarse ni medirse.
     exclude: ['**/node_modules/**', '**/dist/**', '**/.stryker-tmp/**', '**/coverage/**'],
     coverage: {
-      reporter: ['text', 'json-summary', 'html', 'clover'],
+      include: ['src/**'],
+      reporter: ['text', 'json-summary', 'html', 'clover', 'lcov'],
       exclude: ['**/node_modules/**', '**/dist/**', '**/.stryker-tmp/**', 'test/**', 'scripts/**', '**/*.spec.ts'],
       // Eje B: umbrales minimos de la catedra sobre la capa de negocio.
       thresholds: {

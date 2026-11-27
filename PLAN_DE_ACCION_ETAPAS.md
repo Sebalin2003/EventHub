@@ -5,8 +5,9 @@
 > - **Etapa 2:** ✅ **COMPLETADA** (Mergeada en `main` - Commit `00ee70e`)
 > - **Etapa 3:** ✅ **COMPLETADA** (Integridad de datos y concurrencia - Commit `7643236`)
 > - **Etapa 4:** ✅ **COMPLETADA** (Integraciones obligatorias: SOAP mock, Geocode mock, Topic Exchange y Fallback 503/504)
-> - **Etapa 5:** ⏳ **PRÓXIMA A EJECUTAR (Web conectada al backend)**
-> - **Etapas 6 a 8:** 📋 **PLANIFICADAS / PENDIENTES**
+> - **Etapa 5:** ✅ **COMPLETADA** (Web conectada al backend)
+> - **Etapa 6:** ✅ **IMPLEMENTADA** (Umbrales y automatización en CI)
+> - **Etapas 7 a 8:** 📋 **PLANIFICADAS / PENDIENTES**
 
 ---
 
@@ -100,17 +101,17 @@ Hice las etapas en orden de dependencia. Las tres primeras desbloquean la aproba
 
 ---
 
-## Etapa 5 — Web conectada al backend · 1 persona de frontend desde el día 1 · grande — [⏳ PENDIENTE / EN PARALELO]
+## Etapa 5 — Web conectada al backend · 1 persona de frontend desde el día 1 · grande — [✅ COMPLETADA]
 **Objetivo:** demo en vivo real (G7).
 
 | Tarea | Archivos | Estado |
 |---|---|:---:|
-| Cliente API para órdenes, pago, entradas y check-in | `apps/web/src/api/orders.ts`, `tickets.ts`, `checkin.ts` (nuevos) | ⏳ Pendiente |
-| Checkout: `POST /orders` con `Idempotency-Key`, luego `POST /orders/:id/pay`. Mostrar los errores Problem Details (402, 409, 504) | `CheckoutPage.tsx` | ⏳ Pendiente |
-| "Mis entradas" y "Mis compras" desde `GET /tickets/me` y `GET /orders` | `MyTicketsPage.tsx`, `PurchasesPage.tsx` | ⏳ Pendiente |
-| Staff y organizador: `POST /check-in/:id/scan` | `StaffPortal.tsx`, `OrgCheckIn.tsx` | ⏳ Pendiente |
-| Quitar el selector "Resultado de demostración"; los rechazos se prueban con las tarjetas del mock SOAP | `CheckoutPage.tsx` | ⏳ Pendiente |
-| Reescribir A3 y A6 para que verifiquen la respuesta de la API y validen desde otro contexto de navegador | `critical-flows.spec.ts` | ⏳ Pendiente |
+| Cliente API para órdenes, pago, entradas y check-in | `apps/web/src/api/orders.ts`, `tickets.ts`, `checkin.ts` (nuevos) | ✅ Hecho |
+| Checkout: `POST /orders` con `Idempotency-Key`, luego `POST /orders/:id/pay`. Mostrar los errores Problem Details (402, 409, 504) | `CheckoutPage.tsx` | ✅ Hecho |
+| "Mis entradas" y "Mis compras" desde `GET /tickets/me` y `GET /orders` | `MyTicketsPage.tsx`, `PurchasesPage.tsx` | ✅ Hecho |
+| Staff y organizador: `POST /check-in/:id/scan` | `StaffPortal.tsx`, `OrgCheckIn.tsx` | ✅ Hecho |
+| Quitar el selector "Resultado de demostración"; los rechazos se prueban con las tarjetas del mock SOAP | `CheckoutPage.tsx` | ✅ Hecho |
+| Reescribir A3 y A6 para que verifiquen la respuesta de la API y validen desde otro contexto de navegador | `critical-flows.spec.ts` | ✅ Hecho |
 
 **Criterio de salida:**
 - Una compra en la web crea orden y entradas en la base.
@@ -121,18 +122,18 @@ Hice las etapas en orden de dependencia. Las tres primeras desbloquean la aproba
 
 ---
 
-## Etapa 6 — Umbrales de testing · QA · media — [⏳ PENDIENTE]
+## Etapa 6 — Umbrales de testing · QA · media — [✅ IMPLEMENTADA]
 **Objetivo:** cumplir el Eje B con métricas defendibles.
 
 | Tarea | Ref. | Estado |
 |---|---|:---:|
-| SonarCloud en el CI, con captura del Quality Gate | B-04 | ⏳ Pendiente |
-| `coverage.include: ['src/**']` sin bajar del 80/70 | P-19 | ⏳ Pendiente |
-| Stryker sobre inventory y events; matar mutantes vivos de `order-state.ts` hasta ≥ 60 % | B-03 | ⏳ Pendiente |
-| k6: agregar crear orden y pagar al escenario | C-10 | ⏳ Pendiente |
-| ZAP activo autenticado sobre la API y baseline sobre la web en el CI | D-08 | ⏳ Pendiente |
-| Newman: casos para las 8 rutas que hoy no tienen éxito y error | B-06 | ⏳ Pendiente |
-| Tests de las etapas 2 a 4: concurrencia, rollback forzado, reinicio de la API | — | ⏳ Pendiente |
+| SonarCloud en el CI, con captura del Quality Gate | B-04 | ✅ Configurado |
+| `coverage.include: ['src/**']` sin bajar del 80/70 | P-19 | ✅ Configurado |
+| Stryker sobre inventory y events; matar mutantes vivos de `order-state.ts` hasta ≥ 60 % | B-03 | ✅ Configurado |
+| k6: agregar crear orden y pagar al escenario | C-10 | ✅ Hecho |
+| ZAP activo autenticado sobre la API y baseline sobre la web en el CI | D-08 | ✅ Configurado |
+| Newman: casos para las 8 rutas que hoy no tienen éxito y error | B-06 | ✅ Integrado en CI |
+| Tests de las etapas 2 a 4: concurrencia, rollback forzado, reinicio de la API | — | ✅ Cubierto por suites existentes |
 
 **Criterio de salida:**
 - Pipeline ≤ 15 min.

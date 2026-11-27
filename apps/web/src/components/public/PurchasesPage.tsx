@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { DemoAction } from '../../demoStore'
 import { formatMoney } from '../../demoStore'
 import type { Event, Order, Refund, UserProfile } from '../../types'
 import { Breadcrumb, EmptyState, StatusBadge, useToast } from '../shared/Ui'
+import { getOrders, type ApiOrder } from '../../api/orders'
 
 type Props = {
   orders: Order[]
@@ -25,7 +26,45 @@ export default function PurchasesPage({ orders, events, currentUser, dispatch, o
   const [refundOrder, setRefundOrder] = useState<string | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [outcome, setOutcome] = useState<'approved' | 'failed'>('approved')
-  const sorted = [...orders].sort((a, b) => new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime())
+  const [apiOrders, setApiOrders] = useState<ApiOrder[]>([])
+  useEffect(() => {
+    if (!localStorage.getItem('eventhub-access-token')) return
+    getOrders().then(setApiOrders).catch(error => notify(error instanceof Error ? error.message : 'No se pudieron cargar las compras', 'error'))
+  }, [])
+  const statusMap: Record<ApiOrder['status'], Order['status']> = {
+    pending: 'pendiente',
+    processing: 'pendiente',
+    paid: 'confirmado',
+    cancelled: 'cancelado',
+    refunded: 'reembolsado',
+  }
+  const apiMapped: Order[] = apiOrders.map(apiOrder => {
+    const first = apiOrder.items[0]
+    const event = events.find(item => item.id === first?.eventId)
+    const totalCents = Math.round(Number(apiOrder.total) * 100)
+    const unitCents = Math.round(Number(first?.unitPrice ?? 0) * 100)
+    return {
+      id: apiOrder.id,
+      userId: apiOrder.userId,
+      eventId: first?.eventId ?? '',
+      ticketTypeId: first?.ticketTypeId ?? '',
+      ticketTypeName: first?.ticketType ?? 'Entrada',
+      quantity: first?.quantity ?? 0,
+      unitPrice: unitCents / 100,
+      serviceFee: 0,
+      total: totalCents / 100,
+      unitPriceCents: unitCents,
+      subtotalCents: unitCents * (first?.quantity ?? 0),
+      serviceFeeCents: 0,
+      totalCents,
+      status: statusMap[apiOrder.status],
+      purchasedAt: apiOrder.createdAt,
+      refundPolicySnapshot: event?.refundPolicy,
+      tickets: [],
+    }
+  })
+  const sourceOrders = apiMapped.length ? apiMapped : orders
+  const sorted = [...sourceOrders].sort((a, b) => new Date(b.purchasedAt).getTime() - new Date(a.purchasedAt).getTime())
 
   function requestRefund(order: Order) {
     const paidCents = order.totalCents ?? Math.round(order.total * 100)

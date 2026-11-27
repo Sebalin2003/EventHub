@@ -11,6 +11,17 @@ docs
 outputs
 load-tests
 infra
+!infra/
+infra/*
+!infra/soap-mock/
+!infra/soap-mock/**
+!infra/geocode-mock/
+!infra/geocode-mock/**
+!docs/
+docs/*
+!docs/contracts/
+docs/contracts/*
+!docs/contracts/payments.wsdl
 # Nunca copiar secretos locales a una imagen.
 **/.env
 **/.env.*

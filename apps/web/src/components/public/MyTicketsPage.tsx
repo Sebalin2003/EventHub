@@ -1,16 +1,40 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { Event, Order, Ticket } from '../../types'
 import QRCode from '../shared/QRCode'
 import { Breadcrumb, EmptyState, StatusBadge, useToast } from '../shared/Ui'
 import { downloadTicketPng } from '../../ticketDownload'
+import { getMyTickets, type ApiTicket } from '../../api/tickets'
 
 type Tab = 'upcoming' | 'used' | 'cancelled'
 
 export default function MyTicketsPage({ orders, events, onHome }: { orders: Order[]; events: Event[]; onHome: () => void }) {
   const [tab, setTab] = useState<Tab>('upcoming')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [apiTickets, setApiTickets] = useState<ApiTicket[]>([])
   const { notify } = useToast()
-  const tickets = orders.flatMap(order => order.tickets)
+  useEffect(() => {
+    if (!localStorage.getItem('eventhub-access-token')) return
+    getMyTickets().then(setApiTickets).catch(error => notify(error instanceof Error ? error.message : 'No se pudieron cargar las entradas', 'error'))
+  }, [])
+  const apiMapped: Ticket[] = apiTickets.map(ticket => {
+    const event = events.find(item => item.id === ticket.eventId)
+    return {
+      id: ticket.id,
+      orderId: ticket.orderId,
+      eventId: ticket.eventId,
+      userId: ticket.userId,
+      ticketTypeId: '',
+      ticketTypeName: ticket.ticketType ?? 'Entrada',
+      qrCode: ticket.code,
+      status: ticket.status === 'CANCELLED' ? 'cancelado' : ticket.status === 'USED' || ticket.status === 'SCANNED' ? 'usado' : 'activo',
+      eventTitle: event?.title ?? 'Evento',
+      eventDate: event?.date ?? new Date().toISOString(),
+      venueName: event?.venueName ?? '',
+      address: event?.address ?? '',
+      holderName: '',
+    }
+  })
+  const tickets = apiMapped.length ? apiMapped : orders.flatMap(order => order.tickets)
   const filtered = tickets.filter(ticket => {
     if (tab === 'cancelled') return ticket.status === 'cancelado'
     if (tab === 'used') return ticket.status === 'usado' || new Date(ticket.eventDate) < new Date()
