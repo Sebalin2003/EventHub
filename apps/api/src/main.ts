@@ -16,9 +16,9 @@ import {
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
 
-  if (!process.env.JWT_SECRET) {
+  if (!process.env.JWT_SECRET?.trim()) {
     if (process.env.NODE_ENV === 'production') throw new Error('JWT_SECRET is required in production');
-    logger.warn('JWT_SECRET not set; using the development secret');
+    logger.warn('JWT_SECRET not set; using a random per-process secret (tokens are invalidated on restart)');
   }
 
   const app = await NestFactory.create<NestExpressApplication>(

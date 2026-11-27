@@ -25,8 +25,8 @@ services:
       - '15672:15672'
   api:
     build:
-      context: ../apps/api
-      dockerfile: Dockerfile
+      context: ..
+      dockerfile: apps/api/Dockerfile
     container_name: eventhub_api
     environment:
       - DB_HOST=postgres
@@ -35,7 +35,7 @@ services:
       - DB_PASSWORD=password
       - DB_DATABASE=evenhub
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
-      - JWT_SECRET=${JWT_SECRET:-eventhub-dev-secret-cambiar}
+      - JWT_SECRET=${JWT_SECRET:-}
       - PORT=3000
     ports:
       - '3000:3000'

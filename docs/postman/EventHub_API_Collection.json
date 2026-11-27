@@ -110,6 +110,10 @@
       "key": "idemKey",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "orderId5",
+      "value": ""
     }
   ],
   "item": [
@@ -1788,56 +1792,6 @@
           ]
         },
         {
-          "name": "PATCH /orders/:id/refund - Reembolso exitoso",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{attendeeToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/orders/{{orderId}}/refund"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test('Estado refunded', function () { pm.expect(pm.response.json().status).to.eql('refunded'); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "name": "PATCH /orders/:id/refund - Transicion invalida (409)",
-          "request": {
-            "method": "PATCH",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{attendeeToken}}"
-              }
-            ],
-            "url": "{{baseUrl}}/orders/{{orderId}}/refund"
-          },
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('HTTP 409', function () { pm.response.to.have.status(409); });",
-                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
-                ]
-              }
-            }
-          ]
-        },
-        {
           "name": "POST /orders - Segunda orden para cancelar",
           "request": {
             "method": "POST",
@@ -2018,6 +1972,148 @@
               }
             }
           ]
+        },
+        {
+          "name": "POST /orders - Quinta orden para reembolso",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{attendeeToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"eventId\": \"e3\",\n      \"ticketType\": \"tt3a\",\n      \"quantity\": 1\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/orders"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "pm.collectionVariables.set('orderId5', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /orders/:id/pay - Pago de la orden a reembolsar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{attendeeToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"card\": \"4111 1111 1111 1111\"\n}"
+            },
+            "url": "{{baseUrl}}/orders/{{orderId5}}/pay"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
+                  "pm.test('Estado paid', function () { pm.expect(pm.response.json().status).to.eql('paid'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /orders/:id/refund - El comprador no puede reembolsarse (403)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{attendeeToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/orders/{{orderId5}}/refund"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /orders/:id/refund - Reembolso exitoso",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/orders/{{orderId5}}/refund"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Estado refunded', function () { pm.expect(pm.response.json().status).to.eql('refunded'); });",
+                  "pm.test('Entradas canceladas por el reembolso', function () { pm.expect(pm.response.json().status).to.eql('refunded'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH /orders/:id/refund - Transicion invalida (409)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
+            "url": "{{baseUrl}}/orders/{{orderId5}}/refund"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 409', function () { pm.response.to.have.status(409); });",
+                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
+                ]
+              }
+            }
+          ]
         }
       ]
     },
@@ -2032,6 +2128,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "body": {
@@ -2054,6 +2154,68 @@
           ]
         },
         {
+          "name": "POST /payments/process - Sin autenticacion (401)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"pm-{{$timestamp}}\",\n  \"amount\": 15000,\n  \"cardNumber\": \"4111111111111111\"\n}"
+            },
+            "url": "{{baseUrl}}/payments/process"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /payments/process - Rol sin permiso (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{attendeeToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderId\": \"pm-{{$timestamp}}\",\n  \"amount\": 15000,\n  \"cardNumber\": \"4111111111111111\"\n}"
+            },
+            "url": "{{baseUrl}}/payments/process"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "POST /payments/process - Pago rechazado por negocio",
           "request": {
             "method": "POST",
@@ -2061,6 +2223,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "body": {
@@ -2091,6 +2257,10 @@
               {
                 "key": "Content-Type",
                 "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "body": {
@@ -2123,7 +2293,7 @@
               },
               {
                 "key": "Authorization",
-                "value": "Bearer {{attendeeToken}}"
+                "value": "Bearer {{adminToken}}"
               }
             ],
             "body": {
@@ -2140,6 +2310,39 @@
                 "exec": [
                   "pm.test('HTTP 201', function () { pm.response.to.have.status(201); });",
                   "pm.test('Aprobado', function () { pm.expect(pm.response.json().approved).to.be.true; });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /payments - Rol sin permiso (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{attendeeToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 15000,\n  \"card\": \"4111 1111 1111 1111\"\n}"
+            },
+            "url": "{{baseUrl}}/payments"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 403', function () { pm.response.to.have.status(403); });",
+                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
                 ]
               }
             }
@@ -2178,7 +2381,12 @@
           "name": "GET /payments/circuit-breaker - Estado",
           "request": {
             "method": "GET",
-            "header": [],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}"
+              }
+            ],
             "url": "{{baseUrl}}/payments/circuit-breaker"
           },
           "event": [
@@ -2189,6 +2397,26 @@
                 "exec": [
                   "pm.test('HTTP 200', function () { pm.response.to.have.status(200); });",
                   "pm.test('Estado del circuito', function () { pm.expect(pm.response.json().status).to.be.a('string'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /payments/circuit-breaker - Sin autenticacion (401)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/payments/circuit-breaker"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 401', function () { pm.response.to.have.status(401); });",
+                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
                 ]
               }
             }
@@ -2559,7 +2787,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{}"
+              "raw": "{\n  \"eventId\": \"e1\"\n}"
             },
             "url": "{{baseUrl}}/check-in/00000000-0000-0000-0000-000000000000/scan"
           },
@@ -2570,6 +2798,39 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('HTTP 404', function () { pm.response.to.have.status(404); });",
+                  "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /check-in/:ticketId/scan - Sin evento (400)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": "{{baseUrl}}/check-in/00000000-0000-0000-0000-000000000000/scan"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('HTTP 400', function () { pm.response.to.have.status(400); });",
                   "pm.test('Problem Details (RFC 9457)', function () { pm.expect(pm.response.headers.get('content-type')).to.include('application/problem+json'); pm.expect(pm.response.json()).to.have.property('status'); });"
                 ]
               }

@@ -9,7 +9,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsString } from 'class-validator';
 import { Roles } from '../../common/decorators/roles.decorator.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
 import { RolesGuard } from '../../common/guards/roles.guard.js';
@@ -17,10 +17,11 @@ import { UserRole } from '../identity/entities/user.entity.js';
 import { EventDao } from '../events/event.dao.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 
+// El evento es obligatorio: sin él, un organizador podía validar entradas de eventos ajenos.
 export class ScanDto {
-  @IsOptional()
   @IsString()
-  eventId?: string;
+  @IsNotEmpty()
+  eventId: string;
 }
 
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -39,11 +40,11 @@ export class CheckInController {
     @Body() body: ScanDto,
     @Req() req: { user: { sub: string; role: UserRole } },
   ) {
-    const event = body.eventId ? await this.events.findOne(body.eventId) : null;
-    if (event && req.user.role === UserRole.ORGANIZER && event.organizerId !== req.user.sub) {
+    const event = await this.events.findOne(body.eventId);
+    if (req.user.role === UserRole.ORGANIZER && event.organizerId !== req.user.sub) {
       throw new ForbiddenException('Not your event');
     }
-    const { result, ticket } = await this.tickets.checkIn(ticketId, event?.id);
+    const { result, ticket } = await this.tickets.checkIn(ticketId, event.id);
 
     // Las transiciones inválidas deben responder con el código HTTP correcto
     // (409 Conflict / 404 Not Found), no con un 201 que oculte el rechazo.

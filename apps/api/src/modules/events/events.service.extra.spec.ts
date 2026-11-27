@@ -245,6 +245,33 @@ describe('EventsService - cobertura de gestión y geocodificación (Eje B)', () 
     });
   });
 
+  describe('releaseSale (reembolso)', () => {
+    it('resta lo vendido y vuelve a DISPONIBLE', async () => {
+      eventDao.findOne.mockResolvedValue(makeEvent({
+        registered: 5,
+        ticketTypes: [{ id: 'tt-1', name: 'General', price: 1, totalQuantity: 5, sold: 5, status: 'VENDIDO' }] as any,
+      }));
+
+      const result = await service.releaseSale('evt-1', 'tt-1', 2);
+
+      expect(result.ticketTypes[0].sold).toBe(3);
+      expect(result.ticketTypes[0].status).toBe('DISPONIBLE');
+      expect(result.registered).toBe(3);
+    });
+
+    it('nunca deja contadores negativos', async () => {
+      eventDao.findOne.mockResolvedValue(makeEvent({
+        registered: 1,
+        ticketTypes: [{ id: 'tt-1', name: 'General', price: 1, totalQuantity: 5, sold: 1, status: 'DISPONIBLE' }] as any,
+      }));
+
+      const result = await service.releaseSale('evt-1', 'tt-1', 3);
+
+      expect(result.ticketTypes[0].sold).toBe(0);
+      expect(result.registered).toBe(0);
+    });
+  });
+
   describe('applyData (vía update)', () => {
     it('rechaza endDate anterior a date con 400', async () => {
       eventDao.findOne.mockResolvedValue(makeEvent());

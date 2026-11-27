@@ -140,9 +140,21 @@ describe('OrdersService', () => {
 
       orderRepo.findOne.mockResolvedValue(order);
 
-      const updated = await service.refundOrder('ord-1', 'u-1');
+      const updated = await service.refundOrder('ord-1', { sub: 'admin-1', role: 'admin' });
       expect(updated.status).toBe(OrderStatus.REFUNDED);
       expect(orderRepo.save).toHaveBeenCalledWith(order);
+    });
+
+    it('rechaza con 403 que el propio comprador se reembolse la orden', async () => {
+      const order = new Order();
+      order.id = 'ord-1';
+      order.userId = 'u-1';
+      order.status = OrderStatus.PAID;
+      order.items = [];
+      orderRepo.findOne.mockResolvedValue(order);
+
+      await expect(service.refundOrder('ord-1', { sub: 'u-1', role: 'attendee' })).rejects.toThrow(ForbiddenException);
+      expect(orderRepo.save).not.toHaveBeenCalled();
     });
   });
 });

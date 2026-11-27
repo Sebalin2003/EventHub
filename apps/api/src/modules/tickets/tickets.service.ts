@@ -5,11 +5,12 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { Ticket, TicketStatus } from './entities/ticket.entity.js';
 import { randomBytes } from 'crypto';
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UNUSED_STATUSES: string[] = [TicketStatus.ISSUED, TicketStatus.EMITTED];
 
 export type CheckInResult = 'ENTRADA_VALIDA' | 'ENTRADA_YA_UTILIZADA' | 'ENTRADA_INVALIDA' | 'ENTRADA_EVENTO_INCORRECTO';
 
@@ -109,9 +110,10 @@ export class TicketsService {
       throw new ConflictException('Transición inválida: La entrada ha sido cancelada y no es válida para ingresar');
     }
 
-    ticket.status = TicketStatus.USED;
-    ticket.scannedAt = new Date();
-    return this.ticketsRepository.save(ticket);
+    if (!(await this.markUsed(ticket, TicketStatus.USED))) {
+      throw new ConflictException('Transición inválida: La entrada ya fue utilizada con anterioridad');
+    }
+    return ticket;
   }
 
   async checkIn(idOrCode: string, eventId?: string): Promise<{ result: CheckInResult; ticket: Ticket | null }> {
@@ -120,8 +122,36 @@ export class TicketsService {
     if (eventId && ticket.eventId !== eventId) return { result: 'ENTRADA_EVENTO_INCORRECTO', ticket };
     if (ticket.status === 'SCANNED' || ticket.status === TicketStatus.USED) return { result: 'ENTRADA_YA_UTILIZADA', ticket };
 
-    ticket.status = 'SCANNED';
-    ticket.scannedAt = new Date();
-    return { result: 'ENTRADA_VALIDA', ticket: await this.ticketsRepository.save(ticket) };
+    if (!(await this.markUsed(ticket, TicketStatus.SCANNED))) {
+      // Otra petición concurrente la marcó primero (o se canceló en el medio).
+      const current = await this.ticketsRepository.findOne({ where: { id: ticket.id } });
+      return { result: current?.status === TicketStatus.CANCELLED ? 'ENTRADA_INVALIDA' : 'ENTRADA_YA_UTILIZADA', ticket: current };
+    }
+    return { result: 'ENTRADA_VALIDA', ticket };
+  }
+
+  /** Cancela las entradas sin usar de una orden (reembolso). Devuelve cuántas canceló. */
+  async cancelByOrder(orderId: string): Promise<number> {
+    const result = await this.ticketsRepository.update(
+      { orderId, status: In(UNUSED_STATUSES) },
+      { status: TicketStatus.CANCELLED },
+    );
+    return result.affected ?? 0;
+  }
+
+  /**
+   * Transición atómica a "usada" (HU-06): el UPDATE solo afecta la fila si la entrada
+   * sigue sin usar, así dos escaneos simultáneos no pueden validarla los dos.
+   */
+  private async markUsed(ticket: Ticket, status: TicketStatus): Promise<boolean> {
+    const scannedAt = new Date();
+    const result = await this.ticketsRepository.update(
+      { id: ticket.id, status: In(UNUSED_STATUSES) },
+      { status, scannedAt },
+    );
+    if (!result.affected) return false;
+    ticket.status = status;
+    ticket.scannedAt = scannedAt;
+    return true;
   }
 }

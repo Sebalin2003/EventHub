@@ -35,6 +35,21 @@ describe('InventoryService', () => {
     vi.useRealTimers();
   });
 
+  it('restock devuelve cupo al inventario guardado (reembolso)', async () => {
+    await expect(service.restock('event-1', 3)).resolves.toEqual({ eventId: 'event-1', available: 13 });
+    expect(storedAvailable).toBe(13);
+  });
+
+  it('restock sin registro de inventario deriva la disponibilidad de la capacidad', async () => {
+    storedAvailable = undefined;
+    await expect(service.restock('event-1', 3)).resolves.toEqual({ eventId: 'event-1', available: 10 });
+    expect(storedAvailable).toBeUndefined();
+  });
+
+  it('restock rechaza cantidades inválidas con 400', async () => {
+    await expect(service.restock('event-1', 0)).rejects.toThrow(BadRequestException);
+  });
+
   it('keeps active holds in memory and removes them on destroy', async () => {
     await service.createHold('event-1', 'user-1', 3);
     await expect(service.get('event-1')).resolves.toEqual({

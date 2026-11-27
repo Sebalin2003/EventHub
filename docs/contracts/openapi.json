@@ -1194,7 +1194,8 @@
         "tags": [
           "Órdenes"
         ],
-        "summary": "Reembolsar orden pagada",
+        "summary": "Reembolsar orden pagada (admin u organizador del evento)",
+        "description": "Cancela las entradas sin usar y devuelve el cupo. Rechaza con 409 si alguna entrada ya se usó.",
         "security": [
           {
             "bearerAuth": []
@@ -1229,6 +1230,15 @@
               }
             }
           },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
           "409": {
             "$ref": "#/components/responses/Conflict"
           },
@@ -1250,7 +1260,12 @@
         "tags": [
           "Pagos"
         ],
-        "summary": "Procesar pago SOAP (mock resiliente)",
+        "summary": "Procesar pago SOAP directo (solo admin, diagnóstico)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -1274,6 +1289,12 @@
           },
           "400": {
             "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
       }
@@ -1283,7 +1304,7 @@
         "tags": [
           "Pagos"
         ],
-        "summary": "Procesar pago autenticado",
+        "summary": "Procesar pago directo (solo admin)",
         "security": [
           {
             "bearerAuth": []
@@ -1315,6 +1336,9 @@
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           }
         }
       }
@@ -1324,7 +1348,12 @@
         "tags": [
           "Pagos"
         ],
-        "summary": "Estado del circuit breaker",
+        "summary": "Estado del circuit breaker (solo admin)",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "responses": {
           "200": {
             "description": "Estado",
@@ -1335,6 +1364,12 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -1568,7 +1603,7 @@
           }
         ],
         "requestBody": {
-          "required": false,
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -1587,6 +1622,12 @@
                 }
               }
             }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
@@ -2697,9 +2738,13 @@
       },
       "ScanRequest": {
         "type": "object",
+        "required": [
+          "eventId"
+        ],
         "properties": {
           "eventId": {
-            "type": "string"
+            "type": "string",
+            "description": "UUID o legacyId del evento en el que se valida la entrada"
           }
         }
       },

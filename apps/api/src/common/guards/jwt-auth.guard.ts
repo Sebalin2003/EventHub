@@ -41,17 +41,24 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token header');
     }
 
+    let payload: any;
     try {
-      const payload = this.jwt.verify(token);
-      request.user = {
-        id: payload.sub || payload.id,
-        sub: payload.sub || payload.id,
-        email: payload.email,
-        role: payload.role,
-      };
-      return true;
+      payload = this.jwt.verify(token);
     } catch {
       throw new UnauthorizedException('Invalid or expired token');
     }
+
+    // Un token sin vencimiento no caduca nunca: se rechaza aunque la firma sea válida.
+    if (typeof payload?.exp !== 'number') {
+      throw new UnauthorizedException('Token without expiration');
+    }
+
+    request.user = {
+      id: payload.sub || payload.id,
+      sub: payload.sub || payload.id,
+      email: payload.email,
+      role: payload.role,
+    };
+    return true;
   }
 }

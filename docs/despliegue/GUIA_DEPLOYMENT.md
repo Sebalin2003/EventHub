@@ -75,7 +75,7 @@ Si deseas activar la mensajería asíncrona real y la cola de mensajes muertos (
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` | Conexión privada directa a PostgreSQL. |
 | `DB_SYNCHRONIZE` | `true` | Crea automáticamente las tablas de EventHub al iniciar. |
 | `DB_SSL` | `false` | En la red interna de Railway la conexión no requiere SSL. |
-| `JWT_SECRET` | `mi-clave-super-secreta-eventhub-2026` | Firma de tokens JWT para autenticación. |
+| `JWT_SECRET` | Valor aleatorio propio, por ejemplo la salida de `openssl rand -base64 48` (nunca uno publicado en el repo) | Firma de tokens JWT para autenticación. Obligatorio en producción. |
 | `PAYMENTS_WSDL_URL` | `https://www.dataaccess.com/webservicesserver/NumberConversion.wso?WSDL` | Contrato WSDL del cliente SOAP. |
 | `RABBITMQ_URL` | `amqp://user:password@${{RabbitMQ.RAILWAY_PRIVATE_DOMAIN}}:5672` | *(Solo si agregaste RabbitMQ en el paso 3)* |
 | `FRONTEND_URL` | `https://...` *(se completa tras el paso 5)* | Autorización de origen para CORS. |

@@ -6,6 +6,7 @@ import {
   GoneException,
   HttpException,
   NotFoundException,
+  PreconditionFailedException,
 } from '@nestjs/common';
 import { OrdersService } from './orders.service.js';
 import { Order, OrderStatus } from './entities/order.entity.js';
@@ -54,7 +55,11 @@ describe('OrdersService - cobertura de flujo de negocio (Eje B)', () => {
       commitHold: vi.fn(async () => undefined),
     };
     payments = { processPayment: vi.fn(async () => true) };
-    tickets = { emit: vi.fn(async () => [{ code: 'EVT-AAA' }, { code: 'EVT-BBB' }]) };
+    tickets = {
+      emit: vi.fn(async () => [{ code: 'EVT-AAA' }, { code: 'EVT-BBB' }]),
+      findByOrder: vi.fn(async () => []),
+      cancelByOrder: vi.fn(async () => 0),
+    };
 
     service = new OrdersService(
       orderRepo,
@@ -103,6 +108,22 @@ describe('OrdersService - cobertura de flujo de negocio (Eje B)', () => {
       await expect(
         service.create('user-1', { items: [{ eventId: 'evt-1', ticketType: 'General', quantity: 1 }] } as any),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rechaza con 409 un evento que ya empezó y no toma reserva', async () => {
+      eventDao.findOne.mockResolvedValue(makeEvent({ date: new Date(Date.now() - 60_000) }));
+
+      await expect(
+        service.create('user-1', { items: [{ eventId: 'evt-1', ticketType: 'General', quantity: 1 }] } as any),
+      ).rejects.toThrow(ConflictException);
+      expect(inventory.createHold).not.toHaveBeenCalled();
+    });
+
+    it('acepta un evento con fecha futura', async () => {
+      eventDao.findOne.mockResolvedValue(makeEvent({ date: new Date(Date.now() + 86_400_000) }));
+
+      const order = await service.create('user-1', { items: [{ eventId: 'evt-1', ticketType: 'General', quantity: 1 }] } as any);
+      expect(order.status).toBe(OrderStatus.PENDING);
     });
 
     it('rechaza un tipo de entrada inexistente con 400', async () => {
@@ -359,7 +380,75 @@ describe('OrdersService - cobertura de flujo de negocio (Eje B)', () => {
       order.status = OrderStatus.PENDING;
       orderRepo.findOne.mockResolvedValue(order);
 
-      await expect(service.refundOrder('ord-1', 'user-1')).rejects.toThrow(ConflictException);
+      await expect(service.refundOrder('ord-1', { sub: 'admin-1', role: 'admin' })).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('refundOrder (reembolso controlado)', () => {
+    function paidOrder() {
+      const order = new Order();
+      order.id = 'ord-1';
+      order.userId = 'user-1';
+      order.status = OrderStatus.PAID;
+      order.version = 2;
+      order.items = [Object.assign(new OrderItem(), { eventId: 'evt-1', ticketTypeId: 'tt-1', quantity: 2 })];
+      return order;
+    }
+
+    beforeEach(() => {
+      eventsService.releaseSale = vi.fn(async () => undefined);
+      inventory.restock = vi.fn(async () => undefined);
+      tickets.findByOrder = vi.fn(async () => [{ id: 't-1', status: 'ISSUED' }]);
+      tickets.cancelByOrder = vi.fn(async () => 2);
+      service = new OrdersService(orderRepo, rabbitClient, eventDao, eventsService, inventory, payments, tickets);
+    });
+
+    it('el admin reembolsa: cancela las entradas y devuelve el cupo', async () => {
+      orderRepo.findOne.mockResolvedValue(paidOrder());
+
+      const refunded = await service.refundOrder('ord-1', { sub: 'admin-1', role: 'admin' });
+
+      expect(refunded.status).toBe(OrderStatus.REFUNDED);
+      expect(tickets.cancelByOrder).toHaveBeenCalledWith('ord-1');
+      expect(eventsService.releaseSale).toHaveBeenCalledWith('evt-1', 'tt-1', 2);
+      expect(inventory.restock).toHaveBeenCalledWith('evt-1', 2);
+    });
+
+    it('el organizador dueño del evento puede reembolsar', async () => {
+      orderRepo.findOne.mockResolvedValue(paidOrder());
+      eventDao.findOne.mockResolvedValue(makeEvent({ organizerId: 'org-1' }));
+
+      const refunded = await service.refundOrder('ord-1', { sub: 'org-1', role: 'organizer' });
+      expect(refunded.status).toBe(OrderStatus.REFUNDED);
+    });
+
+    it('un organizador ajeno recibe 403 y no se toca nada', async () => {
+      orderRepo.findOne.mockResolvedValue(paidOrder());
+      eventDao.findOne.mockResolvedValue(makeEvent({ organizerId: 'otro-org' }));
+
+      await expect(service.refundOrder('ord-1', { sub: 'org-1', role: 'organizer' })).rejects.toThrow(ForbiddenException);
+      expect(orderRepo.save).not.toHaveBeenCalled();
+      expect(tickets.cancelByOrder).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 409 si alguna entrada ya se usó', async () => {
+      orderRepo.findOne.mockResolvedValue(paidOrder());
+      tickets.findByOrder.mockResolvedValue([{ id: 't-1', status: 'SCANNED' }]);
+
+      await expect(service.refundOrder('ord-1', { sub: 'admin-1', role: 'admin' })).rejects.toThrow(ConflictException);
+      expect(orderRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 412 un If-Match desactualizado', async () => {
+      orderRepo.findOne.mockResolvedValue(paidOrder());
+
+      await expect(service.refundOrder('ord-1', { sub: 'admin-1', role: 'admin' }, '1')).rejects.toThrow(PreconditionFailedException);
+    });
+
+    it('responde 404 si la orden no existe', async () => {
+      orderRepo.findOne.mockResolvedValue(null);
+
+      await expect(service.refundOrder('missing', { sub: 'admin-1', role: 'admin' })).rejects.toThrow(NotFoundException);
     });
 
     it('expone el status 402 como HttpException en pagos rechazados', async () => {

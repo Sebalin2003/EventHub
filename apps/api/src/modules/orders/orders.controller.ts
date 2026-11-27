@@ -17,6 +17,9 @@ import type { Response as ExpressResponse } from 'express';
 import { OrdersService, Buyer } from './orders.service.js';
 import { CreateOrderDto, PayOrderDto } from './dto/create-order.dto.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../common/guards/roles.guard.js';
+import { Roles } from '../../common/decorators/roles.decorator.js';
+import { UserRole } from '../identity/entities/user.entity.js';
 
 @UseGuards(JwtAuthGuard)
 @Controller('orders')
@@ -133,23 +136,20 @@ export class OrdersController {
     return this.ordersService.cancelOrder(id, userId);
   }
 
+  // Solo administración u organizador del evento: el comprador no puede reembolsarse solo.
   @Patch(':id/refund')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN, UserRole.ORGANIZER)
   async refund(
     @Request() req: any,
     @Param('id', ParseUUIDPipe) id: string,
     @Headers('if-match') ifMatch?: string,
   ) {
-    const userId = req.user.sub || req.user.id;
-    const order = await this.ordersService.findOne(id, userId, req.user.role);
-
-    if (ifMatch) {
-      const cleanIfMatch = ifMatch.replace(/^W\//, '').replace(/"/g, '');
-      const cleanCurrent = String(order.version);
-      if (cleanIfMatch !== cleanCurrent) {
-        throw new PreconditionFailedException('Actualización concurrente rechazada: El ETag provisto está desactualizado.');
-      }
-    }
-
-    return this.ordersService.refundOrder(id, userId);
+    const expectedVersion = ifMatch ? ifMatch.replace(/^W\//, '').replace(/"/g, '') : undefined;
+    return this.ordersService.refundOrder(
+      id,
+      { sub: req.user.sub || req.user.id, role: req.user.role },
+      expectedVersion,
+    );
   }
 }

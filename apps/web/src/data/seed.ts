@@ -11,6 +11,32 @@ export const seedUsers: UserProfile[] = [
   { id: 'u8', name: 'Marcos Díaz', email: 'marcos@email.com.ar', role: 'ASISTENTE', phone: '+54 9 261 6445 5666', joinedAt: '2025-08-01', active: false },
 ]
 
+/**
+ * Las fechas del seed son relativas a hoy (mismo criterio que el seed de la API):
+ * se desplazan días enteros para que el primer evento (e1) quede SEED_LEAD_DAYS días adelante.
+ * Así la demo y los E2E siempre tienen eventos futuros, con el mismo orden y horario.
+ */
+const SEED_ANCHOR = '2026-09-15T09:00'
+const SEED_LEAD_DAYS = 14
+const DAY_MS = 24 * 60 * 60 * 1000
+
+export function seedShiftDays(now = Date.now()): number {
+  return Math.ceil((now + SEED_LEAD_DAYS * DAY_MS - new Date(SEED_ANCHOR).getTime()) / DAY_MS)
+}
+
+const pad = (value: number) => String(value).padStart(2, '0')
+
+/** Desplaza una fecha local `YYYY-MM-DDTHH:mm[:ss]` y conserva el formato y la hora del día. */
+export function shiftSeedDate(local: string, days = seedShiftDays()): string {
+  const date = new Date(local)
+  date.setDate(date.getDate() + days)
+  const base = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return local.length > 16 ? `${base}:${pad(date.getSeconds())}` : base
+}
+
+const SHIFT_DAYS = seedShiftDays()
+const shift = (local: string) => shiftSeedDate(local, SHIFT_DAYS)
+
 type EventInput = {
   id: string; title: string; description: string; category: EventCategory; modality: EventModality
   date: string; endDate: string; venueName: string; address: string; city: string
@@ -19,7 +45,8 @@ type EventInput = {
   cancellationPolicy?: string; maxTicketsPerUser?: number
 }
 
-function makeEvent(input: EventInput): Event {
+function makeEvent(rawInput: EventInput): Event {
+  const input = { ...rawInput, date: shift(rawInput.date), endDate: shift(rawInput.endDate) }
   const organizerId = input.organizerId ?? 'u3'
   const ticketTypes: TicketType[] = input.tickets.map(([name, description, price, totalQuantity, sold], index) => ({
     id: `tt${input.id.slice(1)}${String.fromCharCode(97 + index)}`,
@@ -81,7 +108,7 @@ export const seedEvents: Event[] = [
 
 const makeQR = (code: string) => `EVENTHUB::${code}::2026`
 
-export const seedOrders: Order[] = [
+const rawSeedOrders: Order[] = [
   { id: 'ord1', userId: 'u1', eventId: 'e1', ticketTypeId: 'tt1b', ticketTypeName: 'VIP', quantity: 2, unitPrice: 175000, serviceFee: 14000, total: 364000, status: 'confirmado', purchasedAt: '2026-08-10T10:23:00', tickets: [
     { id: 'TKT-001', orderId: 'ord1', eventId: 'e1', userId: 'u1', ticketTypeId: 'tt1b', ticketTypeName: 'VIP', qrCode: makeQR('TKT-001'), status: 'activo', eventTitle: 'Argentina Tech Summit 2026', eventDate: '2026-09-15T09:00', venueName: 'Centro de Convenciones Buenos Aires', address: 'Av. Pres. Figueroa Alcorta 2099, CABA', holderName: 'María González' },
     { id: 'TKT-002', orderId: 'ord1', eventId: 'e1', userId: 'u1', ticketTypeId: 'tt1b', ticketTypeName: 'VIP', qrCode: makeQR('TKT-002'), status: 'activo', eventTitle: 'Argentina Tech Summit 2026', eventDate: '2026-09-15T09:00', venueName: 'Centro de Convenciones Buenos Aires', address: 'Av. Pres. Figueroa Alcorta 2099, CABA', holderName: 'Invitado' },
@@ -94,7 +121,15 @@ export const seedOrders: Order[] = [
   ] },
 ]
 
-export const seedCheckIns: CheckInRecord[] = [
+export const seedOrders: Order[] = rawSeedOrders.map(order => ({
+  ...order,
+  purchasedAt: shift(order.purchasedAt),
+  tickets: order.tickets.map(ticket => ({ ...ticket, eventDate: shift(ticket.eventDate) })),
+}))
+
+const rawSeedCheckIns: CheckInRecord[] = [
   { id: 'ci1', ticketId: 'TKT-004', eventId: 'e1', attendeeName: 'Javier Romero', ticketType: 'General', checkedInAt: '2026-09-15T08:55:00', result: 'ENTRADA_VALIDA' },
   { id: 'ci2', ticketId: 'TKT-004', eventId: 'e1', attendeeName: 'Javier Romero', ticketType: 'General', checkedInAt: '2026-09-15T09:10:00', result: 'ENTRADA_YA_UTILIZADA' },
 ]
+
+export const seedCheckIns: CheckInRecord[] = rawSeedCheckIns.map(record => ({ ...record, checkedInAt: shift(record.checkedInAt) }))

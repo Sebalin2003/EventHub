@@ -370,6 +370,7 @@ describe.sequential('Eje D - Seguridad HTTP sobre la API real', () => {
     it('rechaza XXE en el canal SOAP sin reflejar el XML crudo', async () => {
       const response = await request(API())
         .post('/payments/process')
+        .set('Authorization', `Bearer ${adminToken}`)
         .send({
           orderId: 'sec-xxe',
           amount: 100,
@@ -425,6 +426,109 @@ describe.sequential('Eje D - Seguridad HTTP sobre la API real', () => {
       expectProblemDetails(response, 400);
       expect(JSON.stringify(response.body)).not.toContain('invalid input syntax');
       expect(JSON.stringify(response.body)).not.toContain('QueryFailedError');
+    });
+  });
+
+  describe('Etapa 2 - pagos, reembolso, check-in y CORS', () => {
+    it('los endpoints directos de pagos exigen token (401) y rol admin (403)', async () => {
+      const body = { orderId: 'sec-pay', amount: 10, cardNumber: '4000 0000 0000 5001' };
+
+      expectProblemDetails(await request(API()).post('/payments/process').send(body), 401);
+      expectProblemDetails(await request(API()).get('/payments/circuit-breaker'), 401);
+      expectProblemDetails(
+        await request(API()).post('/payments/process').set('Authorization', `Bearer ${mariaToken}`).send(body),
+        403,
+      );
+
+      const status = await request(API())
+        .get('/payments/circuit-breaker')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      // Las llamadas rechazadas no llegaron a la pasarela: el breaker sigue cerrado.
+      expect(status.body.status).toBe('CLOSED');
+    });
+
+    it('rechaza un token con firma válida pero sin vencimiento (exp) con 401', async () => {
+      const withoutExp = new JwtService({ secret: process.env.JWT_SECRET }).sign({
+        sub: mariaId,
+        email: 'maria@eventhub.com.ar',
+        role: 'admin',
+        iss: 'eventhub',
+      });
+      expect(payloadOf(withoutExp).exp).toBeUndefined();
+
+      const response = await request(API()).get('/orders').set('Authorization', `Bearer ${withoutExp}`);
+      expectProblemDetails(response, 401);
+    });
+
+    it('CORS no acepta orígenes por sufijo ni subdominios de hostings públicos', async () => {
+      for (const origin of ['https://evileventhub.com', 'https://atacante.pages.dev', 'https://x.railway.app']) {
+        const response = await request(API())
+          .options('/orders')
+          .set('Origin', origin)
+          .set('Access-Control-Request-Method', 'GET');
+        expect(response.headers['access-control-allow-origin'], origin).toBeUndefined();
+      }
+    });
+
+    it('el comprador no puede reembolsarse su propia orden (403)', async () => {
+      const response = await request(API())
+        .patch(`/orders/${mariaOrderId}/refund`)
+        .set('Authorization', `Bearer ${mariaToken}`);
+
+      expectProblemDetails(response, 403);
+    });
+
+    it('el admin reembolsa y la entrada reembolsada ya no sirve para ingresar', async () => {
+      const refunded = await request(API())
+        .patch(`/orders/${mariaOrderId}/refund`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+      expect(refunded.body.status).toBe('refunded');
+
+      const ticket = await request(API())
+        .get(`/tickets/${mariaTicketId}`)
+        .set('Authorization', `Bearer ${mariaToken}`)
+        .expect(200);
+      expect(ticket.body.status).toBe('CANCELLED');
+
+      const scan = await request(API())
+        .post(`/check-in/${mariaTicketId}/scan`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({ eventId: 'e1' });
+      expectProblemDetails(scan, 404);
+    });
+
+    it('el check-in exige el evento (400 sin eventId)', async () => {
+      const response = await request(API())
+        .post(`/check-in/${mariaTicketId}/scan`)
+        .set('Authorization', `Bearer ${staffToken}`)
+        .send({});
+
+      expectProblemDetails(response, 400);
+    });
+
+    it('seis escaneos simultáneos de la misma entrada aceptan exactamente uno', async () => {
+      const orderId = await createOrder(javierToken);
+      const paid = await request(API())
+        .post(`/orders/${orderId}/pay`)
+        .set('Authorization', `Bearer ${javierToken}`)
+        .send({ card: '4111 1111 1111 1111' })
+        .expect(201);
+      const ticketId = paid.body.tickets[0].id;
+
+      const scans = await Promise.all(
+        Array.from({ length: 6 }, () =>
+          request(API())
+            .post(`/check-in/${ticketId}/scan`)
+            .set('Authorization', `Bearer ${staffToken}`)
+            .send({ eventId: 'e1' }),
+        ),
+      );
+      const statuses = scans.map(scan => scan.status).sort();
+
+      expect(statuses.filter(status => status === 201)).toHaveLength(1);
+      expect(statuses.filter(status => status === 409)).toHaveLength(5);
     });
   });
 });

@@ -13,6 +13,7 @@ describe('TicketsService (Eje B & Eje D: Entradas, Check-In y BOLA)', () => {
       save: vi.fn().mockImplementation((data: any) => Promise.resolve(data)),
       find: vi.fn(),
       findOne: vi.fn(),
+      update: vi.fn().mockResolvedValue({ affected: 1 }),
     };
     service = new TicketsService(ticketsRepo);
   });
@@ -76,7 +77,20 @@ describe('TicketsService (Eje B & Eje D: Entradas, Check-In y BOLA)', () => {
 
       expect(result.status).toBe(TicketStatus.USED);
       expect(result.scannedAt).toBeInstanceOf(Date);
-      expect(ticketsRepo.save).toHaveBeenCalledWith(expect.objectContaining({ status: TicketStatus.USED }));
+      expect(ticketsRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 't-1' }),
+        expect.objectContaining({ status: TicketStatus.USED }),
+      );
+    });
+
+    it('debe rechazar con 409 si un uso concurrente ganó la transición', async () => {
+      const ticket = new Ticket();
+      ticket.id = 't-1';
+      ticket.status = TicketStatus.ISSUED;
+      ticketsRepo.findOne.mockResolvedValue(ticket);
+      ticketsRepo.update.mockResolvedValue({ affected: 0 });
+
+      await expect(service.useTicket('t-1')).rejects.toThrow(ConflictException);
     });
 
     it('debe rechazar con 409 Conflict si la entrada ya fue utilizada (Prevención de doble uso)', async () => {

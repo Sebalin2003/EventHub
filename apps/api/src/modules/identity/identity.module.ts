@@ -9,6 +9,7 @@ import { UserDao } from './user.dao.js';
 import { HASH_STRATEGY } from './strategies/hash.strategy.js';
 import { ScryptHashStrategy } from './strategies/scrypt-hash.strategy.js';
 import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard.js';
+import { resolveJwtSecret } from '../../common/config/jwt-secret.js';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { RateLimiterGuard } from '../../common/guards/rate-limiter.guard.js';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET', 'development-secret'),
+        secret: resolveJwtSecret(config.get<string>('JWT_SECRET')),
         signOptions: { expiresIn: '1d', issuer: 'eventhub' },
         // Eje D: un token emitido por otro emisor debe rechazarse aunque la firma sea válida.
         verifyOptions: { issuer: 'eventhub' },
