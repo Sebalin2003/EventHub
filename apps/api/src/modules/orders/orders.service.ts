@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  GatewayTimeoutException,
   GoneException,
   HttpException,
   HttpStatus,
@@ -11,6 +12,7 @@ import {
   NotFoundException,
   Optional,
   PreconditionFailedException,
+  ServiceUnavailableException,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -279,21 +281,73 @@ export class OrdersService {
 
     // Fase 2: Cobrar en la pasarela externa con la orden ya bloqueada en PROCESSING.
     if (this.payments && card) {
-      let approved: boolean;
-      try {
-        approved = await this.payments.processPayment(Number(order.total), card);
-      } catch (err) {
-        if (this.dataSource && order.status === OrderStatus.PROCESSING) {
-          await this.orderRepo.update({ id: order.id, status: OrderStatus.PROCESSING }, { status: OrderStatus.PENDING });
+      const revertToPending = async () => {
+        if (order.status === OrderStatus.PROCESSING) {
+          order.status = OrderStatus.PENDING;
+          if (this.dataSource) {
+            await this.orderRepo.update({ id: order.id, status: OrderStatus.PROCESSING }, { status: OrderStatus.PENDING });
+          } else {
+            await this.orderRepo.save(order);
+          }
         }
-        throw err;
-      }
-      if (!approved) {
-        await this.runInTransaction(manager => this.cancelPending(order, manager));
-        throw new HttpException(
-          { statusCode: HttpStatus.PAYMENT_REQUIRED, message: 'Payment declined; the order was cancelled', orderId: order.id },
-          HttpStatus.PAYMENT_REQUIRED,
-        );
+      };
+
+      if (typeof (this.payments as any).processOrderPayment === 'function') {
+        let paymentRes: Awaited<ReturnType<PaymentsService['processOrderPayment']>>;
+        try {
+          paymentRes = await (this.payments as PaymentsService).processOrderPayment({
+            orderId: order.id,
+            amount: Number(order.total),
+            cardNumber: card,
+            cardHolder: buyer.email,
+          });
+        } catch (err) {
+          await revertToPending();
+          throw err;
+        }
+
+        if (!paymentRes.success) {
+          if (paymentRes.faultType === 'TIMEOUT') {
+            await revertToPending();
+            throw new GatewayTimeoutException({
+              statusCode: HttpStatus.GATEWAY_TIMEOUT,
+              message: 'La pasarela de pagos superó el tiempo máximo de espera (5s). Tu orden permanece en estado pending para reintentar.',
+              orderId: order.id,
+              code: paymentRes.code,
+              retryAfter: 30,
+            });
+          }
+          if (paymentRes.faultType === 'TECHNICAL_FAULT') {
+            await revertToPending();
+            throw new ServiceUnavailableException({
+              statusCode: HttpStatus.SERVICE_UNAVAILABLE,
+              message: 'La pasarela de pagos no está disponible temporalmente. Tu orden permanece en estado pending para reintentar.',
+              orderId: order.id,
+              code: paymentRes.code,
+              retryAfter: 30,
+            });
+          }
+          await this.runInTransaction(manager => this.cancelPending(order, manager));
+          throw new HttpException(
+            { statusCode: HttpStatus.PAYMENT_REQUIRED, message: paymentRes.reason || 'Payment declined; the order was cancelled', orderId: order.id },
+            HttpStatus.PAYMENT_REQUIRED,
+          );
+        }
+      } else {
+        let approved: boolean;
+        try {
+          approved = await this.payments.processPayment(Number(order.total), card);
+        } catch (err) {
+          await revertToPending();
+          throw err;
+        }
+        if (!approved) {
+          await this.runInTransaction(manager => this.cancelPending(order, manager));
+          throw new HttpException(
+            { statusCode: HttpStatus.PAYMENT_REQUIRED, message: 'Payment declined; the order was cancelled', orderId: order.id },
+            HttpStatus.PAYMENT_REQUIRED,
+          );
+        }
       }
     }
 

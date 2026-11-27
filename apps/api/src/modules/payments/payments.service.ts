@@ -86,6 +86,8 @@ export class SoapClientService implements OnModuleInit {
     try {
       this.client = await soap.createClientAsync(this.wsdlUrl, {
         wsdl_options: { timeout: SOAP_TIMEOUT_MS },
+        escapeXML: true,
+        disableCache: true,
       });
       this.logger.log('SOAP Client initialized successfully');
     } catch (error) {
@@ -110,6 +112,16 @@ export class SoapClientService implements OnModuleInit {
     cardHolder?: string;
   }): Promise<SoapGatewayResult> {
     const card = input.cardNumber.replace(/\s+/g, '');
+
+    if (/<!DOCTYPE|<!ENTITY/i.test(`${input.orderId} ${input.cardNumber} ${input.cardHolder ?? ''}`)) {
+      this.logger.warn('XXE injection attack detected in SOAP client request! DTD parser disabled.');
+      return {
+        status: 'ERROR',
+        faultType: 'BUSINESS_FAULT',
+        code: 'XXE_INJECTION_REJECTED',
+        reason: 'Entidades externas XML (XXE) deshabilitadas por seguridad.',
+      };
+    }
 
     if (!(input.amount > 0 && isValidCard(card))) {
       return {
@@ -282,6 +294,10 @@ export class PaymentsService {
       this.circuitState = CircuitBreakerState.OPEN;
       this.logger.warn(`Circuit Breaker OPENED after ${this.failureCount} consecutive failures`);
     }
+  }
+
+  async processOrderPayment(payment: PaymentRequest): Promise<PaymentResult> {
+    return this.processPaymentObject(payment);
   }
 
   async processPayment(payment: PaymentRequest): Promise<PaymentResult>;

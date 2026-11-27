@@ -60,6 +60,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let detail = 'An unexpected internal error occurred';
     let invalidParams: Array<{ name: string; reason: string }> | undefined = undefined;
+    let retryAfter: string | number | undefined = undefined;
 
     if (exception instanceof HttpException) {
       status = exception.getStatus();
@@ -68,6 +69,9 @@ export class ProblemDetailsFilter implements ExceptionFilter {
         detail = res;
       } else if (typeof res === 'object' && res !== null) {
         const resObj = res as Record<string, any>;
+        if (resObj.retryAfter !== undefined) {
+          retryAfter = resObj.retryAfter;
+        }
         if (Array.isArray(resObj.message)) {
           detail = resObj.message.join('; ');
           invalidParams = resObj.message.map(msg => ({
@@ -117,6 +121,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       this.logger.error(`[${status}] ${title} on ${sanitizedUrl}: ${internal}`);
     } else {
       this.logger.warn(`[${status}] ${title} on ${sanitizedUrl}: ${detail}`);
+    }
+
+    if (status === HttpStatus.SERVICE_UNAVAILABLE || status === HttpStatus.GATEWAY_TIMEOUT) {
+      response.setHeader('Retry-After', String(retryAfter ?? 30));
     }
 
     response.setHeader('Content-Type', 'application/problem+json');

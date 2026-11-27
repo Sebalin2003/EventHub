@@ -3,9 +3,10 @@
 > **Estado general del plan:**
 > - **Etapa 1:** ✅ **COMPLETADA** (Mergeada en `main` - Commit `00ee70e`)
 > - **Etapa 2:** ✅ **COMPLETADA** (Mergeada en `main` - Commit `00ee70e`)
-> - **Etapa 3:** ✅ **COMPLETADA** (Integridad de datos y concurrencia implementada)
-> - **Etapa 4:** ⏳ **PRÓXIMA A EJECUTAR (Integraciones obligatorias)**
-> - **Etapas 5 a 8:** 📋 **PLANIFICADAS / PENDIENTES**
+> - **Etapa 3:** ✅ **COMPLETADA** (Integridad de datos y concurrencia - Commit `7643236`)
+> - **Etapa 4:** ✅ **COMPLETADA** (Integraciones obligatorias: SOAP mock, Geocode mock, Topic Exchange y Fallback 503/504)
+> - **Etapa 5:** ⏳ **PRÓXIMA A EJECUTAR (Web conectada al backend)**
+> - **Etapas 6 a 8:** 📋 **PLANIFICADAS / PENDIENTES**
 
 ---
 
@@ -80,16 +81,16 @@ Hice las etapas en orden de dependencia. Las tres primeras desbloquean la aproba
 
 ---
 
-## Etapa 4 — Integraciones obligatorias · 1 persona · media — [⏳ PENDIENTE]
+## Etapa 4 — Integraciones obligatorias · 1 persona · media — [✅ COMPLETADA]
 **Objetivo:** que SOAP, REST y mensajería sean reales en la demo (G1, Eje C, checklist del TP).
 
 | Tarea | Archivos | Ref. | Estado |
 |---|---|---|:---:|
-| Servicio `soap-mock` en el compose, a partir del servidor que ya usa `soap-contract.e2e-spec.ts`, y `PAYMENTS_WSDL_URL` apuntando a él | `docker-compose.yml`, nuevo `infra/soap-mock/` | P-15 | ⏳ Pendiente |
-| Mock REST de geocodificación en el compose, con test de timeout | `docker-compose.yml`, `events.service.ts` | E3-04 | ⏳ Pendiente |
-| Exchange `topic` con 2 colas suscriptas (notificaciones y auditoría) | `broker-topology.service.ts`, `outbox.module.ts`, nuevo consumidor | P-14 | ⏳ Pendiente |
-| Fallback de pago: 503/504 con `Retry-After`, mensaje propio y la orden queda pendiente | `orders.service.ts`, `problem-details.filter.ts` | P-17 | ⏳ Pendiente |
-| Endurecer el parser del cliente `soap` y probar XXE contra el mock | `payments.service.ts` | E3-03 | ⏳ Pendiente |
+| Servicio `soap-mock` en el compose, a partir del servidor que ya usa `soap-contract.e2e-spec.ts`, y `PAYMENTS_WSDL_URL` apuntando a él | `docker-compose.yml`, nuevo `infra/soap-mock/` | P-15 | ✅ Hecho |
+| Mock REST de geocodificación en el compose, con test de timeout | `docker-compose.yml`, `events.service.ts`, nuevo `infra/geocode-mock/` | E3-04 | ✅ Hecho |
+| Exchange `topic` con 2 colas suscriptas (notificaciones y auditoría) | `broker-topology.service.ts`, `outbox.module.ts`, `topic-publisher.service.ts`, `audit-consumer.service.ts` | P-14 | ✅ Hecho |
+| Fallback de pago: 503/504 con `Retry-After`, mensaje propio y la orden queda pendiente | `orders.service.ts`, `problem-details.filter.ts` | P-17 | ✅ Hecho |
+| Endurecer el parser del cliente `soap` y probar XXE contra el mock | `payments.service.ts`, `infra/soap-mock/server.mjs` | E3-03 | ✅ Hecho |
 
 **Criterio de salida:**
 - El log de arranque dice "SOAP Client initialized".

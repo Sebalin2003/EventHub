@@ -33,6 +33,34 @@ services:
       retries: 5
     restart: unless-stopped
 
+  soap-mock:
+    build:
+      context: .
+      dockerfile: infra/soap-mock/Dockerfile
+    container_name: eventhub_soap_mock
+    ports:
+      - '4100:4100'
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4100/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  geocode-mock:
+    build:
+      context: .
+      dockerfile: infra/geocode-mock/Dockerfile
+    container_name: eventhub_geocode_mock
+    ports:
+      - '4200:4200'
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4200/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
   api:
     build:
       # Contexto en la raíz: la imagen se instala con pnpm-lock.yaml (el mismo que audita el CI).
@@ -48,6 +76,8 @@ services:
       - DB_PASSWORD=password
       - DB_DATABASE=evenhub
       - RABBITMQ_URL=amqp://user:password@rabbitmq:5672
+      - PAYMENTS_WSDL_URL=http://soap-mock:4100/payments?wsdl
+      - GEOCODING_URL=http://geocode-mock:4200/search
       # Sin valor fijo en el repo: se toma de un .env local o, si no existe,
       # la API genera un secreto aleatorio al arrancar (ver apps/api/src/common/config/jwt-secret.ts).
       - JWT_SECRET=${JWT_SECRET:-}
@@ -57,6 +87,10 @@ services:
       postgres:
         condition: service_healthy
       rabbitmq:
+        condition: service_healthy
+      soap-mock:
+        condition: service_healthy
+      geocode-mock:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://localhost:3000/events').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

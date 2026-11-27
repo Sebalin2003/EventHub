@@ -1,10 +1,11 @@
-import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, Logger, OnModuleDestroy, OnModuleInit, Optional } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
 import { InjectRepository } from '@nestjs/typeorm';
 import { firstValueFrom } from 'rxjs';
 import { timeout } from 'rxjs/operators';
 import { Repository, type EntityManager } from 'typeorm';
 import { OutboxMessage, OutboxStatus } from './outbox-message.entity.js';
+import { TopicPublisherService } from './topic-publisher.service.js';
 
 export type OutboxFlushResult = { sent: number; pending: number };
 
@@ -29,6 +30,7 @@ export class OutboxService implements OnModuleInit, OnModuleDestroy {
     private readonly outboxRepository: Repository<OutboxMessage>,
     @Inject('OUTBOX_BROKER')
     private readonly client: ClientProxy,
+    @Optional() private readonly topicPublisher?: TopicPublisherService,
   ) {}
 
   async enqueue(topic: string, payload: Record<string, unknown>, manager?: EntityManager): Promise<OutboxMessage> {
@@ -60,10 +62,14 @@ export class OutboxService implements OnModuleInit, OnModuleDestroy {
 
       for (const message of messages) {
         try {
-          await firstValueFrom(
-            this.client.emit(message.topic, message.payload).pipe(timeout(this.publishTimeoutMs)),
-            { defaultValue: undefined },
-          );
+          if (this.topicPublisher) {
+            await this.topicPublisher.publish(message.topic, message.payload, message.id);
+          } else {
+            await firstValueFrom(
+              this.client.emit(message.topic, message.payload).pipe(timeout(this.publishTimeoutMs)),
+              { defaultValue: undefined },
+            );
+          }
           message.status = OutboxStatus.SENT;
           message.sentAt = new Date();
           message.lastError = null;

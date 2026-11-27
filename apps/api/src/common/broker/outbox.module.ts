@@ -8,8 +8,10 @@ import {
   rabbitMqUrl,
 } from './broker.constants.js';
 import { BrokerTopologyService } from './broker-topology.service.js';
+import { AuditConsumerService } from './audit-consumer.service.js';
 import { OutboxMessage } from './outbox-message.entity.js';
 import { OutboxService } from './outbox.service.js';
+import { TopicPublisherService } from './topic-publisher.service.js';
 
 @Module({
   imports: [
@@ -31,7 +33,7 @@ import { OutboxService } from './outbox.service.js';
       },
     ]),
   ],
-  providers: [OutboxService, BrokerTopologyService],
-  exports: [OutboxService, BrokerTopologyService],
+  providers: [OutboxService, BrokerTopologyService, TopicPublisherService, AuditConsumerService],
+  exports: [OutboxService, BrokerTopologyService, TopicPublisherService, AuditConsumerService],
 })
 export class OutboxModule {}

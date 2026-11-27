@@ -281,8 +281,10 @@ export class EventsService implements OnModuleInit {
 
   private async geocode(location: string | null) {
     if (!location) return { lat: null, lon: null };
+    const baseUrl = process.env.GEOCODING_URL || 'https://nominatim.openstreetmap.org/search';
+    const separator = baseUrl.includes('?') ? '&' : '?';
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(location)}`, {
+      const res = await fetch(`${baseUrl}${separator}format=json&limit=1&q=${encodeURIComponent(location)}`, {
         headers: { 'User-Agent': 'EventHub/1.0 (proyecto academico UADE)' },
         signal: AbortSignal.timeout(GEOCODING_TIMEOUT_MS),
       });

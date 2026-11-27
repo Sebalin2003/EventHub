@@ -1,6 +1,9 @@
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import * as amqp from 'amqplib';
 import {
+  AUDIT_QUEUE,
+  EVENTS_TOPIC_EXCHANGE,
+  EVENTS_TOPIC_PATTERN,
   NOTIFICATIONS_DLQ,
   NOTIFICATIONS_DLX,
   NOTIFICATIONS_QUEUE,
@@ -43,6 +46,7 @@ export class BrokerTopologyService implements OnModuleInit, OnModuleDestroy {
       channel.on('error', () => undefined);
 
       await channel.assertExchange(NOTIFICATIONS_DLX, 'direct', { durable: true });
+      await channel.assertExchange(EVENTS_TOPIC_EXCHANGE, 'topic', { durable: true });
       await channel.assertQueue(NOTIFICATIONS_DLQ, { durable: true });
       await channel.bindQueue(NOTIFICATIONS_DLQ, NOTIFICATIONS_DLX, NOTIFICATIONS_DLQ);
 
@@ -74,13 +78,17 @@ export class BrokerTopologyService implements OnModuleInit, OnModuleDestroy {
         }
       }
 
+      await channel.bindQueue(NOTIFICATIONS_QUEUE, EVENTS_TOPIC_EXCHANGE, EVENTS_TOPIC_PATTERN);
+      await channel.assertQueue(AUDIT_QUEUE, { durable: true });
+      await channel.bindQueue(AUDIT_QUEUE, EVENTS_TOPIC_EXCHANGE, EVENTS_TOPIC_PATTERN);
+
       await channel.close();
       await connection.close();
       this.ready = true;
       if (this.retryTimer) clearInterval(this.retryTimer);
       this.retryTimer = undefined;
       this.logger.log(
-        `[BROKER] Topologia lista: ${NOTIFICATIONS_QUEUE} -> ${NOTIFICATIONS_DLX} -> ${NOTIFICATIONS_DLQ}`,
+        `[BROKER] Topologia lista: ${EVENTS_TOPIC_EXCHANGE} (topic) -> [${NOTIFICATIONS_QUEUE}, ${AUDIT_QUEUE}] | DLX: ${NOTIFICATIONS_DLX} -> ${NOTIFICATIONS_DLQ}`,
       );
     } catch (error) {
       this.ready = false;

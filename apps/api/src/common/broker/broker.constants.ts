@@ -1,6 +1,9 @@
 export const NOTIFICATIONS_QUEUE = 'notifications_queue';
+export const AUDIT_QUEUE = 'audit_queue';
 export const NOTIFICATIONS_DLQ = 'notifications_dlq';
 export const NOTIFICATIONS_DLX = 'eventhub.dlx';
+export const EVENTS_TOPIC_EXCHANGE = 'eventhub.events';
+export const EVENTS_TOPIC_PATTERN = '#';
 
 export const DEFAULT_RABBITMQ_URL = 'amqp://user:password@localhost:5672';
 

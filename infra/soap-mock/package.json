@@ -1,0 +1,12 @@
+{
+  "name": "eventhub-soap-mock",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "soap": "^1.1.10"
+  }
+}
