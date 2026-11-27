@@ -367,7 +367,8 @@ export const openApiDocument = {
     '/orders/{id}/refund': {
       patch: {
         tags: ['Órdenes'],
-        summary: 'Reembolsar orden pagada',
+        summary: 'Reembolsar orden pagada (admin u organizador del evento)',
+        description: 'Cancela las entradas sin usar y devuelve el cupo. Rechaza con 409 si alguna entrada ya se usó.',
         security: [{ bearerAuth: [] }],
         parameters: [
           { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
@@ -375,6 +376,9 @@ export const openApiDocument = {
         ],
         responses: {
           '200': { description: 'Orden reembolsada', content: { 'application/json': { schema: { $ref: '#/components/schemas/Order' } } } },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
+          '404': { $ref: '#/components/responses/NotFound' },
           '409': { $ref: '#/components/responses/Conflict' },
           '412': { description: 'ETag desactualizado', content: { 'application/problem+json': { schema: { $ref: '#/components/schemas/ProblemDetails' } } } },
         },
@@ -383,33 +387,40 @@ export const openApiDocument = {
     '/payments/process': {
       post: {
         tags: ['Pagos'],
-        summary: 'Procesar pago SOAP (mock resiliente)',
+        summary: 'Procesar pago SOAP directo (solo admin, diagnóstico)',
+        security: [{ bearerAuth: [] }],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/PaymentRequest' } } } },
         responses: {
           '200': { description: 'Resultado del pago', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaymentResult' } } } },
           '400': { $ref: '#/components/responses/BadRequest' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
     '/payments': {
       post: {
         tags: ['Pagos'],
-        summary: 'Procesar pago autenticado',
+        summary: 'Procesar pago directo (solo admin)',
         security: [{ bearerAuth: [] }],
         requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/PaymentDto' } } } },
         responses: {
           '201': { description: 'Resultado', content: { 'application/json': { schema: { $ref: '#/components/schemas/PaymentApproval' } } } },
           '400': { $ref: '#/components/responses/BadRequest' },
           '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
         },
       },
     },
     '/payments/circuit-breaker': {
       get: {
         tags: ['Pagos'],
-        summary: 'Estado del circuit breaker',
+        summary: 'Estado del circuit breaker (solo admin)',
+        security: [{ bearerAuth: [] }],
         responses: {
           '200': { description: 'Estado', content: { 'application/json': { schema: { $ref: '#/components/schemas/CircuitBreakerStatus' } } } },
+          '401': { $ref: '#/components/responses/Unauthorized' },
+          '403': { $ref: '#/components/responses/Forbidden' },
           '500': { $ref: '#/components/responses/InternalError' },
         },
       },
@@ -484,9 +495,11 @@ export const openApiDocument = {
         summary: 'Escanear entrada (staff/organizador/admin)',
         security: [{ bearerAuth: [] }],
         parameters: [{ name: 'ticketId', in: 'path', required: true, schema: { type: 'string' } }],
-        requestBody: { required: false, content: { 'application/json': { schema: { $ref: '#/components/schemas/ScanRequest' } } } },
+        requestBody: { required: true, content: { 'application/json': { schema: { $ref: '#/components/schemas/ScanRequest' } } } },
         responses: {
           '201': { description: 'Entrada válida', content: { 'application/json': { schema: { $ref: '#/components/schemas/ScanResult' } } } },
+          '400': { $ref: '#/components/responses/BadRequest' },
+          '401': { $ref: '#/components/responses/Unauthorized' },
           '403': { $ref: '#/components/responses/Forbidden' },
           '404': { $ref: '#/components/responses/NotFound' },
           '409': { $ref: '#/components/responses/Conflict' },
@@ -842,7 +855,8 @@ export const openApiDocument = {
       },
       ScanRequest: {
         type: 'object',
-        properties: { eventId: { type: 'string' } },
+        required: ['eventId'],
+        properties: { eventId: { type: 'string', description: 'UUID o legacyId del evento en el que se valida la entrada' } },
       },
       ScanResult: {
         type: 'object',
