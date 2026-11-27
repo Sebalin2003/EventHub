@@ -11,6 +11,7 @@ import { InventoryModule } from '../inventory/inventory.module.js';
 import { PaymentsModule } from '../payments/payments.module.js';
 import { TicketsModule } from '../tickets/tickets.module.js';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard.js';
+import { RolesGuard } from '../../common/guards/roles.guard.js';
 import { OutboxModule } from '../../common/broker/outbox.module.js';
 import {
   NOTIFICATIONS_DLQ,
@@ -46,7 +47,7 @@ import {
     ]),
   ],
   controllers: [OrdersController],
-  providers: [OrdersService, JwtAuthGuard],
+  providers: [OrdersService, JwtAuthGuard, RolesGuard],
   exports: [OrdersService],
 })
 export class OrdersModule {}

@@ -10,6 +10,7 @@ import {
   Logger,
   NotFoundException,
   Optional,
+  PreconditionFailedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -24,8 +25,11 @@ import { InventoryService } from '../inventory/inventory.service.js';
 import { PaymentsService } from '../payments/payments.service.js';
 import { TicketsService } from '../tickets/tickets.service.js';
 import { OutboxService } from '../../common/broker/outbox.service.js';
+import { UserRole } from '../identity/entities/user.entity.js';
+import { TicketStatus } from '../tickets/entities/ticket.entity.js';
 
 export type Buyer = { sub: string; email: string };
+export type Actor = { sub: string; role?: string };
 
 /**
  * Flujo de compra: crear orden (toma HOLD de inventario, precios del servidor)
@@ -268,10 +272,46 @@ export class OrdersService {
     return this.orderRepo.save(order);
   }
 
-  async refundOrder(id: string, userId: string): Promise<Order> {
-    const order = await this.findOne(id, userId);
-    order.refund();
-    return this.orderRepo.save(order);
+  /**
+   * Reembolso (Eje D / patrón State). Solo lo puede hacer un administrador o el organizador
+   * dueño de todos los eventos de la orden: el comprador no se reembolsa a sí mismo.
+   * Cancela las entradas sin usar y devuelve el cupo, así una entrada reembolsada no sirve
+   * para ingresar. Si alguna entrada ya se usó, el reembolso se rechaza con 409.
+   */
+  async refundOrder(id: string, actor: Actor, expectedVersion?: string): Promise<Order> {
+    const order = await this.orderRepo.findOne({ where: { id }, relations: { items: true } });
+    if (!order) throw new NotFoundException(`Order with ID ${id} not found`);
+
+    if (actor.role !== UserRole.ADMIN) {
+      const events = actor.role === UserRole.ORGANIZER && this.eventDao
+        ? await Promise.all((order.items ?? []).map(item => this.eventDao!.findOne(item.eventId)))
+        : [];
+      const ownsAll = events.length > 0 && events.every(event => event.organizerId === actor.sub);
+      if (!ownsAll) {
+        throw new ForbiddenException('Only an administrator or the event organizer can refund an order');
+      }
+    }
+
+    if (expectedVersion !== undefined && expectedVersion !== String(order.version)) {
+      throw new PreconditionFailedException('Actualización concurrente rechazada: El ETag provisto está desactualizado.');
+    }
+
+    const issued = this.tickets ? await this.tickets.findByOrder(order.id) : [];
+    if (issued.some(ticket => ticket.status === TicketStatus.USED || ticket.status === TicketStatus.SCANNED)) {
+      throw new ConflictException('Cannot refund an order whose tickets were already used');
+    }
+
+    order.refund(); // State: solo PAID -> REFUNDED; cualquier otra transición responde 409.
+    const saved = await this.orderRepo.save(order);
+
+    if (this.tickets) await this.tickets.cancelByOrder(order.id);
+    for (const item of order.items ?? []) {
+      if (this.eventsService) await this.eventsService.releaseSale(item.eventId, item.ticketTypeId ?? '', item.quantity);
+      if (this.inventory) await this.inventory.restock(item.eventId, item.quantity);
+    }
+
+    this.logger.log(`Order refunded: ${order.id} by ${actor.role}`);
+    return saved;
   }
 
   private async cancelPending(order: Order) {

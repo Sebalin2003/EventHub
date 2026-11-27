@@ -175,6 +175,19 @@ export class EventsService implements OnModuleInit {
     return this.eventDao.save(event);
   }
 
+  // Revierte una venta (reembolso): resta lo vendido sin bajar de cero.
+  async releaseSale(eventId: string, ticketTypeId: string, quantity: number) {
+    const event = await this.eventDao.findOne(eventId);
+    const ticketType = event.ticketTypes.find(ticket => ticket.id === ticketTypeId);
+    if (ticketType) {
+      ticketType.sold = Math.max(0, ticketType.sold - quantity);
+      ticketType.status = ticketType.sold >= ticketType.totalQuantity ? 'VENDIDO' : 'DISPONIBLE';
+      event.ticketTypes = [...event.ticketTypes];
+    }
+    event.registered = Math.max(0, event.registered - quantity);
+    return this.eventDao.save(event);
+  }
+
   private async applyData(event: Event, data: UpdateEventDto) {
     const { ticketTypes, ...rest } = data;
     // Los DTO transformados traen las propiedades no enviadas como undefined: no deben pisar datos.

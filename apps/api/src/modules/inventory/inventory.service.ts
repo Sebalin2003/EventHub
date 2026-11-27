@@ -149,6 +149,24 @@ export class InventoryService implements OnModuleInit, OnModuleDestroy {
     });
   }
 
+  /** Devuelve cupo al inventario (reembolso de entradas ya confirmadas). */
+  async restock(rawEventId: string, quantity: number) {
+    this.ensureInitialized();
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new BadRequestException('Quantity must be a positive integer');
+    }
+    const event = await this.eventDao.findOne(rawEventId);
+    const eventId = event.id;
+    return this.serializeMutation(async () => {
+      const inventory = await this.inventoryDao.findOne(eventId);
+      // Sin registro propio, la disponibilidad sale de capacity - registered, que ya bajó al revertir la venta.
+      if (!inventory) return { eventId, available: await this.storedAvailable(event) };
+      const available = inventory.available + quantity;
+      await this.inventoryDao.save({ eventId, available });
+      return { eventId, available };
+    });
+  }
+
   // Un evento sin registro de inventario arranca con los lugares libres según su capacidad.
   private async storedAvailable(event: Event) {
     const inventory = await this.inventoryDao.findOne(event.id);

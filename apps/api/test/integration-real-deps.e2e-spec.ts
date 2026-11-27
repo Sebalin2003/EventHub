@@ -171,9 +171,11 @@ describe.sequential('Eje B - Integracion con PostgreSQL y RabbitMQ reales', () =
   });
 
   it('rechaza una transicion invalida con 409 Problem Details', async () => {
+    // El reembolso es una operación de administración; sobre una orden PENDING el State responde 409.
+    const adminToken = await login('admin@eventhub.com.ar');
     const response = await request(API())
       .patch(`/orders/${orderId}/refund`)
-      .set('Authorization', `Bearer ${attendeeToken}`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .expect(409);
 
     expect(response.headers['content-type']).toContain('application/problem+json');

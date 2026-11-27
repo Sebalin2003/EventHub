@@ -24,6 +24,7 @@ describe('TicketsService - cobertura de estados y autorización (Eje B)', () => 
       save: vi.fn(async (data: any) => data),
       find: vi.fn(),
       findOne: vi.fn(),
+      update: vi.fn(async () => ({ affected: 1 })),
     };
     service = new TicketsService(repo);
   });
@@ -168,7 +169,45 @@ describe('TicketsService - cobertura de estados y autorización (Eje B)', () => 
       expect(result.result).toBe('ENTRADA_VALIDA');
       expect(result.ticket?.status).toBe('SCANNED');
       expect(result.ticket?.scannedAt).toBeInstanceOf(Date);
-      expect(repo.save).toHaveBeenCalledWith(ticket);
+      // El UPDATE solo aplica si la entrada sigue sin usar (transición atómica).
+      expect(repo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 't-1', status: expect.anything() }),
+        expect.objectContaining({ status: TicketStatus.SCANNED }),
+      );
+    });
+
+    it('si otro escaneo concurrente ganó el UPDATE, responde ENTRADA_YA_UTILIZADA', async () => {
+      repo.findOne
+        .mockResolvedValueOnce(makeTicket())
+        .mockResolvedValueOnce(makeTicket({ status: TicketStatus.SCANNED }));
+      repo.update.mockResolvedValue({ affected: 0 });
+
+      const result = await service.checkIn('t-1', 'evt-1');
+
+      expect(result.result).toBe('ENTRADA_YA_UTILIZADA');
+    });
+
+    it('si la entrada se canceló en el medio, responde ENTRADA_INVALIDA', async () => {
+      repo.findOne
+        .mockResolvedValueOnce(makeTicket())
+        .mockResolvedValueOnce(makeTicket({ status: TicketStatus.CANCELLED }));
+      repo.update.mockResolvedValue({ affected: 0 });
+
+      const result = await service.checkIn('t-1', 'evt-1');
+
+      expect(result.result).toBe('ENTRADA_INVALIDA');
+    });
+  });
+
+  describe('cancelByOrder (reembolso)', () => {
+    it('cancela solo las entradas sin usar de la orden', async () => {
+      repo.update.mockResolvedValue({ affected: 2 });
+
+      await expect(service.cancelByOrder('ord-1')).resolves.toBe(2);
+      expect(repo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ orderId: 'ord-1' }),
+        { status: TicketStatus.CANCELLED },
+      );
     });
   });
 });

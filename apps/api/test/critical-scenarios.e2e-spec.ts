@@ -230,6 +230,22 @@ describe('Eje A: 5 Escenarios Críticos Automatizados de Punta a Punta (E2E)', (
           }
           return null;
         }),
+        // UPDATE condicional como el de la base: solo afecta filas que cumplen el criterio
+        // (incluido el estado con In(...)), así se respeta la transición atómica del check-in.
+        update: vi.fn(async (where: any, values: any) => {
+          let affected = 0;
+          for (const item of store.values()) {
+            const matchesId = where.id === undefined || item.id === where.id;
+            const matchesOrder = where.orderId === undefined || item.orderId === where.orderId;
+            const allowed = where.status?.value ?? (where.status === undefined ? undefined : [where.status]);
+            const matchesStatus = allowed === undefined || allowed.includes(item.status);
+            if (matchesId && matchesOrder && matchesStatus) {
+              Object.assign(item, values);
+              affected += 1;
+            }
+          }
+          return { affected };
+        }),
       };
       ticketsService = new TicketsService(ticketsRepoMock);
     });
