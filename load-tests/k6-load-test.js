@@ -141,7 +141,8 @@ export default function (data) {
       params,
     );
     check(resPay, {
-      'POST /orders/:id/pay procesa el pago': (r) => r.status === 200 || r.status === 402 || r.status === 503 || r.status === 504,
+      // El controlador POST devuelve 201 (Nest por defecto); 402/503/504 son respuestas de pago rechazado/falla de pasarela.
+      'POST /orders/:id/pay procesa el pago': (r) => [200, 201, 402, 503, 504].includes(r.status),
     });
   }
 

@@ -1956,7 +1956,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"card\": \"4111 1111 1111 4002\"\n}"
+              "raw": "{\n  \"card\": \"4111 1111 1117 4002\"\n}"
             },
             "url": "{{baseUrl}}/orders/{{orderId4}}/pay"
           },
@@ -1989,7 +1989,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"items\": [\n    {\n      \"eventId\": \"e3\",\n      \"ticketType\": \"tt3a\",\n      \"quantity\": 1\n    }\n  ]\n}"
+              "raw": "{\n  \"items\": [\n    {\n      \"eventId\": \"e4\",\n      \"ticketType\": \"tt4a\",\n      \"quantity\": 1\n    }\n  ]\n}"
             },
             "url": "{{baseUrl}}/orders"
           },
@@ -2231,7 +2231,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"orderId\": \"pm-bad-{{$timestamp}}\",\n  \"amount\": 15000,\n  \"cardNumber\": \"4111111111114001\"\n}"
+              "raw": "{\n  \"orderId\": \"pm-bad-{{$timestamp}}\",\n  \"amount\": 15000,\n  \"cardNumber\": \"4111111111184001\"\n}"
             },
             "url": "{{baseUrl}}/payments/process"
           },

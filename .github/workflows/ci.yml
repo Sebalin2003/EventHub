@@ -133,6 +133,9 @@ jobs:
           console.log('Criterio Eje B cumplido: lineas >= 80%, ramas >= 70% (medido: ' + lines + '/' + branches + ').');
           NODE
 
+      - name: Eje B - Levantar mocks SOAP y geocodificacion para Newman
+        run: docker compose up -d --build --wait soap-mock geocode-mock
+
       - name: Eje B - Levantar API contra PostgreSQL y RabbitMQ del pipeline
         env:
           DB_HOST: 127.0.0.1
@@ -142,6 +145,8 @@ jobs:
           DB_DATABASE: evenhub
           RABBITMQ_URL: amqp://user:password@localhost:5672
           JWT_SECRET: ci-testing-jwt-secret-key-eventhub-2026
+          PAYMENTS_WSDL_URL: http://localhost:4100/payments?wsdl
+          GEOCODING_URL: http://localhost:4200/search
           PORT: 3000
         run: |
           mkdir -p apps/api/reports/newman

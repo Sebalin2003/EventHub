@@ -84,11 +84,21 @@ export class SoapClientService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      this.client = await soap.createClientAsync(this.wsdlUrl, {
-        wsdl_options: { timeout: SOAP_TIMEOUT_MS },
-        escapeXML: true,
-        disableCache: true,
-      });
+      // El WSDL de la pasarela de prueba declara `localhost:4100`, que no resuelve
+      // desde el contenedor de la API. Derivar el endpoint de la misma URL del WSDL
+      // permite usar el mock tanto desde el host (CI Newman) como desde Docker.
+      const endpoint =
+        process.env.PAYMENTS_SOAP_ENDPOINT ??
+        (process.env.PAYMENTS_WSDL_URL ? this.wsdlUrl.split('?')[0] : undefined);
+      this.client = await soap.createClientAsync(
+        this.wsdlUrl,
+        {
+          wsdl_options: { timeout: SOAP_TIMEOUT_MS },
+          escapeXML: true,
+          disableCache: true,
+        },
+        endpoint,
+      );
       this.logger.log('SOAP Client initialized successfully');
     } catch (error) {
       this.logger.warn(`SOAP WSDL unavailable (${(error as Error).message.split('\n')[0]}). Using mock gateway.`);
