@@ -17,7 +17,6 @@ export const options = {
 };
 
 const BASE_URL = __ENV.API_URL || 'http://localhost:3000';
-let vuToken = null;
 
 export function setup() {
   const runId = Date.now();
@@ -62,30 +61,28 @@ export function setup() {
   );
   check(published, { 'evento k6 publicado': (r) => r.status === 200 || r.status === 201 });
 
-  return { eventId, runId };
-}
+  const tokens = [];
+  for (let i = 1; i <= 50; i += 1) {
+    const email = `k6-vu-${i}-${runId}@eventhub.com.ar`;
+    const password = 'Password123!';
+    http.post(
+      `${BASE_URL}/auth/register`,
+      JSON.stringify({ email, password, firstName: 'Load', lastName: `VU${i}` }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+    const login = http.post(
+      `${BASE_URL}/auth/login`,
+      JSON.stringify({ email, password }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
+    tokens.push(login.json('accessToken'));
+  }
 
-function ensureVuToken(runId) {
-  if (vuToken) return vuToken;
-  const email = `k6-vu-${__VU}-${runId}@eventhub.com.ar`;
-  const password = 'Password123!';
-  http.post(
-    `${BASE_URL}/auth/register`,
-    JSON.stringify({ email, password, firstName: 'Load', lastName: `VU${__VU}` }),
-    { headers: { 'Content-Type': 'application/json' } },
-  );
-  const login = http.post(
-    `${BASE_URL}/auth/login`,
-    JSON.stringify({ email, password }),
-    { headers: { 'Content-Type': 'application/json' } },
-  );
-  check(login, { 'login VU exitoso': (r) => r.status === 200 });
-  vuToken = login.json('accessToken');
-  return vuToken;
+  return { eventId, tokens };
 }
 
 export default function (data) {
-  const token = ensureVuToken(data.runId);
+  const token = data.tokens[(__VU - 1) % data.tokens.length];
   const params = {
     headers: {
       'Content-Type': 'application/json',
@@ -147,6 +144,8 @@ export default function (data) {
       'POST /orders/:id/pay procesa el pago': (r) => r.status === 200 || r.status === 402 || r.status === 503 || r.status === 504,
     });
   }
+
+  sleep(1);
 }
 
 export function handleSummary(data) {
@@ -154,6 +153,9 @@ export function handleSummary(data) {
   const safe = JSON.parse(JSON.stringify(data));
   if (safe.setup_data?.token) {
     safe.setup_data.token = '[REDACTED]';
+  }
+  if (Array.isArray(safe.setup_data?.tokens)) {
+    safe.setup_data.tokens = ['[REDACTED]'];
   }
 
   return {

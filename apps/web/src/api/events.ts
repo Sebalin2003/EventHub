@@ -87,6 +87,7 @@ export function mapApiEvent(raw: ApiEvent): Event {
   }))
   return {
     id,
+    apiId: raw.id,
     title: raw.title,
     description: raw.description,
     category: (raw.category ?? 'conferencia') as Event['category'],

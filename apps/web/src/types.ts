@@ -56,6 +56,7 @@ export interface Seat {
 
 export interface Event {
   id: string
+  apiId?: string
   title: string
   description: string
   category: EventCategory

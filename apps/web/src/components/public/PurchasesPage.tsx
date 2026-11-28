@@ -40,7 +40,7 @@ export default function PurchasesPage({ orders, events, currentUser, dispatch, o
   }
   const apiMapped: Order[] = apiOrders.map(apiOrder => {
     const first = apiOrder.items[0]
-    const event = events.find(item => item.id === first?.eventId)
+    const event = events.find(item => item.id === first?.eventId || item.apiId === first?.eventId)
     const totalCents = Math.round(Number(apiOrder.total) * 100)
     const unitCents = Math.round(Number(first?.unitPrice ?? 0) * 100)
     return {
@@ -93,7 +93,7 @@ export default function PurchasesPage({ orders, events, currentUser, dispatch, o
     <div className="page-heading"><h1>Mis compras</h1><p>Consulta cada orden, sus entradas y el historial de cancelación.</p></div>
     {sorted.length === 0 ? <EmptyState title="Todavía no hay compras" message="Cuando confirmes una orden podrás consultar aquí todos sus importes y entradas." action="Volver al inicio" onAction={onHome} /> :
       <div className="purchase-list">{sorted.map(order => {
-        const event = events.find(item => item.id === order.eventId)
+        const event = events.find(item => item.id === order.eventId || item.apiId === order.eventId)
         const open = expanded === order.id
         const policy = order.refundPolicySnapshot
         const eligible = isEligible(order, event)

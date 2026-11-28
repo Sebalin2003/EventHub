@@ -182,7 +182,7 @@ describe('Eje A: 5 Escenarios Críticos Automatizados de Punta a Punta (E2E)', (
       const paymentResult = await paymentsService.processPayment({
         orderId: order.id,
         amount: order.total,
-        cardNumber: '4500 0000 0000 0000',
+        cardNumber: '4242 4242 4242 4242',
       });
       expect(paymentResult.success).toBe(true);
       expect(paymentResult.code).toBe('APPROVED');

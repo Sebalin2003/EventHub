@@ -415,8 +415,6 @@ jobs:
 
       - name: Eje D - ZAP baseline (0 High)
         run: |
-          mkdir -p docs/evidencias/zap
-          chmod -R a+rwx docs/evidencias/zap
           docker run --rm --network host \
             -v "$PWD/docs/evidencias/zap:/zap/wrk:rw" \
             zaproxy/zap-stable zap-baseline.py \
