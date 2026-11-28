@@ -16,11 +16,19 @@ EventHub está preparado para desplegarse de manera inmediata en la nube:
 
 ## ⚡ Ejecución Rápida Local (Condición G1)
 
-Levanta el stack completo (**PostgreSQL 15**, **RabbitMQ 3**, **API NestJS** y **Frontend React**) con **un solo comando reproducible**:
+Levanta el stack completo (**PostgreSQL 15**, **RabbitMQ 3**, **API NestJS**, **Frontend React** y los mocks de SOAP y geocodificación) con **un solo comando reproducible**.
+
+**Requisitos:** Git y Docker con Docker Compose v2, con el daemon en marcha. Los puertos 3000, 4100, 4200, 5173, 5432, 5672 y 15672 tienen que estar libres. No hace falta Node, pnpm ni crear un `.env`: si no se define `JWT_SECRET`, la API genera uno aleatorio al arrancar.
 
 ```bash
+git clone https://github.com/Sebalin2003/EventHub.git
+cd EventHub
 docker compose up -d --build --wait
 ```
+
+El comando termina cuando todos los contenedores están `healthy`. En el runner de GitHub Actions (job G1) tarda alrededor de 1 min 20 s. En una máquina que no tiene las imágenes descargadas tarda más, por la descarga y el build.
+
+Para apagar todo y borrar los datos: `docker compose down -v`.
 
 ### Servicios Disponibles:
 - 🌐 **Frontend Web:** [http://localhost:5173](http://localhost:5173)
