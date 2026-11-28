@@ -54,7 +54,7 @@ test.describe('Accesibilidad WCAG 2.2 AA (axe-core)', () => {
 
   test('Checkout sin violaciones críticas ni serias', async ({ page }) => {
     await gotoHome(page)
-    await loginWithCredentials(page, 'maria@eventhub.com.ar')
+    await loginWithCredentials(page, 'javier@eventhub.com.ar')
     await openEventFromExplore(page, 'E-commerce', 'E-commerce para Emprendimientos')
     await page.getByRole('button', { name: 'Elegir entradas' }).click()
     await expect(page.getByRole('heading', { level: 1, name: 'Checkout' })).toBeVisible()

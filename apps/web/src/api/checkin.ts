@@ -22,10 +22,17 @@ export async function scanTicket(ticketId: string, eventId: string): Promise<Che
   })
   const body = await response.json().catch(() => null) as CheckInApiResult | {
     statusCode?: number
-    message?: string
+    status?: number
+    detail?: string
+    message?: string | string[]
   } | null
   if (!response.ok) {
-    const message = body && 'message' in body ? body.message : `Escaneo rechazado (${response.status})`
+    const raw = body && 'detail' in body && body.detail
+      ? body.detail
+      : body && 'message' in body
+        ? body.message
+        : `Escaneo rechazado (${response.status})`
+    const message = Array.isArray(raw) ? raw.join(', ') : raw
     throw new Error(typeof message === 'string' ? message : 'Escaneo rechazado')
   }
   return body as CheckInApiResult

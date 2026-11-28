@@ -10,7 +10,6 @@ import { InventoryDao } from '../inventory/inventory.dao.js';
 import { EventDao } from '../events/event.dao.js';
 import { EventsService } from '../events/events.service.js';
 import { EventFactory } from '../events/event.factory.js';
-import { EventStatus } from '../events/entities/event.entity.js';
 import { OrdersService } from './orders.service.js';
 import { Order, OrderStatus } from './entities/order.entity.js';
 import { NotificationsService } from '../notifications/notifications.service.js';

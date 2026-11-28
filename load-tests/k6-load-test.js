@@ -17,29 +17,79 @@ export const options = {
 };
 
 const BASE_URL = __ENV.API_URL || 'http://localhost:3000';
+let vuToken = null;
 
 export function setup() {
-  const login = http.post(
+  const runId = Date.now();
+  const orgLogin = http.post(
     `${BASE_URL}/auth/login`,
-    JSON.stringify({ email: 'maria@eventhub.com.ar', password: 'password' }),
+    JSON.stringify({ email: 'eventos@eventhub.com.ar', password: 'password' }),
     { headers: { 'Content-Type': 'application/json' } },
   );
+  check(orgLogin, { 'login organizador exitoso': (r) => r.status === 200 });
+  const orgToken = orgLogin.json('accessToken');
 
-  check(login, { 'login inicial exitoso': (r) => r.status === 200 });
-  const token = login.json('accessToken');
+  const start = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+  const created = http.post(
+    `${BASE_URL}/organizer/events`,
+    JSON.stringify({
+      title: `Evento Carga k6 ${runId}`,
+      description: 'Evento de alta capacidad para pruebas de carga k6.',
+      category: 'conferencia',
+      modality: 'online',
+      date: start.toISOString(),
+      endDate: end.toISOString(),
+      venue: 'Online',
+      city: 'Online',
+      capacity: 100000,
+      ticketTypes: [{ name: 'General', price: 1000, totalQuantity: 100000 }],
+    }),
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${orgToken}`,
+      },
+    },
+  );
+  check(created, { 'evento k6 creado': (r) => r.status === 201 });
+  const eventId = created.json('id');
 
-  const events = http.get(`${BASE_URL}/events`);
-  check(events, { 'catalogo disponible en setup': (r) => r.status === 200 });
-  const eventId = events.json('0.id') || 'e1';
+  const published = http.post(
+    `${BASE_URL}/organizer/events/${eventId}/publish`,
+    null,
+    { headers: { Authorization: `Bearer ${orgToken}` } },
+  );
+  check(published, { 'evento k6 publicado': (r) => r.status === 200 || r.status === 201 });
 
-  return { token, eventId };
+  return { eventId, runId };
+}
+
+function ensureVuToken(runId) {
+  if (vuToken) return vuToken;
+  const email = `k6-vu-${__VU}-${runId}@eventhub.com.ar`;
+  const password = 'Password123!';
+  http.post(
+    `${BASE_URL}/auth/register`,
+    JSON.stringify({ email, password, firstName: 'Load', lastName: `VU${__VU}` }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+  const login = http.post(
+    `${BASE_URL}/auth/login`,
+    JSON.stringify({ email, password }),
+    { headers: { 'Content-Type': 'application/json' } },
+  );
+  check(login, { 'login VU exitoso': (r) => r.status === 200 });
+  vuToken = login.json('accessToken');
+  return vuToken;
 }
 
 export default function (data) {
+  const token = ensureVuToken(data.runId);
   const params = {
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Bearer ${data.token}`,
+      Authorization: `Bearer ${token}`,
       'User-Agent': 'k6-load-testing-agent',
     },
   };
