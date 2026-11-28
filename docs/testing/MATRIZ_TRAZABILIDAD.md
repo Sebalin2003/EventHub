@@ -4,7 +4,7 @@ Los 43 criterios Gherkin de [Clase15_GrupoEventHub_Testing.md](./Clase15_GrupoEv
 
 **Clasificación:** 21 de 43 criterios (48,8 %) son negativos. Se cuentan como negativos los criterios que esperan rechazo, error de autorización/validación, conflicto, bloqueo de seguridad o recuperación ante falla externa. Los casos de borde, alternativos y no funcionales no se suman como negativos solo por ser casos especiales.
 
-**Vigencia de resultados:** los resultados registrados en el informe original corresponden a la evidencia previa del 12/11/2026. La última CI consultada, run [#46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262), falló y no habilita a afirmar que todos los criterios pasaron en esa corrida. El caso TC-HU02-C3 sí se volvió a ejecutar dentro de las 307 pruebas unitarias locales del 28/11/2026.
+**Vigencia de resultados:** los estados técnicos de la matriz están respaldados por el run [46165701834](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834) (28/11/2026, commit `65e0dd8`), que terminó con 6/6 jobs en verde: suites de API con cobertura y E2E, Newman, Playwright 18/18, k6, mutación y ZAP. La medición de cobertura sobre ese commit dio 318/318 tests API con 91,55 % de líneas y 81,59 % de ramas. Los casos que dependen del docente (prueba del manual y exploratoria) y los estados de Jira no se verifican desde el repositorio.
 
 | Criterio | Caso | Tipo | Evidencia automatizada | Resultado registrado | Defecto |
 |---|---|---|---|---|---|

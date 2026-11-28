@@ -1,6 +1,6 @@
 # Evidencia para G4 (Teams) y G5 (Jira)
 
-Estado al **28/11/2026**. Este archivo es una guía operativa: reúne qué subir a Teams, qué cargar en Jira y qué campos faltan completar con datos del equipo. La última CI consultada (run `46105294262`, 28/11/2026) terminó con 2/6 jobs exitosos y 4/6 fallidos; no usar la evidencia histórica como estado verde actual.
+Estado al **28/11/2026**. Este archivo es una guía operativa: reúne qué subir a Teams, qué cargar en Jira y qué campos faltan completar con datos del equipo. El CI está en verde: run `46165701834` (28/11/2026, commit `65e0dd8`), 6/6 jobs exitosos.
 
 ---
 
@@ -10,18 +10,18 @@ La fecha límite original (10/11/2026 a las 13:30) ya pasó. Confirmar con el eq
 
 | # | Archivo | Origen | Estado |
 |---|---|---|---|
-| 1 | `Clase15_GrupoEventHub_Testing.pdf` | Fuente: `docs/testing/Clase15_GrupoEventHub_Testing.md` | **Regenerar** con el número de grupo y la evidencia actual; el dato de grupo no está en el repositorio |
-| 2 | `INFORME_CUMPLIMIENTO_TESTING.md` | `docs/testing/` | Actualizado; informa el estado fallido del CI actual |
+| 1 | `Clase15_GrupoEventHub_Testing.pdf` | Fuente: `docs/testing/Clase15_GrupoEventHub_Testing.md` | Regenerado el 28/11 con la evidencia del run verde. Falta agregar el número de grupo y el nombre del QA, que no están en el repositorio |
+| 2 | `INFORME_CUMPLIMIENTO_TESTING.md` | `docs/testing/` | Actualizado al run verde `46165701834` |
 | 3 | `coverage-report.zip` | `apps/api/coverage/` | Generar con `pnpm --filter api test:cov` |
 | 4 | `gitleaks-report.txt` | Salida de Gitleaks | Generar con el comando de abajo |
 | 5 | `docker-compose-smoke.txt` | Salida de `docker compose up -d --build --wait` + smoke | Generar |
-| 6 | `playwright-report.zip` | `apps/web/playwright-report/` + `apps/web/test-results/` | Generar con `pnpm --filter @evenhub/web test:e2e` o descargar del job `playwright-e2e` |
+| 6 | `playwright-report.zip` | `apps/web/playwright-report/` + `apps/web/test-results/` | Descargar el artifact `playwright-report` del run `46165701834` (18/18) |
 | 7 | `lighthouse-home-desktop.json` / `lighthouse-home-mobile.json` | `docs/evidencias/` | **Listo** (100/100 Accessibility) |
 | 8 | `MANUAL_USUARIO.md` | `docs/` | Listo |
 | 9 | `PRUEBA_EXPLORATORIA.md` | `docs/testing/` | Listo (sesión interna; falta registro del docente) |
-| 10 | `ci-run-url.txt` | URL del run de GitHub Actions | Run más reciente consultado: [46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262), fallido |
-| 11 | `newman-report.json` | `apps/api/reports/newman/` | Generar con el comando de abajo (96 requests / 176 aserciones) |
-| 12 | `mutation-report.zip` | `apps/api/reports/mutation/` | Generar con `pnpm --filter api test:mutation` (73,92%) |
+| 10 | `ci-run-url.txt` | URL del run de GitHub Actions | Run vigente: [46165701834](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834), 6/6 en verde |
+| 11 | `newman-report.json` | `apps/api/reports/newman/` | Generar con el comando de abajo (104 requests / 192 aserciones en el run `46165701834`) |
+| 12 | `mutation-report.zip` | `apps/api/reports/mutation/` | Generar con `pnpm --filter api test:mutation` (el job del run `46165701834` pasó el umbral `break: 60`) |
 | 13 | `openapi.json` / `payments.wsdl` | `docs/contracts/` | **Listo** |
 
 Comandos para producir la evidencia:
@@ -123,8 +123,9 @@ Pasos de reproducción y causa raíz: [REGISTRO_DEFECTOS.md](../testing/REGISTRO
 ## 3. Pendientes que no se pueden cerrar desde el repositorio local
 
 - ~~Crear y pushear el tag `v1.0-testing` sobre el commit final.~~ Hecho; el hash se consulta con `git rev-parse v1.0-testing`.
-- Ejecutar de nuevo el workflow y corregir los fallos de contrato OpenAPI, Playwright, carga k6 y ZAP observados en el run `46105294262`.
-- Generar el PDF único del entregable cuando se conozca el número de grupo y haya un generador disponible.
+- ~~Corregir los fallos de CI del 28/11 y volver a correr el workflow.~~ Hecho: run `46165701834`, 6/6.
+- Mover `v1.0-final` a la punta de `main` con CI verde (etapa 8).
+- Completar el número de grupo en el PDF y volver a exportarlo.
 - Completar los campos **Responsable** de Jira.
 - Definir el nombre oficial del QA responsable.
 - Subir los archivos a Teams.

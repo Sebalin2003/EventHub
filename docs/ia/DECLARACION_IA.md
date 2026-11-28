@@ -19,6 +19,7 @@
 | OpenAI Codex | Versión no registrada | Uso declarado para el prototipo, documentación y demo frontend | `README.md`, sección “Uso de inteligencia artificial”; declaración del repositorio |
 | Figma Make | Versión no registrada | Uso declarado para generar el prototipo visual inicial | Enlace y declaración en `README.md` |
 | OpenCode | Registro previo indica v2.2.2 y modelo Big Pickle; alcance/modelo no verificados independientemente en esta revisión | Uso declarado en registros previos para Ejes C, D y E | `opencode --version` y commits `429a974`, `2865dd9`, `cc7a6da`, `ee5c6ea` según la declaración anterior |
+| Claude Code (Anthropic), extensión de VS Code | Modelo Claude Opus 5.5 (`claude-opus-5-5`), informado por la propia herramienta en la sesión | Cierre de la etapa 7 del 28/11/2026: merge de `main`, medición de cobertura y actualización de la documentación al run verde `46165701834` | Sesión de trabajo de la integrante que abrió la rama `etapa-7-8`; commits de esa rama, sin trailer de coautoría |
 | Copilot SDK en VS Code | Modelo y versión no disponibles en la evidencia de esta sesión | Revisión y actualización documental de la etapa 7 con contraste de código, pruebas locales y CI | Esta sesión; petición del usuario y cambios documentales del repositorio |
 
 ### 1.2 Registro previo con referencia a Claude
@@ -59,7 +60,7 @@
   2. **Permisos de ZAP:** la IA no previó que el contenedor escribe como uid 1000 en el volumen montado; el reporte falló con `Permission denied`. Se agregó `chmod -R a+rwx docs/evidencias/zap` y se verificó en CI.
   3. **Playwright/apt:** la IA propuso `playwright install --with-deps` sin fallback; el runner no resolvió `security.ubuntu.com` y el job falló. Se agregó un reintento con `playwright install chromium` y el run `43040287065` quedó verde.
   4. **Métricas documentadas:** un registro previo atribuyó a un borrador generado con IA la afirmación “37 E2E / 316 pruebas / 5 jobs / 5 min 06 s”. La medición histórica citada en ese registro fue 76 E2E, 361 pruebas totales, 6 jobs y 12 min 21 s. Estos datos describen aquella medición, no el estado actual.
-- **Verificación registrada previamente:** suites locales (259 unitarias y 76 E2E), pipeline de 6 jobs y escaneos citados en el historial. No usar esos resultados como estado actual: el run consultado el 28/11/2026 falló en 4 de 6 jobs.
+- **Verificación registrada previamente:** suites locales (259 unitarias y 76 E2E), pipeline de 6 jobs y escaneos citados en el historial. El estado vigente es el run `46165701834` del 28/11/2026, 6/6 en verde.
 
 ### 1.6 Revisión documental del 28/11/2026
 
@@ -68,6 +69,13 @@
 - **Cambios de precisión:** se corrigieron afirmaciones de CI verde/cobertura aprobada, se describió el outbox sin atribuir ACK de RabbitMQ, y se aclaró que `AiAdvisorService` es determinístico y no invoca un LLM.
 - **Verificación local registrada:** 307/307 tests API pasaron, pero el comando `test:cov` falló sus umbrales (75,71 % líneas y 66,34 % ramas); frontend 8/8 pasó. No se generaron pruebas nuevas en esta revisión.
 - **Autoría Git:** los trailers que mencionan herramientas/modelos son evidencia textual de atribución, no prueba suficiente para confirmar qué producto o modelo produjo un cambio.
+
+### 1.6.1 Cierre documental de la etapa 7 (28/11/2026, tarde)
+
+- **Herramienta:** Claude Code (Anthropic) en VS Code, modelo Claude Opus 5.5.
+- **Uso:** traer los cambios de `main` a la rama de trabajo, medir la cobertura de la API sobre `65e0dd8` con el comando del CI y reemplazar en la documentación las referencias al run fallido `46105294262` por el run verde `46165701834`. También regeneró el PDF del informe y agregó al README los pasos desde `git clone`.
+- **Verificación:** el estado y la duración de cada job se tomaron de la API pública de GitHub Actions. La cobertura (318/318 tests; 91,55 % líneas, 81,59 % ramas) se midió localmente. Las cifras de Newman (104/192), k6 (p95 263,79 ms) y Playwright (18/18) las aportó el integrante que corrigió el CI, a partir de los artifacts del run. La herramienta no generó tests nuevos.
+- **Límite:** las afirmaciones del informe fueron revisadas por la integrante que abrió el PR antes del merge.
 
 ### 1.7 Revisión, autoría y firma
 
@@ -107,7 +115,7 @@ Categorías de respuesta: `RECOMMENDATION`, `SECURITY_BLOCKED`, `GUARDRAIL_TRIGG
 
 - **Unitarias:** `pnpm --filter api exec vitest run src/modules/ai/ai.service.spec.ts` → **14/14 verdes**.
 - **HTTP real del módulo:** `pnpm --filter api exec vitest run --config ./vitest.config.e2e.ts test/ai-advisor.e2e-spec.ts` → **10/10 verdes**.
-- **Suite completa histórica:** **259 unitarias** y **76 E2E** reportados el 12/11/2026. La CI consultada el 28/11 falló y no revalidó esa suite completa.
+- **Suite completa:** **259 unitarias** y **76 E2E** reportados el 12/11/2026. El 28/11 la suite de API creció a 318 tests y el run `46165701834` la volvió a ejecutar en verde, junto con las suites E2E.
 - **Evidencia cruda:** `docs/evidencias/ai/ai-unit-verbose.txt` y `docs/evidencias/ai/ai-e2e-verbose.txt`.
 - **Código:** `apps/api/src/modules/ai/ai.service.ts`, `apps/api/src/modules/ai/ai.controller.ts`, `apps/api/test/ai-advisor.e2e-spec.ts`.
 

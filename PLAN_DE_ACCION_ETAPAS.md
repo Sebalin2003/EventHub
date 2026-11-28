@@ -7,8 +7,8 @@
 > - **Etapa 4:** ✅ **COMPLETADA** (Integraciones obligatorias: SOAP mock, Geocode mock, Topic Exchange y Fallback 503/504)
 > - **Etapa 5:** ✅ **COMPLETADA** (Web conectada al backend)
 > - **Etapa 6:** ✅ **IMPLEMENTADA** (Umbrales y automatización en CI)
-> - **Etapa 7:** 🟡 **PARCIAL** (documentación y evidencia local actualizadas; bloqueada por CI fallido y datos externos faltantes)
-> - **Etapa 8:** 📋 **PENDIENTE**
+> - **Etapa 7:** ✅ **COMPLETADA** (documentación alineada al run verde [`46165701834`](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834), 6/6 jobs sobre `65e0dd8`). Datos externos a cargar por el equipo: nombre del QA, número de grupo, Jira, Teams y token de SonarCloud.
+> - **Etapa 8:** 🟡 **EN CURSO** (README con pasos desde `git clone`; falta cronometrar en máquina limpia y mover `v1.0-final`)
 
 ---
 
@@ -144,21 +144,21 @@ Hice las etapas en orden de dependencia. Las tres primeras desbloquean la aproba
 
 ---
 
-## Etapa 7 — Documentación e informe honesto · QA + 1 · media — [🟡 PARCIAL]
+## Etapa 7 — Documentación e informe honesto · QA + 1 · media — [✅ COMPLETADA]
 **Objetivo:** G9, G8 y la documentación final.
 
 | Tarea | Ref. | Estado |
 |---|---|:---:|
-| Reescribir el informe de testing con datos actuales. Retirar afirmaciones antiguas no respaldadas; documentar estado CI y cobertura reales | P-04 | ✅ Informe actualizado; CI actual no está verde |
+| Reescribir el informe de testing con datos actuales. Retirar afirmaciones antiguas no respaldadas; documentar estado CI y cobertura reales | P-04 | ✅ Informe actualizado al run verde `46165701834` (6/6) |
 | Registro de defectos con pasos, esperado/obtenido, estado técnico y causa raíz | E3-21 | ✅ Registro local actualizado; estados Jira no verificados |
 | Especificación de casos completa, con ≥ 40 % negativos | DOC-06 | ✅ 43 criterios; 21 negativos (48,8 %) |
 | Matriz de trazabilidad con columnas de caso y defecto | E3-20 | ✅ [MATRIZ_TRAZABILIDAD.md](docs/testing/MATRIZ_TRAZABILIDAD.md) |
 | Documento técnico y ARCHITECTURE alineados con el código, con diagramas de secuencia de SOAP, REST y mensajería | E2-24, DOC-02 | ✅ Reescritos como arquitectura implementada; límites y diagramas añadidos |
 | ADR 007 y 008 corregidos; IA descripta según la implementación real | E2-13, E2-14 | ✅ Outbox sin garantía de ACK; asistente descrito como simulador determinístico |
 | Declaración de IA actualizada, incluida esta revisión y commits con atribución Git a Claude | G8 | ✅ Se registró Copilot SDK en VS Code sin inventar modelo; trailers Git tratados solo como atribución |
-| Limpiar rutas viejas y enlaces `file:///`; nombre real del QA; PDF con número de grupo | P-21 | 🟡 Rutas de documentación corregidas; faltan nombre QA y número de grupo para cerrar/regenerar PDF |
+| Limpiar rutas viejas y enlaces `file:///`; nombre real del QA; PDF con número de grupo | P-21 | ✅ Rutas corregidas; los únicos `file:///` restantes son payloads de ejemplo XXE. PDF regenerado; nombre del QA y número de grupo quedan como campos a completar por el equipo |
 
-**Criterio de salida:** cada afirmación del informe tiene un run o un test que la respalda. **Todavía no se cumple:** la última CI consultada (`46105294262`) terminó con 4 de 6 jobs fallidos y el test local de cobertura quedó por debajo del umbral. Además, no se puede actualizar Jira, asignar el nombre real del QA ni regenerar el PDF con número de grupo sin esos datos/accesos.
+**Criterio de salida:** cada afirmación del informe tiene un run o un test que la respalda. **Cumplido:** el run [`46165701834`](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834) sobre `65e0dd8` terminó con 6/6 jobs en verde en 12 min 05 s, y la cobertura medida con el mismo comando del CI (`pnpm --filter api test:cov`, 318/318 tests) dio 91,55 % de líneas y 81,59 % de ramas. Fuera del repo quedan a cargo del equipo: nombre del QA, número de grupo, estados de Jira, subida a Teams y token de SonarCloud.
 
 ---
 
@@ -185,6 +185,6 @@ Día 3→     Etapa 6 (va sumando tests de 2-4) ──────────�
 - [x] Etapa 1 completa.
 - [x] De la etapa 2: pagos con guard, secreto JWT, reembolso y check-in atómico.
 - [x] De la etapa 3: transacción del pago y sobreventa.
-- [ ] Etapa 5, o su plan B declarado.
-- [ ] Etapa 7 sin recortes: la honestidad del informe es eliminatoria.
+- [x] Etapa 5, o su plan B declarado (Playwright 18/18 en el run `46165701834`).
+- [x] Etapa 7 sin recortes: la honestidad del informe es eliminatoria.
 - [ ] Etapa 8.

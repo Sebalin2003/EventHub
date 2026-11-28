@@ -35,9 +35,9 @@
 
 > *"Buenas tardes profesores y compañeros. Hoy venimos a presentar la entrega final y el tercer checkpoint de integración de **EventHub**, nuestra plataforma integral para la gestión y venta concurrente de entradas para eventos masivos.*
 > 
-> *En esta sesión presentaremos la evidencia disponible para las Condiciones G1 a G9 y los cinco Ejes de Testing, distinguiendo lo validado históricamente de los pendientes actuales.*
+> *En esta sesión presentaremos la evidencia disponible para las Condiciones G1 a G9 y los cinco Ejes de Testing, distinguiendo lo que respalda el CI de lo que depende de Jira, Teams y esta defensa.*
 > 
-> *El proyecto tiene un tag local `v1.0-testing`, pero su publicación remota y el tag final deben confirmarse. El run más reciente (`46105294262`) terminó con 2 de 6 jobs exitosos y 4 fallidos. Los runs verdes previos y el escaneo Gitleaks son evidencia histórica. Comenzamos."*
+> *El tag final `v1.0-final` se publica sobre la punta de `main` con el CI en verde (confirmar con `git rev-parse v1.0-final` antes de la defensa). El run `46165701834` del 28/11 terminó con 6 de 6 jobs exitosos en 12 minutos. Comenzamos."*
 
 ---
 
@@ -161,11 +161,11 @@
 
 > *"En el **Eje B** superamos ampliamente los umbrales exigidos por la cátedra:*
 > 
-> *Frente al mínimo de 80% de líneas y 70% de ramas en capa de negocio, alcanzamos **96,52% de cobertura de líneas** y **84,60% de ramas** con más de 300 tests unitarios.*
+> *Frente al mínimo de 80% de líneas y 70% de ramas en capa de negocio, alcanzamos **91,55% de cobertura de líneas** y **81,59% de ramas** con 318 tests de API. El CI además exige un baseline de 90/75 para que la cobertura no retroceda.*
 > 
-> *Para validar la calidad real de nuestras aserciones ejecutamos **Mutation Testing con Stryker** sobre órdenes, pagos y tickets, logrando un **Mutation Score de 76,23%** (superando el 60% exigido) tras eliminar 617 mutantes.*
+> *Para validar la calidad real de nuestras aserciones ejecutamos **Mutation Testing con Stryker** sobre la capa de dominio. El job corta si el score baja de 60% y pasó en el último run; en la medición detallada del 12/11 el score fue **76,23%**, con 617 mutantes eliminados.*
 > 
-> *Además, nuestra colección Postman de 96 requests corre en CI con **Newman** con 0 fallos, y ejecutamos la suite 3 veces seguidas certificando **0 flaky tests**."*
+> *Además, nuestra colección Postman de **104 requests y 192 aserciones** corre en CI con **Newman** con 0 fallos, y la suite se ejecuta 3 veces seguidas en cada pipeline para detectar **flaky tests**."*
 
 ---
 
@@ -177,7 +177,7 @@
 > 
 > *Sometimos a la API a una **Prueba de Carga con k6** simulando 50 usuarios virtuales concurrentes durante 5 minutos continuos.*
 > 
-> *Frente al umbral de p95 menor a 500 ms, obtuvimos una **latencia p95 de 16,41 milisegundos** y **0,00% de tasa de error** en 6.695 solicitudes. Cedo la palabra al siguiente compañero para IA, seguridad y condiciones eliminatorias."*
+> *Frente al umbral de p95 menor a 500 ms, con un escenario que ahora incluye crear orden y pagar, obtuvimos una **latencia p95 de 263,79 milisegundos** y **0,00% de tasa de error**. Cedo la palabra al siguiente compañero para IA, seguridad y condiciones eliminatorias."*
 
 ---
 
@@ -197,9 +197,9 @@
 
 > *"Las **Condiciones Eliminatorias G1 a G9** son el requisito excluyente de la entrega. Este es el estado que podemos respaldar:*
 > 
-> * **G1 y G6:** existe evidencia local/histórica; falta repetir el entorno en limpio y la CI reciente no volvió a ejecutar todos los pasos.
-> * **G2:** el tag local existe; publicación remota y tag final por confirmar.
-> * **G3:** no cumple en el run actual: 2/6 jobs exitosos, 4/6 fallidos.
+> * **G1 y G6:** el job G1 levanta el stack con `docker compose up` desde un checkout limpio y Gitleaks recorre todo el historial; ambos en verde en el run `46165701834`.
+> * **G2:** tag `v1.0-final` sobre la punta de `main` con CI verde.
+> * **G3:** cumple: run `46165701834`, 6/6 jobs exitosos.
 > * **G4 y G5:** documentación versionada; carga a Teams, Jira y responsable QA no verificados.
 > * **G7:** la demo presencial queda pendiente.
 > * **G8 y G9:** documentos actualizados; validación oral y contraste con Jira pendientes."*
@@ -212,7 +212,7 @@
 
 > *"En el **Eje D (Seguridad)** ejecutamos 29 pruebas HTTP ofensivas reales cubriendo OWASP API Top 10: bloqueamos **BOLA/IDOR** y **BFLA** con 403/404; rechazamos JWT manipulados, expirados, sin `exp` o con `alg=none` con 401; aplicamos **Rate Limiting (HTTP 429)** contra fuerza bruta; y servimos todas las imágenes Docker como usuario sin privilegios (`USER node`) con cabeceras CSP, HSTS y `X-Frame-Options: DENY`.*
 > 
-> *Los escaneos previos de **OWASP ZAP** y `pnpm audit --prod` son evidencia histórica. El job ZAP del run más reciente falló y requiere diagnóstico antes de reportar un nuevo resultado."*
+> *El job de dependencias y **OWASP ZAP** pasó en el run `46165701834`; los reportes detallados de ZAP y `pnpm audit --prod` del 11/11 están en `docs/evidencias/`."*
 > 
 > *Por último, en el **Eje E**, validamos el módulo de IA con **14 tests unitarios y 10 tests HTTP E2E**, y dejamos constancia transparente en `DECLARACION_IA.md` de las herramientas usadas y los errores de código generado por IA que detectamos y corregimos. Ahora pasamos a la demostración en vivo."*
 

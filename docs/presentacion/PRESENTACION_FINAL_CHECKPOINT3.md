@@ -1,6 +1,6 @@
 # EventHub — Presentación Final y 3.er Checkpoint de Integración
 
-> **Vigencia:** material preparado antes del 28/11/2026. La CI más reciente (`46105294262`) terminó con 2/6 jobs exitosos y 4/6 fallidos. No presentar afirmaciones de estado de este checkpoint como resultados actuales sin revalidarlas.
+> **Vigencia:** actualizado al 28/11/2026. El run `46165701834` (commit `65e0dd8`) terminó con 6/6 jobs en verde. Las métricas marcadas como del 12/11 son mediciones detalladas anteriores.
 
 > **Materia:** Diseño y Arquitectura de Sistemas / Ingeniería de Software  
 > **Instancia:** Presentación Conjunta: 3.er Checkpoint (Integración & Ensayo de Testing) + Entrega Final (Validación de Sistema Completo)  
@@ -256,13 +256,13 @@ sequenceDiagram
 
 | Condición | Requisito Eliminatorio | Estado | Evidencia Concreta |
 |---|---|---|---|
-| **G1** | Build reproducible con un solo comando | Evidencia local histórica | El repositorio registra un smoke Docker; falta repetirlo en una máquina limpia. |
-| **G2** | Tag requerido publicado en main | No verificado remotamente | Existe el tag local `v1.0-testing`; confirmar tag final y publicación remota. |
-| **G3** | Pipeline de CI en verde | **No cumple en el run actual** | Run `46105294262`: 2/6 jobs exitosos, 4/6 fallidos. |
+| **G1** | Build reproducible con un solo comando | Cumple en CI | El job G1 del run `46165701834` levanta el stack con `docker compose up -d --build --wait` y pasa el smoke. Ensayo en máquina limpia: etapa 8. |
+| **G2** | Tag requerido publicado en main | Etapa 8 | `v1.0-final` se mueve una sola vez a la punta de `main` con CI verde. |
+| **G3** | Pipeline de CI en verde | **Cumple** | Run `46165701834`: 6/6 jobs exitosos en 12 min 05 s. |
 | **G4** | Documentación completa en repositorio y entrega | Parcial | Documentación versionada; carga a Teams no verificada. |
 | **G5** | Jira al día con HU y QA designado | No verificable | No hubo acceso a Jira ni evidencia del nombre oficial del QA. |
-| **G6** | Sin secretos en el historial | Evidencia histórica | Gitleaks reportó `no leaks found`; la última CI no revalidó todos los pasos posteriores al fallo de contrato. |
-| **G7** | Demostración en vivo funcional | Pendiente | Hay evidencia histórica de smoke/Playwright; demo presencial no realizada en esta revisión. |
+| **G6** | Sin secretos en el historial | Cumple | Gitleaks sobre todo el historial, en verde en el run `46165701834`. |
+| **G7** | Demostración en vivo funcional | Pendiente | Playwright 18/18 en CI con la web conectada a la API; la demo presencial se hace en la defensa. |
 | **G8** | Declaración honesta de uso de IA | Documento actualizado; oral pendiente | [DECLARACION_IA.md](../ia/DECLARACION_IA.md) explicita atribuciones verificables y limitaciones. |
 | **G9** | Informe honesto de testing | Actualizado; contraste externo pendiente | [INFORME_CUMPLIMIENTO_TESTING.md](../testing/INFORME_CUMPLIMIENTO_TESTING.md) refleja CI y cobertura actuales; Jira no se verificó. |
 
@@ -273,7 +273,7 @@ sequenceDiagram
 * **Alcance de Negocio:**
   * **11 Historias de Usuario** priorizadas con MoSCoW (HU-01 a HU-11).
   * **43 criterios de aceptación en formato Gherkin** (Dado / Cuando / Entonces), cubriendo caminos felices, alternativos y de fallo externo.
-  * La matriz versionada registra los 43 criterios y los casos asociados; sus aprobaciones son evidencia histórica, no resultado de la CI más reciente.
+  * La matriz versionada registra los 43 criterios y los casos asociados; sus estados técnicos están respaldados por el run `46165701834`.
 * **Pruebas E2E Reales en Navegador con Playwright:**
   * Ejecución contra el stack Docker real en `apps/web/e2e/critical-flows.spec.ts`.
   * Escenarios: Login con JWT real, navegación de catálogo, compra completa, alta y publicación de evento, rechazo de credenciales y check-in.
@@ -292,12 +292,12 @@ sequenceDiagram
 +------------------------------+-------------------+-----------------+-----------+
 | Métrica                      | Umbral Cátedra    | Logrado         | Estado    |
 +------------------------------+-------------------+-----------------+-----------+
-| Cobertura de Líneas API      | >= 80%            | 96,52%          | SUPERADO  |
-| Cobertura de Ramas API       | >= 70%            | 84,60%          | SUPERADO  |
-| Mutation Score (Stryker)     | >= 60%            | 76,23%          | SUPERADO  |
-| Colección Postman (Newman)   | Éxito y Error     | 96 req / 0 fail | SUPERADO  |
+| Cobertura de Líneas API      | >= 80%            | 91,55%          | SUPERADO  |
+| Cobertura de Ramas API       | >= 70%            | 81,59%          | SUPERADO  |
+| Mutation Score (Stryker)     | >= 60%            | 76,23% (12/11)  | SUPERADO  |
+| Colección Postman (Newman)   | Éxito y Error     | 104 req / 0 fail| SUPERADO  |
 | Flaky Tests (3 Corridas)     | 0 fallos          | 3/3 en verde    | SUPERADO  |
-| Duración Total del Pipeline  | <= 15 min         | 12 min 15 s     | SUPERADO  |
+| Duración Total del Pipeline  | <= 15 min         | 12 min 05 s     | SUPERADO  |
 +------------------------------+-------------------+-----------------+-----------+
 ```
 
@@ -311,15 +311,15 @@ sequenceDiagram
 ### Diapositiva 14: Eje C — Integración Real y Pruebas de Carga k6 (p95 < 20ms)
 
 * **Suite de Integración Real (`test/integration-real-deps.e2e-spec.ts`):**
-  * La evidencia histórica reporta 17 tests con PostgreSQL y RabbitMQ reales; SOAP y geocodificación pueden usar mocks del proyecto.
+  * Las suites de integración corren contra PostgreSQL y RabbitMQ reales en el CI; SOAP y geocodificación usan mocks del proyecto levantados en el compose.
   * Verifica persistencia de entidades, consumo de colas AMQP, idempotencia en base de datos y transiciones State.
 * **Prueba de Carga con k6:**
   * **Escenario:** 50 Usuarios Virtuales (VUs) concurrentes durante 5 minutos ininterrumpidos.
-  * **Endpoints evaluados:** `GET /events`, `GET /events/:id`, `GET /inventory/:id`.
+  * **Escenario:** lectura (`GET /events`, `GET /events/:id`, `GET /inventory/:id`) más escritura (crear orden y pagar).
   * **Resultado Obtenido:**
-    * **p95 Latencia:** **16,41 ms** (Umbral exigido: < 500 ms).
-    * **Tasa de Errores HTTP:** **0,00%** (6.695 solicitudes completadas exitosamente).
-    * Evidencia guardada en [docs/evidencias/k6-summary.json](../evidencias/k6-summary.json). En el run más reciente el resumen muestra p95 16,405 ms y 0,00 % de errores, pero el job k6 terminó fallido.
+    * **p95 Latencia:** **263,79 ms** (Umbral exigido: < 500 ms).
+    * **Tasa de Errores HTTP:** **0,00%**.
+    * Run `46165701834`, job Eje C en verde; resumen en el artifact `k6-load-test-summary`. La medición anterior de solo lectura (12/11, p95 16,41 ms) está en [docs/evidencias/k6-summary.json](../evidencias/k6-summary.json).
 
 ---
 
@@ -333,7 +333,7 @@ sequenceDiagram
   * **Fuerza Bruta:** Rate limiter responde **HTTP 429 Too Many Requests** tras superar el umbral de intentos fallidos de login.
   * **Protección XXE:** Carga útil XML maliciosa en canal SOAP rechazada con `XXE_INJECTION_REJECTED`.
 * **Auditoría de Vulnerabilidades con OWASP ZAP & pnpm audit:**
-  * **Evidencia histórica OWASP ZAP Baseline & API Scan:** 0 alertas High/Medium/Low en los reportes previos. El job ZAP más reciente (`46105294262`) terminó fallido.
+  * **OWASP ZAP:** el job de dependencias y ZAP pasó en el run `46165701834`. Los reportes detallados del 11/11 (0 alertas High/Medium/Low) están en `docs/evidencias/zap/`.
   * **`pnpm audit --prod`:** **0 vulnerabilidades** en dependencias de producción.
 
 ---
