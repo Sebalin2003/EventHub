@@ -1177,15 +1177,15 @@
             <tr><th>Cond.</th><th>Requisito Eliminatorio</th><th>Estado</th><th>Evidencia Verificable</th></tr>
           </thead>
           <tbody>
-            <tr><td><strong>G1</strong></td><td>Build reproducible en 1 comando</td><td><span class="tag tag-ok">CUMPLE</span></td><td><code>docker compose up -d --build --wait</code> (6 contenedores healthy)</td></tr>
-            <tr><td><strong>G2</strong></td><td>Tag <code>v1.0-final</code> en <code>main</code></td><td><span class="tag tag-ok">CUMPLE</span></td><td>Tag publicado y verificado sobre la rama principal en GitHub</td></tr>
-            <tr><td><strong>G3</strong></td><td>Pipeline CI en verde</td><td><span class="tag tag-ok">CUMPLE</span></td><td>6/6 jobs en verde: build/unit, mutation, Playwright, Docker smoke, k6, security</td></tr>
-            <tr><td><strong>G4</strong></td><td>Documentación completa</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Carpeta <code>docs/</code> ordenada (8 ADRs, Testing, Despliegue, Seguridad, Manual)</td></tr>
-            <tr><td><strong>G5</strong></td><td>Jira al día con QA designado</td><td><span class="tag tag-ok">CUMPLE</span></td><td>11 HUs MoSCoW, criterios Gherkin vinculados, defectos y QA asignado</td></tr>
-            <tr><td><strong>G6</strong></td><td>Sin secretos en historial Git</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Escaneo Gitleaks v8.28.0: <code>no leaks found</code>; sin JWT secret hardcodeado</td></tr>
-            <tr><td><strong>G7</strong></td><td>Demo en vivo funcional</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Flujo completo: Login → Catálogo → Compra → Pago SOAP → Ticket → Check-in QR</td></tr>
-            <tr><td><strong>G8</strong></td><td>Declaración honesta de IA</td><td><span class="tag tag-ok">CUMPLE</span></td><td><code>docs/ia/DECLARACION_IA.md</code> con herramientas, errores corregidos y prompts</td></tr>
-            <tr><td><strong>G9</strong></td><td>Informe honesto de testing</td><td><span class="tag tag-ok">CUMPLE</span></td><td><code>docs/testing/INFORME_CUMPLIMIENTO_TESTING.md</code> con métricas reales y defectos</td></tr>
+            <tr><td><strong>G1</strong></td><td>Build reproducible en 1 comando</td><td><span class="tag tag-warn">EVIDENCIA LOCAL HISTÓRICA</span></td><td>Hay registro de smoke Docker; falta repetirlo en una máquina limpia</td></tr>
+            <tr><td><strong>G2</strong></td><td>Tag requerido en <code>main</code></td><td><span class="tag tag-warn">REMOTO NO VERIFICADO</span></td><td>Existe <code>v1.0-testing</code> local; confirmar publicación remota y tag final</td></tr>
+            <tr><td><strong>G3</strong></td><td>Pipeline CI en verde</td><td><span class="tag tag-warn">NO CUMPLE EN RUN ACTUAL</span></td><td>Run 46105294262: 2/6 jobs exitosos y 4/6 fallidos; runs verdes previos son históricos</td></tr>
+            <tr><td><strong>G4</strong></td><td>Documentación completa y entrega</td><td><span class="tag tag-warn">PARCIAL</span></td><td>Documentación en el repo; carga a Teams no verificada</td></tr>
+            <tr><td><strong>G5</strong></td><td>Jira al día con QA designado</td><td><span class="tag tag-warn">NO VERIFICABLE</span></td><td>Jira no consultado; nombre oficial del QA no disponible</td></tr>
+            <tr><td><strong>G6</strong></td><td>Sin secretos en historial Git</td><td><span class="tag tag-warn">EVIDENCIA HISTÓRICA</span></td><td>Gitleaks v8.28.0 reportó <code>no leaks found</code></td></tr>
+            <tr><td><strong>G7</strong></td><td>Demo en vivo funcional</td><td><span class="tag tag-warn">PENDIENTE</span></td><td>Hay evidencia histórica de smoke/Playwright; demo presencial no realizada en esta revisión</td></tr>
+            <tr><td><strong>G8</strong></td><td>Declaración honesta de IA</td><td><span class="tag tag-warn">DOCUMENTO ACTUALIZADO</span></td><td>Documento actualizado; validación y defensa oral pendientes</td></tr>
+            <tr><td><strong>G9</strong></td><td>Informe honesto de testing</td><td><span class="tag tag-warn">CONTRASTE EXTERNO PENDIENTE</span></td><td>Informe actualizado; estados de Jira no verificados</td></tr>
           </tbody>
         </table>
       </div>

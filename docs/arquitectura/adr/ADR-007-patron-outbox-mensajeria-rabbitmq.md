@@ -1,10 +1,10 @@
 # ADR-007: Implementación del Patrón Transactional Outbox y Mensajería Resiliente con RabbitMQ
 
 ## Estado
-**Aceptado e Implementado**
+**Aceptado e Implementado, con límite de confirmación del publicador**
 
 ## Fecha
-2026-10-28 (Actualizado al 12/11/2026)
+2026-10-28 (Revisado al 28/11/2026)
 
 ## Contexto y Planteamiento del Problema
 EventHub requiere notificar eventos de negocio clave de forma asíncrona (como `event.created` al publicar un evento, `order.created` al iniciar una compra y `order.paid` al confirmarse el pago) para no penalizar el tiempo de respuesta HTTP de los usuarios.
@@ -22,21 +22,23 @@ Se implementó el **Patrón Transactional Outbox** junto con una arquitectura de
    - Ubicación: `apps/api/src/common/broker/outbox-message.entity.ts`.
    - Cuando ocurre una acción de negocio (ej. publicar evento o crear orden), el mensaje se persiste dentro de la misma transacción en la tabla `outbox_messages` con estado `PENDING`.
 
-2. **Dispatcher Asíncrono (`OutboxService`):**
-   - Un proceso periódico sondea los mensajes `PENDING`, los publica a RabbitMQ con timeout de 3 segundos y, únicamente cuando el broker acusa recibo (ACK), actualiza su estado a `SENT` con timestamp.
-   - **Garantía ante caída del Broker:** Si RabbitMQ se apaga, la API continúa respondiendo HTTP 201/200 al usuario. Los mensajes quedan encolados de forma durable en PostgreSQL como `PENDING`. Al reconectarse el broker, el dispatcher los despacha automáticamente sin intervención manual ni pérdida de datos (evidencia en `docs/evidencias/broker-recovery.json`).
+2. **Dispatcher asíncrono (`OutboxService`):**
+   - Un proceso periódico sondea lotes de hasta 50 mensajes `PENDING`. El timeout configurado por defecto es de 3 segundos.
+   - Si la publicación arroja un error, el registro permanece `PENDING`, aumenta `attempts` y se vuelve a intentar en un ciclo posterior.
+   - Si `TopicPublisherService.publish` retorna, el outbox marca el registro `SENT`. El publicador usa un canal AMQP normal, no publisher confirms: `SENT` no acredita un ACK del broker ni una garantía absoluta de entrega.
+   - La prueba de caída/recovery demuestra que los registros pendientes sobreviven a la indisponibilidad probada y que el dispatcher intenta publicarlos al volver el broker; no demuestra cero pérdida ante cualquier fallo o caída de proceso.
 
 3. **Consumidores Idempotentes:**
    - `NotificationsService` mantiene una clave de deduplicación determinista (`deduplicationKey` basada en ID de mensaje o entidad).
    - Si un mensaje con el mismo identificador ya fue procesado, se registra una advertencia y se descarta inmediatamente (`DUPLICATE_SKIPPED`) sin emitir correos duplicados ni duplicar filas en la tabla `notifications`.
 
-4. **Dead Letter Queue (DLQ) y Topología Durable:**
-   - La cola principal `notifications_queue` se configura como durable con Dead Letter Exchange `eventhub.dlx`.
-   - Si un mensaje falla tras 3 reintentos (`maxRetries = 3`), se enruta automáticamente a la cola de mensajes muertos `notifications_dlq` con cabecera `x-death`, quedando disponible para auditoría y reprocesamiento.
+4. **Dead Letter Queue (DLQ) y topología durable:**
+   - La topología declara colas durables con Dead Letter Exchange; los mensajes publicados se marcan persistentes.
+   - La evidencia E2E verifica el enrutamiento a DLQ y el reproceso. La durabilidad de la cola y del mensaje no equivale a confirmación del publicador.
 
 ## Consecuencias y Beneficios
-- **Cero Pérdida de Mensajes:** La persistencia local previa en PostgreSQL garantiza confiabilidad absoluta ante caídas temporales del broker de mensajería.
-- **Idempotencia Garantizada (Eje C):** La entrega repetida de mensajes es inocua para el sistema.
+- **Recuperación ante interrupciones probadas:** el outbox persiste junto con la operación de negocio y reintenta los mensajes que continúan `PENDING`. Sin publisher confirms no se afirma entrega garantizada ni cero pérdida.
+- **Idempotencia del consumidor (Eje C):** la deduplicación persistente reduce efectos duplicados ante una entrega repetida.
 - **Aislamiento de Errores:** Mensajes malformados son aislados en DLQ sin bloquear el flujo de mensajes válidos.
 
 ## Evidencia en Código y Pruebas

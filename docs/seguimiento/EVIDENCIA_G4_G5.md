@@ -1,25 +1,25 @@
 # Evidencia para G4 (Teams) y G5 (Jira)
 
-Estado al **08/11/2026**. Este archivo es una guía operativa: reúne qué subir a Teams, qué cargar en Jira y qué campos faltan completar con datos del equipo.
+Estado al **28/11/2026**. Este archivo es una guía operativa: reúne qué subir a Teams, qué cargar en Jira y qué campos faltan completar con datos del equipo. La última CI consultada (run `46105294262`, 28/11/2026) terminó con 2/6 jobs exitosos y 4/6 fallidos; no usar la evidencia histórica como estado verde actual.
 
 ---
 
 ## 1. Entrega en Teams (G4)
 
-Subir en la carpeta del equipo antes del **10/11/2026 a las 13:30**:
+La fecha límite original (10/11/2026 a las 13:30) ya pasó. Confirmar con el equipo si los entregables fueron subidos; este repositorio no permite verificar Teams.
 
 | # | Archivo | Origen | Estado |
 |---|---|---|---|
-| 1 | `Clase15_GrupoEventHub_Testing.pdf` | Generado desde `docs/Clase15_GrupoEventHub_Testing.md` | **Regenerar** con las cifras del Eje B |
-| 2 | `INFORME_CUMPLIMIENTO_TESTING.md` | Raíz del repo | Listo |
+| 1 | `Clase15_GrupoEventHub_Testing.pdf` | Fuente: `docs/testing/Clase15_GrupoEventHub_Testing.md` | **Regenerar** con el número de grupo y la evidencia actual; el dato de grupo no está en el repositorio |
+| 2 | `INFORME_CUMPLIMIENTO_TESTING.md` | `docs/testing/` | Actualizado; informa el estado fallido del CI actual |
 | 3 | `coverage-report.zip` | `apps/api/coverage/` | Generar con `pnpm --filter api test:cov` |
 | 4 | `gitleaks-report.txt` | Salida de Gitleaks | Generar con el comando de abajo |
 | 5 | `docker-compose-smoke.txt` | Salida de `docker compose up -d --build --wait` + smoke | Generar |
 | 6 | `playwright-report.zip` | `apps/web/playwright-report/` + `apps/web/test-results/` | Generar con `pnpm --filter @evenhub/web test:e2e` o descargar del job `playwright-e2e` |
 | 7 | `lighthouse-home-desktop.json` / `lighthouse-home-mobile.json` | `docs/evidencias/` | **Listo** (100/100 Accessibility) |
 | 8 | `MANUAL_USUARIO.md` | `docs/` | Listo |
-| 9 | `PRUEBA_EXPLORATORIA.md` | `docs/` | Listo (sesión interna; falta registro del docente) |
-| 10 | `ci-run-url.txt` | URL del run de GitHub Actions sobre el tag | Listo: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) |
+| 9 | `PRUEBA_EXPLORATORIA.md` | `docs/testing/` | Listo (sesión interna; falta registro del docente) |
+| 10 | `ci-run-url.txt` | URL del run de GitHub Actions | Run más reciente consultado: [46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262), fallido |
 | 11 | `newman-report.json` | `apps/api/reports/newman/` | Generar con el comando de abajo (96 requests / 176 aserciones) |
 | 12 | `mutation-report.zip` | `apps/api/reports/mutation/` | Generar con `pnpm --filter api test:mutation` (73,92%) |
 | 13 | `openapi.json` / `payments.wsdl` | `docs/contracts/` | **Listo** |
@@ -48,7 +48,7 @@ npx newman run docs/postman/EventHub_API_Collection.json --reporters cli,json \
 
 ## 2. Jira (G5)
 
-Proyecto: `EVH`. Para cada fila se necesita: **estado real**, **responsable** y **vínculo a la HU**. Los IDs de HU y de casos ya están definidos en `docs/Clase15_GrupoEventHub_Testing.md`.
+Proyecto: `EVH`. Para cada fila se necesita: **estado real**, **responsable** y **vínculo a la HU**. Los estados de esta tabla reflejan la evidencia técnica local, no una consulta a Jira; confirmar y actualizar el tablero. Los IDs de HU y de casos están en [Clase15_GrupoEventHub_Testing.md](../testing/Clase15_GrupoEventHub_Testing.md) y [MATRIZ_TRAZABILIDAD.md](../testing/MATRIZ_TRAZABILIDAD.md).
 
 ### 2.1 Historias de usuario
 
@@ -108,7 +108,7 @@ Proyecto: `EVH`. Para cada fila se necesita: **estado real**, **responsable** y 
 | Id | Resumen | Severidad | Prioridad | Estado real | Responsable (completar) |
 |---|---|---|---|---|---|
 | EVH-101 | Timeout ausente en pasarela SOAP | Crítica | Alta | CERRADO | |
-| EVH-102 | Condición de carrera en inventario HOLD | Crítica | Alta | CERRADO | |
+| EVH-102 | Condición de carrera en inventario HOLD | Crítica | Alta | Evidencia técnica actualizada; transición Jira pendiente | |
 | EVH-103 | Doble check-in devolvía 201 en vez de 409 | Mayor | Alta | CERRADO | |
 | EVH-104 | Reembolso permitido sobre orden PENDING | Mayor | Media | CERRADO | |
 | EVH-105 | BOLA/IDOR en consulta de órdenes | Crítica | Alta | CERRADO | |
@@ -116,18 +116,19 @@ Proyecto: `EVH`. Para cada fila se necesita: **estado real**, **responsable** y 
 | EVH-107 | Login mostraba «Usuario no encontrado» con contraseña incorrecta | Menor | Media | CERRADO | |
 | EVH-108 | Recarga en checkout pierde el contexto (workaround) | Menor | Baja | ABIERTO | |
 
-Pasos de reproducción y causa raíz: sección 5 de `docs/Clase15_GrupoEventHub_Testing.md`.
+Pasos de reproducción y causa raíz: [REGISTRO_DEFECTOS.md](../testing/REGISTRO_DEFECTOS.md). No se pudo reabrir/cerrar EVH-102 en Jira desde el acceso disponible.
 
 ---
 
 ## 3. Pendientes que no se pueden cerrar desde el repositorio local
 
 - ~~Crear y pushear el tag `v1.0-testing` sobre el commit final.~~ Hecho; el hash se consulta con `git rev-parse v1.0-testing`.
-- ~~Ejecutar el workflow en GitHub sobre ese tag y guardar la URL del run.~~ En verde, con los jobs `playwright-e2e` y `mutation-testing`.
-- ~~Generar el PDF único del entregable.~~ Hecho: `docs/Clase15_GrupoEventHub_Testing.pdf`.
+- Ejecutar de nuevo el workflow y corregir los fallos de contrato OpenAPI, Playwright, carga k6 y ZAP observados en el run `46105294262`.
+- Generar el PDF único del entregable cuando se conozca el número de grupo y haya un generador disponible.
 - Completar los campos **Responsable** de Jira.
+- Definir el nombre oficial del QA responsable.
 - Subir los archivos a Teams.
-- Ejecutar la prueba del manual y la prueba exploratoria del docente (registrar en `docs/MANUAL_USUARIO.md` y `docs/PRUEBA_EXPLORATORIA.md`).
+- Ejecutar la prueba del manual y la prueba exploratoria del docente (registrar en `../testing/MANUAL_USUARIO.md` y `../testing/PRUEBA_EXPLORATORIA.md`).
 - Ejecutar la demo en vivo (G7).
-- Completar la declaración de IA con nombres y versiones reales de las herramientas usadas (G8).
+- Revisar la declaración de IA y completar cualquier identificación de herramienta/modelo que el equipo pueda confirmar con evidencia.
 - Contrastar Jira contra el informe antes de la defensa (G9).

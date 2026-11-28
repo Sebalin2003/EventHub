@@ -7,7 +7,8 @@
 > - **Etapa 4:** ✅ **COMPLETADA** (Integraciones obligatorias: SOAP mock, Geocode mock, Topic Exchange y Fallback 503/504)
 > - **Etapa 5:** ✅ **COMPLETADA** (Web conectada al backend)
 > - **Etapa 6:** ✅ **IMPLEMENTADA** (Umbrales y automatización en CI)
-> - **Etapas 7 a 8:** 📋 **PLANIFICADAS / PENDIENTES**
+> - **Etapa 7:** 🟡 **PARCIAL** (documentación y evidencia local actualizadas; bloqueada por CI fallido y datos externos faltantes)
+> - **Etapa 8:** 📋 **PENDIENTE**
 
 ---
 
@@ -143,21 +144,21 @@ Hice las etapas en orden de dependencia. Las tres primeras desbloquean la aproba
 
 ---
 
-## Etapa 7 — Documentación e informe honesto · QA + 1 · media — [⏳ PENDIENTE]
+## Etapa 7 — Documentación e informe honesto · QA + 1 · media — [🟡 PARCIAL]
 **Objetivo:** G9, G8 y la documentación final.
 
 | Tarea | Ref. | Estado |
 |---|---|:---:|
-| Reescribir el informe de testing con números reales del CI nuevo. Quitar "sin mocks", "6 jobs" anterior y SEC-09; reabrir EVH-102 y cerrarlo con el test nuevo | P-04 | ⏳ Pendiente |
-| Registro de defectos: los de esta auditoría, cada uno con pasos, esperado/obtenido, estado y causa raíz | E3-21 | ⏳ Pendiente |
-| Especificación de casos completa, con ≥ 40 % negativos | DOC-06 | ⏳ Pendiente |
-| Matriz de trazabilidad con columnas de caso y de defecto | E3-20 | ⏳ Pendiente |
-| Documento técnico y ARCHITECTURE alineados con el código, con diagramas de secuencia de SOAP, REST y mensajería | E2-24, DOC-02 | ⏳ Pendiente |
-| ADR 007 y 008 corregidos; la IA, o con proveedor detrás de una interfaz, o descripta como motor de reglas | E2-13, E2-14 | ⏳ Pendiente |
-| Declaración de IA actualizada al día de la entrega, incluida esta auditoría y los commits con autor "Claude" | G8 | ⏳ Pendiente |
-| Limpiar rutas viejas y enlaces `file:///`; nombre real del QA; PDF con número de grupo | P-21 | ⏳ Pendiente |
+| Reescribir el informe de testing con datos actuales. Retirar afirmaciones antiguas no respaldadas; documentar estado CI y cobertura reales | P-04 | ✅ Informe actualizado; CI actual no está verde |
+| Registro de defectos con pasos, esperado/obtenido, estado técnico y causa raíz | E3-21 | ✅ Registro local actualizado; estados Jira no verificados |
+| Especificación de casos completa, con ≥ 40 % negativos | DOC-06 | ✅ 43 criterios; 21 negativos (48,8 %) |
+| Matriz de trazabilidad con columnas de caso y defecto | E3-20 | ✅ [MATRIZ_TRAZABILIDAD.md](docs/testing/MATRIZ_TRAZABILIDAD.md) |
+| Documento técnico y ARCHITECTURE alineados con el código, con diagramas de secuencia de SOAP, REST y mensajería | E2-24, DOC-02 | ✅ Reescritos como arquitectura implementada; límites y diagramas añadidos |
+| ADR 007 y 008 corregidos; IA descripta según la implementación real | E2-13, E2-14 | ✅ Outbox sin garantía de ACK; asistente descrito como simulador determinístico |
+| Declaración de IA actualizada, incluida esta revisión y commits con atribución Git a Claude | G8 | ✅ Se registró Copilot SDK en VS Code sin inventar modelo; trailers Git tratados solo como atribución |
+| Limpiar rutas viejas y enlaces `file:///`; nombre real del QA; PDF con número de grupo | P-21 | 🟡 Rutas de documentación corregidas; faltan nombre QA y número de grupo para cerrar/regenerar PDF |
 
-**Criterio de salida:** cada afirmación del informe tiene un run o un test que la respalda.
+**Criterio de salida:** cada afirmación del informe tiene un run o un test que la respalda. **Todavía no se cumple:** la última CI consultada (`46105294262`) terminó con 4 de 6 jobs fallidos y el test local de cobertura quedó por debajo del umbral. Además, no se puede actualizar Jira, asignar el nombre real del QA ni regenerar el PDF con número de grupo sin esos datos/accesos.
 
 ---
 

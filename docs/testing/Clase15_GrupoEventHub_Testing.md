@@ -8,11 +8,11 @@
 ### Enlaces del Entregable
 - **Repositorio GitHub:** [https://github.com/Sebalin2003/EventHub](https://github.com/Sebalin2003/EventHub)
 - **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega, incluidos el Eje A y el Eje B)
-- **Pipeline de CI (GitHub Actions):** `.github/workflows/ci.yml` — [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml) (build/tests, mutación, Docker, `playwright-e2e`, carga k6 y `security-scan`; 6 jobs en verde sobre `main`, run `43040287065` del 11/11/2026, duración total 12 min 15 s)
+- **Pipeline de CI (GitHub Actions):** [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml); último run consultado: [46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262), 28/11/2026, 2/6 jobs exitosos y 4/6 fallidos. El run `46069841619` corresponde al commit de este checkout `4f93684` y también falló.
 - **Suite E2E / Responsive / Accesibilidad:** `apps/web/e2e/` (Playwright + axe-core, 18 pruebas verdes)
 - **Evidencia Lighthouse:** `docs/evidencias/lighthouse-home-desktop.json` y `docs/evidencias/lighthouse-home-mobile.json` (100/100 en Accessibility)
-- **Manual de usuario:** `docs/MANUAL_USUARIO.md`
-- **Prueba exploratoria:** `docs/PRUEBA_EXPLORATORIA.md`
+- **Manual de usuario:** [MANUAL_USUARIO.md](./MANUAL_USUARIO.md)
+- **Prueba exploratoria:** [PRUEBA_EXPLORATORIA.md](./PRUEBA_EXPLORATORIA.md)
 - **Tablero Jira:** Proyecto `EVH` (EventHub)
 - **SonarCloud:** no configurado por falta de cuenta/token; el CI usa cobertura real, baseline anti-regresión y mutation testing en su lugar.
 - **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (96 requests / 176 aserciones, ejecutada con Newman 6 en CI)
@@ -20,7 +20,7 @@
 - **Mutation testing:** `apps/api/stryker.conf.json` (Stryker 10.1.1 + Vitest, score 76,23%)
 - **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (50 VUs, 5 min y 3 endpoints críticos; ejecutado con `grafana/k6`, reporte en `docs/evidencias/k6-summary.json`)
 
-> **Estado de esta versión:** el documento distingue explícitamente entre evidencia ejecutada y evidencia pendiente. G1, G2, G3 y G6 están cerrados con evidencia; el Eje A está implementado y verificado con Playwright, axe y Lighthouse, salvo la prueba del manual y la exploratoria del docente, que se ejecutan en clase. El Eje B está cerrado en cobertura, mutación, integración real, contratos, Newman y estabilidad, con la única excepción del Quality Gate de Sonar. El **Eje C está cerrado** con SOAP real, timeout y circuit breaker, outbox, caída/recovery del broker, consumidor idempotente, DLQ real con reproceso, compensación, idempotencia HTTP, ETag/412, Problem Details y carga k6 medida. El **Eje D está cerrado** con 29 pruebas HTTP, ZAP sin alertas High/Medium/Low y dependencias de producción sin CVE. El **Eje E está cubierto** con la declaración formal en `docs/DECLARACION_IA.md`, 14 pruebas unitarias y 10 HTTP del asistente. G4, G5, G7 y G9 dependen de Teams, Jira y la defensa presencial; G8 queda completo como documento y pendiente de validación oral.
+> **Actualización de estado — 28/11/2026:** los resultados detallados del 12/11 que siguen son evidencia histórica, no el resultado del CI actual. El último run consultado (GitHub Actions `46105294262`, SHA `129923b`) terminó con 2/6 jobs exitosos y 4/6 fallidos: contrato OpenAPI, Playwright, ejecución k6 y ZAP activo autenticado. En el checkout local `4f93684`, `pnpm --filter api test:cov` ejecutó 307/307 tests, pero el comando terminó en error porque la cobertura quedó en 75,71 % de líneas y 66,34 % de ramas, por debajo de los umbrales 80/70; `pnpm --filter @evenhub/web test` pasó 8/8. Por lo tanto no se declara CI verde ni cumplimiento actual de los umbrales.
 
 ---
 
@@ -42,33 +42,33 @@
 1. **Pruebas Unitarias y de Dominio:** Cobertura de lógica de negocio, validaciones, factorías, estrategias criptográficas y máquina de estados (State Pattern).
 2. **Pruebas de Integración:** verificación de repositorios TypeORM y suite dedicada contra PostgreSQL y RabbitMQ reales (`integration-real-deps.e2e-spec.ts`, 17 tests), además de consumidores AMQP, topología DLQ y adaptadores de pasarela de pago (`soap-contract.e2e-spec.ts`, 9 tests contra un servidor SOAP real).
 3. **Pruebas de Contrato y API:** OpenAPI 3.1 publicado en `GET /openapi.json`, WSDL de pagos y colección Postman versionada con casos de éxito y error por endpoint. La colección se ejecuta con Newman dentro del CI contra la API levantada con PostgreSQL y RabbitMQ reales.
-4. **Pruebas de Punta a Punta (E2E) reales:** 18 pruebas Playwright en 3 archivos contra el stack Docker (`http://localhost:5173`): 6 escenarios críticos de negocio, 3 verificaciones de responsive (360/768/1280 px) y 9 auditorías de accesibilidad con axe-core. La suite de API suma 76 tests E2E en 7 archivos: 17 de integración real con DB/broker, 9 de contrato SOAP, 29 de seguridad HTTP (BOLA/BFLA, JWT, mass assignment, inyecciones, XXE, rate limiting, headers y CORS), 10 del asistente de IA y el resto de los flujos de aplicación.
-5. **Pruebas No Funcionales:** escaneo de secretos con Gitleaks sobre todo el historial, smoke HTTP del stack Docker, Lighthouse de accesibilidad (100/100 desktop y mobile), verificación de responsividad en tres viewports y **prueba de carga con k6** (50 VUs durante 5 minutos sobre tres endpoints críticos, p95 = 16,41 ms y 0,00% de errores). OWASP ZAP y los escaneos de dependencias siguen identificados pero no ejecutados.
+4. **Pruebas de Punta a Punta (E2E):** la evidencia histórica reporta 18 pruebas Playwright en 3 archivos y 76 tests E2E de API. La CI más reciente sí inició Playwright, pero ese job falló; no se atribuye a esa corrida un total de tests aprobados. La integración usa PostgreSQL y RabbitMQ de CI; SOAP y geocodificación se prueban mediante servicios mock del proyecto.
+5. **Pruebas No Funcionales:** Gitleaks, smoke Docker, Lighthouse y k6 cuentan con evidencia histórica. En el artefacto k6 del run `46105294262` figuran p95 de 16,405 ms, tasa `http_req_failed` de 0,00 %, 6.695 iteraciones y 20.087 checks aprobados; los dos umbrales del resumen aparecen satisfechos, aunque el paso k6 del job terminó con error y no se toma el job como exitoso. El escaneo ZAP activo autenticado más reciente también falló.
 
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
 - **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
-- **Entorno de Integración Continua (G3):** GitHub Actions con runner `ubuntu-latest`, servicios de PostgreSQL y RabbitMQ. El job `build-and-test` ejecuta Gitleaks, lint, typecheck, builds, validación de contrato OpenAPI, 3 corridas de suite, baseline de cobertura y Newman. Los jobs paralelos cubren Docker Compose, Playwright E2E/responsive/a11y, mutation testing, carga k6 y `security-scan` (auditoría de dependencias + ZAP baseline). Ejecutado en verde sobre `main` (run `43040287065`, 12 min 15 s) y revalidado sobre el tag `v1.0-testing`: [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml).
+- **Entorno de Integración Continua (G3):** GitHub Actions usa PostgreSQL y RabbitMQ. El run `46105294262` tuvo 6 jobs: mutación y smoke Docker pasaron; build/tests falló al verificar el contrato OpenAPI, Playwright falló, k6 falló y ZAP activo autenticado falló. Los pasos de suite, cobertura y Newman del job build/tests quedaron omitidos por el fallo temprano del contrato. No se declara G3 cumplido en el estado actual.
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
 - **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, sin warnings) e infraestructura Docker levantando en menos de 15 minutos.
-- **Criterios de Salida (estado al 12/11/2026):**
+- **Evidencia histórica y estado actual:**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
-  - G3 validado: CI en verde sobre `main`, con 6 jobs (build/tests, Docker Compose, Playwright E2E, mutation testing, carga k6 y seguridad); run `43040287065` en 12 min 15 s, dentro de los 15 minutos.
+  - CI histórico: run `43040287065` del 11/11/2026 se registró verde en 12 min 15 s. Estado actual: run `46105294262` fallido (4/6 jobs).
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
-  - Suites verdes: 259 pruebas de API, 76 E2E de API, 8 de frontend y 18 de Playwright contra el stack real (361 en total).
-  - Eje A: 43/43 criterios Gherkin verificados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
-  - Cobertura real de API: **96,52% de líneas** y **84,60% de ramas** (94,43% de sentencias). Umbrales de 80% / 70% configurados en Vitest y baseline anti-regresión de 90% / 75% en CI.
+  - Evidencia histórica: 259 pruebas de API, 76 E2E de API, 8 de frontend y 18 de Playwright. Verificación local del 28/11: 307 tests API pasaron, pero el gate de cobertura falló; frontend 8/8 pasó. No se suman como un único total por corresponder a corridas distintas.
+  - Eje A histórico: 43 criterios Gherkin trazados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
+  - Cobertura API local del 28/11/2026: **75,71% de líneas**, **66,34% de ramas**, 74,34% de sentencias y 61,04% de funciones. No cumple los umbrales configurados de 80% / 70%. Los valores 96,52% / 84,60% de este informe son una medición histórica del 12/11.
   - Mutation testing: **76,23%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
-  - Integración real: 17 tests contra PostgreSQL y RabbitMQ en contenedores, sin mocks, más 9 tests contra un servidor SOAP real.
+  - Integración: evidencia histórica de pruebas contra PostgreSQL y RabbitMQ; los servicios externos SOAP y geocodificación son mocks. No se describe el stack como “sin mocks”.
   - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
-  - Eje C: caída y recuperación de RabbitMQ sin pérdida (`docs/evidencias/broker-recovery.json`), DLQ real con `x-death` y reproceso, consumidor idempotente, compensación y outbox transaccional. Carga k6: **p95 = 16,41 ms**, **error rate = 0,00%** y 6.695 iteraciones (`docs/evidencias/k6-summary.json`).
-  - Estabilidad: 3 corridas consecutivas de unidad + E2E sin fallos; el run completo de CI con los 6 jobs tardó 12 min 15 s en la medición inicial y 6,4 min en la revalidación final del 12/11/2026. El CI detectó y permitió corregir un fallo intermitente real del seed (colisión `23505` por suites E2E paralelas), validado después con 3 corridas E2E consecutivas de 76/76 y el run `43265088091` del tag en verde.
-  - Defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) registrados en la sección 5.
+  - Eje C: la evidencia histórica de caída/recovery muestra los mensajes pendientes y el reintento ensayado (`docs/evidencias/broker-recovery.json`); no demuestra una garantía absoluta de cero pérdida. También hay evidencia histórica de DLQ/reproceso, consumidor idempotente y outbox. El artefacto k6 más reciente reporta p95 16,405 ms y tasa de errores 0,00 %, aunque el job del run terminó fallido.
+  - Estabilidad: las tres corridas consecutivas y los tiempos citados son evidencia histórica. En el run actual las suites posteriores a la validación del contrato OpenAPI no se ejecutaron.
+  - Defectos EVH-101 a EVH-108, con reproducción y causa raíz, en [REGISTRO_DEFECTOS.md](./REGISTRO_DEFECTOS.md). Los estados de Jira no están verificados.
   - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
-  - G4 (Teams), G5 (Jira), G7 (demo) y G9 (contraste final) quedan pendientes de ejecución externa. G8 (declaración de IA) quedó completo como documento; resta la validación oral del equipo.
+  - G4 (Teams), G5 (Jira), G7 (demo) y G9 (contraste final) quedan pendientes de ejecución externa. G8 está documentado; resta que el equipo confirme las atribuciones y complete la validación oral.
   - Quality Gate de Sonar: **no configurado** por falta de cuenta/token; no se declara cumplido.
 
 ### 1.5 Matriz de Riesgos Priorizados (Probabilidad × Impacto)
@@ -85,7 +85,7 @@
 
 ## 2. Eje A — Historias de usuario, prioridad MOSCOW y criterios de aceptación
 
-Las historias se priorizan con **MOSCOW** (Must / Should / Could / Won't). Ningún criterio de una HU **Must** falla al cierre: los 43 criterios definidos abajo están verificados. Las actividades que dependen del docente (prueba del manual y prueba exploratoria) se registran aparte y no se declaran ejecutadas.
+Las historias se priorizan con **MOSCOW** (Must / Should / Could / Won't). La matriz de 43 criterios contiene evidencia técnica, mayormente histórica; no equivale a una aprobación de la CI más reciente. Las actividades que dependen del docente (prueba del manual y prueba exploratoria) se registran aparte y no se declaran ejecutadas.
 
 ### 2.1 Historias de usuario del alcance
 
@@ -149,7 +149,7 @@ Las historias se priorizan con **MOSCOW** (Must / Should / Could / Won't). Ning�
 - **HU-08-C1 (camino feliz):** Dado una consulta sobre rock o tecnología, Cuando se invoca el asistente, Entonces responde con recomendaciones del catálogo.
 - **HU-08-C2 (alternativo):** Dado una consulta médica fuera de dominio, Cuando se evalúa, Entonces se activa el guardrail y responde de forma acotada y segura.
 - **HU-08-C3 (error):** Dado un prompt con «ignore all previous instructions» o DAN mode, Cuando se evalúa, Entonces se bloquea con categoría SECURITY_BLOCKED.
-- **HU-08-C4 (falla del sistema externo):** Dado que el proveedor de IA no responde, Cuando se invoca el asistente, Entonces se activa el fallback determinístico sin romper el flujo.
+- **HU-08-C4 (fallback simulado):** Dado `simulateTimeout=true`, Cuando se invoca el asistente, Entonces se activa la respuesta determinística `FALLBACK` sin romper el flujo.
 
 #### HU-09 — Autenticación y autorización por rol (MUST)
 - **HU-09-C1 (camino feliz):** Dado un perfil de demostración, Cuando el usuario ingresa, Entonces accede al portal correspondiente a su rol.
@@ -218,11 +218,11 @@ Las historias se priorizan con **MOSCOW** (Must / Should / Could / Won't). Ning�
 | HU-11-C3 | Playwright `a11y.spec.ts` (9 pantallas axe WCAG 2.2 AA) | PASA |
 | HU-11-C4 | Lighthouse 13.6.0 Accessibility: 100 desktop / 100 mobile (`docs/evidencias/lighthouse-home-*.json`) | PASA |
 
-**Resultado:** 43 de 43 criterios verificados y pasados (100%). No hay criterios Must fallados.
+**Resultado registrado en la matriz:** 43 criterios trazados; 21 negativos (48,8 %). Los estados técnicos de la matriz no certifican el estado actual de CI ni sustituyen la ejecución docente pendiente.
 
 ### 2.4 Escenarios críticos automatizados de punta a punta
 
-Los escenarios corren contra el stack Docker real (web + API + PostgreSQL + RabbitMQ), sin mocks en memoria, con `workers: 1`.
+Los escenarios corren contra el stack Docker (web + API + PostgreSQL + RabbitMQ), con `workers: 1`. Las pruebas de SOAP y geocodificación usan servicios mock del proyecto; no se afirma que todas las dependencias externas sean reales.
 
 | Escenario | Flujo cubierto | Archivo |
 |---|---|---|
@@ -249,15 +249,15 @@ Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec
 
 | Actividad | Estado | Evidencia |
 |---|---|---|
-| Manual de usuario | **Documentado**, pendiente de ejecución del docente | `docs/MANUAL_USUARIO.md` (tareas A1–A6, O1–O3, S1–S3, AD1, T1–T4 y registro final) |
-| Prueba exploratoria interna | **Ejecutada** el 07/11/2026 (~10 min, 6 sondeos) | `docs/PRUEBA_EXPLORATORIA.md`; defectos EVH-107 (corregido) y EVH-108 (Menor, abierto con workaround) |
-| Prueba exploratoria del docente | **Pendiente** de la clase | Tabla de registro al final de `docs/PRUEBA_EXPLORATORIA.md` |
+| Manual de usuario | **Documentado**, pendiente de ejecución del docente | [MANUAL_USUARIO.md](./MANUAL_USUARIO.md) (tareas A1–A6, O1–O3, S1–S3, AD1, T1–T4 y registro final) |
+| Prueba exploratoria interna | **Ejecutada** el 07/11/2026 (~10 min, 6 sondeos) | [PRUEBA_EXPLORATORIA.md](./PRUEBA_EXPLORATORIA.md); defectos EVH-107 y EVH-108 |
+| Prueba exploratoria del docente | **Pendiente** de la clase | Tabla de registro al final de [PRUEBA_EXPLORATORIA.md](./PRUEBA_EXPLORATORIA.md) |
 
 ---
 
 ## 3. Especificación de Casos de Prueba
 
-> **Criterio de casos negativos:** la suite prioriza explícitamente escenarios negativos, de borde, concurrencia y seguridad (por ejemplo: `alg=none`, BOLA, BFLA, 409 por transición inválida, timeout SOAP, circuit breaker, DLQ, prompt injection y guardrails). No se declara un porcentaje exacto de casos negativos porque el conteo no está etiquetado de forma automática en el código; la matriz de la sección 2 identifica cada caso y su tipo.
+> **Criterio de casos negativos:** la matriz clasifica 21 de 43 criterios como negativos (48,8 %). La clasificación se refiere a criterios trazados, no al porcentaje de tests automatizados etiquetados como negativos.
 
 ### Muestra Representativa de Casos de Prueba
 - **TC-SEC-01 (Negativo / Seguridad):** Inyección de algoritmo `alg=none` en token JWT.
@@ -296,7 +296,7 @@ Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec
 
 ## 4. Informe de Ejecución y Métricas
 
-### 4.1 Resumen de Ejecución de Pruebas (medición local del 12/11/2026)
+### 4.1 Resumen histórico de ejecución (medición local del 12/11/2026)
 | Suite | Comando | Total Ejecutados | Pasados | Fallados | Bloqueados | Tiempo |
 |---|---|:---:|:---:|:---:|:---:|:---:|
 | API: unitarias, dominio, seguridad y resiliencia | `pnpm --filter api test:cov` | 259 | 259 | 0 | 0 | 13,93 s |
@@ -308,7 +308,7 @@ Evidencia versionada: `apps/web/e2e/a11y.spec.ts`, `apps/web/e2e/responsive.spec
 
 Además se verificaron: build de API correcto, build de web correcto, `oxlint` sin warnings, typecheck de web correcto, Gitleaks sin hallazgos y Lighthouse Accessibility 100/100 en desktop y mobile.
 
-### 4.2 Métricas de Cobertura de Código (v8, medición real)
+### 4.2 Cobertura histórica de código (v8, medición del 12/11/2026)
 | Archivo / Capa | Cobertura de Líneas (%) | Cobertura de Ramas (%) | Umbral exigido | Estado |
 |---|:---:|:---:|:---:|:---:|
 | `identity.service.ts` | 100,00 | 100,00 | Líneas ≥ 80 / Ramas ≥ 70 | CUMPLE |
@@ -371,6 +371,8 @@ Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado e
 
 ## 6. Informe de Seguridad (Matriz SEC — Clase 11)
 
+Los resultados marcados en esta matriz corresponden a pruebas y escaneos históricos; no representan una aprobación de la CI más reciente. El último job ZAP activo autenticado terminó fallido.
+
 | Criterio SEC | Requerimiento / Estándar | Estado | Evidencia y Mecanismo de Verificación |
 |---|---|:---:|---|
 | **SEC-01 (BOLA / IDOR)** | Usuario A pide un recurso de Usuario B cambiando el id en URL o body. Nunca debe retornar el dato (403 o 404). | **CUMPLE** | `test/security-http.e2e-spec.ts` contra `AppModule` y PostgreSQL reales: una orden y un ticket de otro usuario responden 403/404. También cubierto en `security-resilience.spec.ts` y `orders.service.spec.ts`. |
@@ -381,30 +383,29 @@ Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado e
 | **SEC-06 (XXE en SOAP)** | Entidades externas XML y DTD en canal SOAP deben ser rechazadas sin procesar. | **CUMPLE** | Verificado en `payments.service.spec.ts` y por HTTP real en `POST /payments/process`: responde `success:false`, `code:XXE_INJECTION_REJECTED`, `faultType:BUSINESS_FAULT`. ZAP activo: `XML External Entity Attack` en PASS. |
 | **SEC-07 (Fuerza Bruta)** | Rate limiting sobre endpoint de login (429 Too Many Requests). | **CUMPLE** | `RateLimiterGuard` bloquea tras 5 intentos fallidos en 60 segundos. La suite HTTP verifica el 429 con Problem Details. |
 | **SEC-08 (Escaneo de Secretos - G6)**| 0 contraseñas, tokens o llaves privadas en ningún commit del historial de Git. | **CUMPLE** | Gitleaks v8.28.0 `detect` sobre todo el historial: `no leaks found`. Se usa `.gitleaks.toml` con allowlist justificada para dos falsos positivos: el placeholder `abc123def456` del badge de CircleCI en `apps/api/README.md` y el fixture JWT `alg=none` de `security-resilience.spec.ts`. El escaneo corre en el CI sobre todo el historial. |
-| **SEC-09 (Headers de Seguridad y CORS)**| CSP, HSTS, X-Content-Type-Options presentes; CORS sin comodín cuando usa credenciales. | **CUMPLE** | `SecurityHeadersMiddleware` inyecta CSP estricta, HSTS, `nosniff`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, COOP, COEP y CORP. La suite HTTP valida las cabeceras y el CORS permitido/rechazado. ZAP: 0 Medium/Low de cabeceras. |
 | **SEC-10 (Logs y Mensajes de Error)**| Sin stack traces al cliente; sin contraseñas, tarjetas ni tokens en logs (RFC 9457). | **CUMPLE** | `ProblemDetailsFilter` devuelve Problem Details sin stack trace y oculta el mensaje interno en 500. Auditoría de las 47 llamadas a `Logger`: se enmascaran emails y se dejaron de registrar payloads completos. La suite HTTP verifica ausencia de rutas, `TypeError` y mensajes de PostgreSQL. |
 | **SEC-11 (Cifrado y Contraseñas)**| Cifrado en tránsito (TLS) y contraseñas hasheadas con algoritmo adaptativo (scrypt). | **PARCIAL** | Contraseñas con `ScryptHashStrategy` (salt de 16 bytes y clave de 64 bytes) verificadas por tests. TLS directo opcional implementado en `main.ts` y probado con certificado autofirmado (`docs/evidencias/security/tls-smoke.txt`); en Docker Compose local el tráfico sigue en HTTP y en producción se documenta terminación en proxy. |
 
-**Evidencia no funcional:** OWASP ZAP baseline y API scan autenticado ejecutados el 2026-11-11 con **0 High, 0 Medium y 0 Low**; las alertas informativas están justificadas en `docs/evidencias/zap-justificaciones.md`. `pnpm audit --prod` queda en **0 vulnerabilidades** y la única deuda completa es `minimatch` moderado dev-only, justificado en el mismo documento. Evidencias crudas en `docs/evidencias/zap/` y `docs/evidencias/security/`. El job `security-scan` del CI ejecuta `pnpm audit --prod` y ZAP baseline con verificación de 0 High.
+**Evidencia histórica no funcional:** los escaneos y la auditoría de dependencias del 11/11/2026 se conservan en `docs/evidencias/zap/` y `docs/evidencias/security/`. El job ZAP activo autenticado del run `46105294262` terminó fallido; no se presenta el escaneo histórico como resultado actual.
 
 ---
 
 ## 7. Declaración y Plan de Inteligencia Artificial (Eje E)
 
 ### 7.1 IA Usada en el Proceso de Testing (Declaración Obligatoria)
-La declaración completa, con herramientas, versiones, prompts, salidas aceptadas/corregidas, verificación y limitaciones, está en **`docs/DECLARACION_IA.md`**. Resumen de las herramientas con evidencia real:
-- **Claude 5.5 (Claude Code):** revisión defensiva, casos de borde y escenarios negativos del State Pattern y BOLA/IDOR; commits `fc0f2e0`, `beeea23` y `22b0931` con trailer `Co-Authored-By`.
+La declaración y sus límites están en [DECLARACION_IA.md](../ia/DECLARACION_IA.md). Los registros del repositorio atribuyen usos a estas herramientas, con el nivel de evidencia indicado:
+- **Referencia a Claude Opus 5.5:** los commits `fc0f2e0`, `beeea23` y `22b0931` incluyen un trailer `Co-Authored-By`; el trailer por sí solo no confirma herramienta/modelo de ejecución.
 - **OpenAI Codex (versión no registrada):** traslado del prototipo, documentación e implementación/verificación del demo frontend; declarado en `README.md`.
 - **Figma Make (versión no registrada):** prototipo visual inicial; enlace en `README.md`.
-- **OpenCode v2.2.2 (modelo Big Pickle):** implementación y revisión de los Ejes C, D y E, pruebas de seguridad/IA, CI y documentación.
+- **OpenCode:** el registro previo informa versión v2.2.2/modelo Big Pickle; no se atribuye independientemente por la evidencia de autoría Git.
 - Se retiraron GitHub Copilot y Postbot de la declaración porque no tenían evidencia ni versión registrada en el repositorio.
 
-**Caso real de IA incorrecta detectado y corregido:** la IA propuso comparar `riskcode === '3'` cuando el JSON de ZAP lo emite numérico, lo que hizo fallar el job `security-scan`; también omitió los permisos de escritura del contenedor ZAP y el fallback de Playwright ante fallas de DNS, y un borrador afirmó “37 E2E / 316 pruebas / 5 jobs” cuando la ejecución real dio 76 E2E, 361 pruebas y 6 jobs. Cada caso se corrigió y se verificó en CI; el detalle está en la declaración.
+**Casos históricos registrados:** el documento de declaración detalla propuestas de IA corregidas sobre ZAP, permisos del contenedor, Playwright y métricas. Las referencias de CI citadas allí son históricas, no evidencia de que el run más reciente esté verde.
 
-**Revisión y firma:** todos los tests se ejecutaron localmente y en CI. La firma y defensa oral de cada integrante quedan pendientes de la instancia de evaluación.
+**Revisión y firma:** la declaración registra la herramienta identificable de esta revisión como Copilot SDK en VS Code, sin modelo/versión disponibles en la sesión. La firma y defensa oral de cada integrante quedan pendientes de la instancia de evaluación.
 
 ### 7.2 Plan de IA por Incorporar (Hoja de Ruta para Entrega Final)
-El plan completo, con objetivo medible y riesgo controlado, está en `docs/DECLARACION_IA.md`. Incorporaciones previstas:
+El plan completo, con objetivo medible y riesgo controlado, está en [DECLARACION_IA.md](../ia/DECLARACION_IA.md). Incorporaciones previstas:
 1. **Regresión visual asistida por IA:** detectar diferencias en 360/768/1280 px con revisión humana de cada diff.
 2. **Datos sintéticos para k6:** perfiles y navegación variados sin PII real.
 3. **Triage automático de defectos:** clasificar fallos de CI y derivarlos a Jira con revisión humana.
@@ -431,32 +432,22 @@ El plan completo, con objetivo medible y riesgo controlado, está en `docs/DECLA
 
 ### 2. Defecto de Concurrencia: Condición de Carrera en Reserva de Inventario HOLD (EVH-102)
 - **Por qué llegó tarde:** Las pruebas funcionales se ejecutaban con un único usuario secuencial. La sobreventa solo se manifestó al simular concurrencia en la previa de la entrega.
-- **Qué prueba lo habría atrapado:** Una prueba unitaria de concurrencia ejecutando 10 promesas simultáneas (`Promise.all`) compitiendo por un stock de 2 entradas, verificando que únicamente se conceden los HOLDs permitidos y el resto recibe `409 Conflict`.
+- **Evidencia técnica actual:** `stage3-integrity.spec.ts` envía cinco solicitudes simultáneas para un cupo de dos; dos HOLDs se aceptan y tres reciben `409`. Es una prueba unitaria en una instancia, no una prueba multi-instancia.
 
 ### 3. Defecto de Seguridad: Vulnerabilidad BOLA/IDOR en Consulta de Entradas (EVH-105)
 - **Por qué llegó tarde:** Los desarrolladores asumieron que con la sola presencia del `JwtAuthGuard` la ruta estaba protegida, sin comprobar que el token validaba la identidad pero no la pertenencia del recurso individual solicitado.
 - **Qué prueba lo habría atrapado:** Una prueba de seguridad automatizada en la suite de integración donde un cliente autenticado con `Usuario A` intenta ejecutar `GET /tickets/:id` con el identificador del `Usuario B`, exigiendo un código de estado `403 Forbidden`.
 
-> **Aprendizaje adicional del Eje A:** la sesión exploratoria interna del 07/11/2026 detectó **EVH-107** (mensaje de login engañoso, corregido) y **EVH-108** (pérdida del contexto de checkout al recargar, Menor con workaround). Ambos se documentan en `docs/PRUEBA_EXPLORATORIA.md`; el primero quedó cubierto por el escenario E2E A5.
+> **Aprendizaje adicional del Eje A:** la sesión exploratoria interna del 07/11/2026 detectó **EVH-107** (mensaje de login engañoso, corregido) y **EVH-108** (pérdida del contexto de checkout al recargar, Menor con workaround). Ambos se documentan en [PRUEBA_EXPLORATORIA.md](./PRUEBA_EXPLORATORIA.md); el primero quedó cubierto por el escenario E2E A5.
 
 ---
 
 ## 9. Conclusión del Aseguramiento de Calidad
 
-EventHub cuenta con una base de pruebas automatizadas real y reproducible: **361 pruebas verdes** (259 de API, 76 E2E de API incluidos la integración real con DB/broker, el contrato SOAP, los 29 tests de seguridad HTTP y los 10 del asistente de IA, 8 de frontend y 18 de Playwright contra el stack Docker real), cobertura de 96,52% de líneas / 84,60% de ramas, mutation score de 76,23%, contratos OpenAPI/WSDL validados, colección Newman de 96 requests sin fallos, prueba de carga k6 con p95 de 16,41 ms y 0,00% de errores, builds correctos, lint ejecutable, stack Docker con healthchecks, escaneo de secretos limpio sobre todo el historial, ZAP baseline y API scan autenticado sin alertas High/Medium/Low, `pnpm audit --prod` en 0, declaración de IA completa y accesibilidad medida.
+Los resultados detallados de las secciones anteriores son **mediciones históricas del 12/11/2026**, salvo cuando se identifican explícitamente como locales o del CI del 28/11. No deben sumarse como una única corrida ni presentarse como estado vigente.
 
-La entrega **todavía no puede declararse conforme a la totalidad de los criterios**:
+Al 28/11/2026, el run más reciente consultado ([46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262)) finalizó con 2/6 jobs exitosos y 4/6 fallidos: build/tests falló al verificar el contrato OpenAPI, y también fallaron Playwright, k6 y ZAP activo autenticado. La verificación local ejecutó 307/307 tests API, pero terminó en error por cobertura bajo los umbrales (75,71 % líneas y 66,34 % ramas); el frontend pasó 8/8. Por lo tanto, **no se declara CI verde ni cumplimiento actual de los umbrales**.
 
-- **G1** está validado localmente, incluido el flujo crítico HTTP completo.
-- **G2** está validado: tag `v1.0-testing` publicado sobre el commit final.
-- **G3** está validado: CI en verde sobre el tag `v1.0-testing` con los 6 jobs, incluidos `playwright-e2e`, `mutation-testing`, k6 y `security-scan` ([workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml)).
-- **G6** está validado con Gitleaks v8.28.0 y una allowlist justificada.
-- **Eje A** está verificado: 43/43 criterios Gherkin, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px, axe sin violaciones critical/serious en 9 pantallas y Lighthouse Accessibility 100/100. La **prueba del manual** y la **prueba exploratoria del docente** quedan pendientes de ejecución en clase.
-- **Eje B** está verificado en todos sus criterios salvo el Quality Gate de Sonar (sin cuenta/token): cobertura 96,52% / 84,60%, mutation score 76,23%, 17 tests de integración real, contratos OpenAPI/WSDL, 96 requests de Newman y 3 corridas consecutivas sin fallos.
-- **Eje C** está cerrado con evidencia reproducible: SOAP real con Fault de negocio, Fault técnico y timeout de 5 s sin XML crudo, circuit breaker con fallback, outbox transaccional, caída y recuperación de RabbitMQ sin pérdida, consumidor idempotente, DLQ real con `x-death` y reproceso, compensación de pago rechazado, idempotencia HTTP, ETag/412, Problem Details y k6 con 50 VUs (p95 16,41 ms, 0,00% errores).
-- **Eje E** está cubierto: declaración formal en `docs/DECLARACION_IA.md`, 14 pruebas unitarias y 10 HTTP del asistente, plan y limitaciones declaradas. La firma y defensa oral de cada integrante quedan pendientes de la instancia de evaluación.
-- **G4** (Teams), **G5** (Jira), **G7** (demo) y **G9** (contraste final) dependen de acciones externas. **G8** (declaración de IA) quedó completo como documento; resta la validación oral del equipo.
-- El Quality Gate de Sonar sigue pendiente por falta de cuenta/token; ZAP y el escaneo de dependencias quedaron ejecutados.
-- **EVH-108** queda abierto con severidad Menor y workaround documentado.
+La matriz traza 43 criterios y clasifica 21 como negativos (48,8 %). La evidencia de concurrencia cubre cinco solicitudes simultáneas para dos HOLDs en una instancia; no acredita comportamiento multi-instancia. El outbox persiste junto con operaciones compatibles y reintenta pendientes, pero `TopicPublisherService` no usa publisher confirms: `SENT` no prueba ACK de RabbitMQ ni cero pérdida. El asistente de IA es determinístico y no invoca un LLM.
 
-El documento mantiene las brechas visibles en lugar de declararlas resueltas. Ese es el estado que debe acompañar al tag y al run de CI una vez publicados.
+Quedan pendientes: diagnóstico y nueva ejecución de los jobs fallidos, recuperación de cobertura a 80 %/70 %, Quality Gate de Sonar, verificación externa de Teams/Jira, prueba del manual y exploratoria del docente, demo/defensa y el PDF cuando se conozcan el número de grupo y el nombre oficial del QA. EVH-108 permanece abierto en el registro técnico local; Jira no se consultó.

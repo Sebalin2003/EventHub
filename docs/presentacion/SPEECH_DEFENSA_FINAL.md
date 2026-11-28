@@ -2,7 +2,7 @@
 
 > **Documento:** Discurso paso a paso para la exposición oral del equipo (5 oradores)  
 > **Tiempo Estimado:** ~17 minutos de presentación + 5 minutos de preguntas individuales  
-> **Presentación Visual:** [docs/presentacion/EventHub_Presentacion_Final.html](file:///c:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/docs/presentacion/EventHub_Presentacion_Final.html)  
+> **Presentación Visual:** [EventHub_Presentacion_Final.html](./EventHub_Presentacion_Final.html)
 > **Distribución Equilibrada para 5 Oradores:**
 > - **Orador 1 (Arquitectura, Dominio & Cierre):** Portada, Visión del Negocio, Arquitectura en Capas, Patrones/ADRs y Conclusiones
 > - **Orador 2 (Integraciones, Resiliencia & REST):** Integraciones (SOAP/REST/AMQP), Timeout/Circuit Breaker, Outbox, Consumidores Idempotentes/DLQ y Estándares REST
@@ -35,9 +35,9 @@
 
 > *"Buenas tardes profesores y compañeros. Hoy venimos a presentar la entrega final y el tercer checkpoint de integración de **EventHub**, nuestra plataforma integral para la gestión y venta concurrente de entradas para eventos masivos.*
 > 
-> *En esta sesión unificada mostraremos el sistema funcionando de punta a punta entre frontend, backend y servicios externos, y demostraremos el cumplimiento riguroso de las 9 Condiciones Eliminatorias G1 a G9 y los umbrales de los cinco Ejes de Testing definidos por la cátedra.*
+> *En esta sesión presentaremos la evidencia disponible para las Condiciones G1 a G9 y los cinco Ejes de Testing, distinguiendo lo validado históricamente de los pendientes actuales.*
 > 
-> *El proyecto está en la rama `main`, tagueado como `v1.0-final`, con su pipeline de Integración Continua con seis jobs en verde y libre de secretos en el historial de Git. Comenzamos."*
+> *El proyecto tiene un tag local `v1.0-testing`, pero su publicación remota y el tag final deben confirmarse. El run más reciente (`46105294262`) terminó con 2 de 6 jobs exitosos y 4 fallidos. Los runs verdes previos y el escaneo Gitleaks son evidencia histórica. Comenzamos."*
 
 ---
 
@@ -187,7 +187,7 @@
 
 > *"Gracias. En cuanto a Inteligencia Artificial, implementamos `AiAdvisorService` detrás de un **AI Gateway (ADR-008)**.*
 > 
-> *Este gateway aplica capas defensivas obligatorias: bloquea **Prompt Injection** directo e indirecto (como ataques DAN), protege contra fuga del system prompt, aplica guardrails temáticos para rechazar consultas fuera de dominio, enmascara automáticamente **PII** como tarjetas y emails, y ofrece un fallback determinístico local si el proveedor externo falla."*
+> *Este endpoint usa un simulador determinístico: bloquea patrones conocidos de inyección, aplica guardrails temáticos acotados, enmascara emails y números que coinciden con el patrón de tarjeta y ofrece un fallback de prueba mediante `simulateTimeout`. No invoca un proveedor LLM externo."*
 
 ---
 
@@ -195,13 +195,14 @@
 **Tiempo:** 0:55 min | **Orador 4**  
 **En Pantalla:** Tabla de *Condiciones G1 a G9*.
 
-> *"Las **Condiciones Eliminatorias G1 a G9** son el requisito excluyente de la entrega. Las cumplimos en su totalidad:*
+> *"Las **Condiciones Eliminatorias G1 a G9** son el requisito excluyente de la entrega. Este es el estado que podemos respaldar:*
 > 
-> * **G1:** Build reproducible con un solo comando (`docker compose up -d --build --wait`).
-> * **G2 y G3:** Tag `v1.0-final` en `main` y pipeline de CI con 6 jobs en verde.
-> * **G4 y G5:** Documentación completa ordenada en `docs/` y Jira al día con QA designado.
-> * **G6:** Escaneo con **Gitleaks** sobre todo el historial Git con resultado `no leaks found` y sin secretos JWT hardcodeados.
-> * **G7, G8 y G9:** Demo en vivo lista, Declaración de IA y un Informe de Testing completamente honesto."*
+> * **G1 y G6:** existe evidencia local/histórica; falta repetir el entorno en limpio y la CI reciente no volvió a ejecutar todos los pasos.
+> * **G2:** el tag local existe; publicación remota y tag final por confirmar.
+> * **G3:** no cumple en el run actual: 2/6 jobs exitosos, 4/6 fallidos.
+> * **G4 y G5:** documentación versionada; carga a Teams, Jira y responsable QA no verificados.
+> * **G7:** la demo presencial queda pendiente.
+> * **G8 y G9:** documentos actualizados; validación oral y contraste con Jira pendientes."*
 
 ---
 
@@ -211,7 +212,7 @@
 
 > *"En el **Eje D (Seguridad)** ejecutamos 29 pruebas HTTP ofensivas reales cubriendo OWASP API Top 10: bloqueamos **BOLA/IDOR** y **BFLA** con 403/404; rechazamos JWT manipulados, expirados, sin `exp` o con `alg=none` con 401; aplicamos **Rate Limiting (HTTP 429)** contra fuerza bruta; y servimos todas las imágenes Docker como usuario sin privilegios (`USER node`) con cabeceras CSP, HSTS y `X-Frame-Options: DENY`.*
 > 
-> *El escaneo dinámico con **OWASP ZAP** (Baseline y API Scan) arrojó **0 alertas High, Medium y Low**, y `pnpm audit --prod` dio **0 vulnerabilidades**.*
+> *Los escaneos previos de **OWASP ZAP** y `pnpm audit --prod` son evidencia histórica. El job ZAP del run más reciente falló y requiere diagnóstico antes de reportar un nuevo resultado."*
 > 
 > *Por último, en el **Eje E**, validamos el módulo de IA con **14 tests unitarios y 10 tests HTTP E2E**, y dejamos constancia transparente en `DECLARACION_IA.md` de las herramientas usadas y los errores de código generado por IA que detectamos y corregimos. Ahora pasamos a la demostración en vivo."*
 
@@ -275,4 +276,4 @@
 * **Respuesta:** *"En concurrencia optimista, `GET /orders/:id` devuelve `ETag: W/"version"`. Al operar sobre la orden (`POST /orders/:id/pay`, cancelar o reembolsar), si `If-Match` no coincide con la versión actual, respondemos **412 Precondition Failed**. Además, en `OrdersService.pay` aplicamos bloqueo pesimista (`pessimistic_write`) pasando la orden a `PROCESSING` antes de invocar la pasarela SOAP, impidiendo dos cobros simultáneos."*
 
 #### 6. ¿Qué pasa si RabbitMQ entrega dos veces el mismo mensaje o si se reinicia la API?
-* **Respuesta:** *"El consumidor `NotificationsService` implementa **deduplicación persistente** mediante la columna única `messageId` en PostgreSQL (además de caché en memoria). Si llega un duplicado —incluso tras reiniciar la API— detecta el `messageId` en BD, devuelve `DUPLICATE_SKIPPED` y confirma el mensaje (`ack`) a RabbitMQ sin duplicar notificaciones."*
+* **Respuesta:** *"El consumidor `NotificationsService` implementa deduplicación persistente mediante `messageId` en PostgreSQL. El outbox conserva y reintenta mensajes que siguen `PENDING` en los escenarios probados; como el publicador no usa publisher confirms, `SENT` no significa ACK del broker ni garantiza cero pérdida."*

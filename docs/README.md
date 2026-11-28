@@ -39,13 +39,15 @@ docs/
   - [ADR-004](./arquitectura/adr/ADR-004-patron-dao-persistencia.md): **Patrón DAO** para aislamiento de persistencia y soporte dual UUID / `legacyId`.
   - [ADR-005](./arquitectura/adr/ADR-005-patron-adapter-pasarela-soap.md): **Patrón Adapter** para pasarela legada SOAP con mitigación de XXE.
   - [ADR-006](./arquitectura/adr/ADR-006-patron-circuit-breaker-timeout.md): **Patrón Circuit Breaker** y timeout de 5 segundos con fallback.
-  - [ADR-007](./arquitectura/adr/ADR-007-patron-outbox-mensajeria-rabbitmq.md): **Patrón Transactional Outbox** y mensajería durable sin pérdida con RabbitMQ.
-  - [ADR-008](./arquitectura/adr/ADR-008-patron-gateway-inteligencia-artificial.md): **Patrón Gateway** y guardrails defensivos para el Asistente de IA.
+  - [ADR-007](./arquitectura/adr/ADR-007-patron-outbox-mensajeria-rabbitmq.md): **Patrón Transactional Outbox**; documenta el límite de publisher confirms.
+  - [ADR-008](./arquitectura/adr/ADR-008-patron-gateway-inteligencia-artificial.md): **Gateway del asistente determinístico**, sin proveedor LLM externo.
 
 ### 3. 🧪 [`docs/testing/`](./testing/)
 - **[Clase15_GrupoEventHub_Testing.md](./testing/Clase15_GrupoEventHub_Testing.md):** Entregable principal de aseguramiento de calidad según estándar ISO/IEC/IEEE 29119-3 (Ejes A a E y G1 a G9).
-- **[Clase15_GrupoEventHub_Testing.pdf](./testing/Clase15_GrupoEventHub_Testing.pdf):** Versión imprimible/entregable oficial del informe de testing.
+- **[Clase15_GrupoEventHub_Testing.pdf](./testing/Clase15_GrupoEventHub_Testing.pdf):** PDF existente; regenerar con los datos actuales y completar grupo/QA antes de entregarlo.
 - **[INFORME_CUMPLIMIENTO_TESTING.md](./testing/INFORME_CUMPLIMIENTO_TESTING.md):** Informe ejecutivo de auditoría contra los criterios de admisibilidad G1-G9 y umbrales de testing.
+- **[MATRIZ_TRAZABILIDAD.md](./testing/MATRIZ_TRAZABILIDAD.md):** Especificación trazable de los 43 criterios, casos automatizados, tipo de prueba y defectos asociados; 48,8 % de criterios negativos.
+- **[REGISTRO_DEFECTOS.md](./testing/REGISTRO_DEFECTOS.md):** Pasos, esperado/obtenido, estado técnico y causa raíz para EVH-101 a EVH-108.
 - **[criterios_de_testing.md](./testing/criterios_de_testing.md):** Pauta de evaluación provista por la cátedra para la prueba del sistema.
 - **[MANUAL_USUARIO.md](./testing/MANUAL_USUARIO.md):** Manual operativo para los roles Asistente, Organizador, Staff y Administrador.
 - **[PRUEBA_EXPLORATORIA.md](./testing/PRUEBA_EXPLORATORIA.md):** Registro de la sesión de prueba exploratoria interna.

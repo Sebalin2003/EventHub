@@ -1,8 +1,10 @@
 # EventHub — Presentación Final y 3.er Checkpoint de Integración
 
+> **Vigencia:** material preparado antes del 28/11/2026. La CI más reciente (`46105294262`) terminó con 2/6 jobs exitosos y 4/6 fallidos. No presentar afirmaciones de estado de este checkpoint como resultados actuales sin revalidarlas.
+
 > **Materia:** Diseño y Arquitectura de Sistemas / Ingeniería de Software  
 > **Instancia:** Presentación Conjunta: 3.er Checkpoint (Integración & Ensayo de Testing) + Entrega Final (Validación de Sistema Completo)  
-> **Tag de Release:** `v1.0-final` | **Rama:** `main`  
+> **Tag de Release mencionado en este material:** `v1.0-final` (publicación no verificada en esta revisión) | **Rama:** `main`
 > **Fecha:** Noviembre / Diciembre 2026  
 > **Plataforma:** EventHub (Sistema Integral de Gestión y Venta Concurrente de Entradas para Eventos Masivos)
 
@@ -121,7 +123,7 @@ Cada patrón cuenta con su Architecture Decision Record en `docs/arquitectura/ad
 | **ADR-002** | **Strategy** | Hashing criptográfico intercambiable | `identity/strategies/password-hasher.strategy.ts` | Hash adaptativo con `scrypt` (N=16384, r=8, p=1) + sal de 16 bytes |
 | **ADR-003** | **Factory** | Creación polimórfica de eventos y tickets | `events/factories/event.factory.ts` | Desacopla la instanciación según tipo de evento y política |
 | **ADR-004** | **DAO / Repository** | Abstracción de acceso a datos relacional | TypeORM Repositories en cada módulo | Aísla la lógica de negocio de la sintaxis SQL de PostgreSQL |
-| **ADR-005** | **Adapter** | Adaptación de protocolo bancario legado heterogéneo | `payments/soap/soap-payment.adapter.ts` | Traduce llamadas REST de la orden a sobres XML SOAP con WSDL |
+| **ADR-005** | **Adapter** | Adaptación de pasarela de pagos SOAP | `apps/api/src/modules/payments/` | Traduce la operación de pago al protocolo SOAP descrito por el WSDL |
 | **ADR-006** | **Circuit Breaker** | Evitar saturación ante pasarelas lentas o caídas | `payments/payments.service.ts` | Corta tras 3 fallas, cooldown 30s y respuesta fallback inmediata |
 | **ADR-007** | **Transactional Outbox** | Publicación confiable en broker distribuido | `common/broker/outbox.service.ts` | Guarda evento en BD antes de publicar; tolera broker apagado |
 | **ADR-008** | **AI Gateway** | Blindaje y mediación con modelos de IA | `modules/ai/gateway/ai-gateway.service.ts` | Enmascara PII, filtra prompt injections y aplica guardrails |
@@ -130,13 +132,13 @@ Cada patrón cuenta con su Architecture Decision Record en `docs/arquitectura/ad
 
 ### Diapositiva 5: Integraciones Heterogéneas (SOAP Legado, REST y AMQP)
 
-1. **SOAP con Sistema Bancario Legado:**
-   * Contrato formal en [docs/contracts/payments.wsdl](file:///c:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/docs/contracts/payments.wsdl).
+1. **SOAP para la integración de pagos (mock en desarrollo):**
+   * Contrato formal en [docs/contracts/payments.wsdl](../contracts/payments.wsdl).
    * **Manejo de Faults:** Clasificación automática entre `BUSINESS_FAULT` (fondos insuficientes, tarjeta expirada) y `TECHNICAL_FAULT` (error interno de pasarela, timeout).
    * **Protección contra XXE (XML External Entity Injection):** Parser configurado con `disallowDoctypeDecl` y deshabilitación estricta de entidades externas DTD. Ante intentos de ataque con `<!ENTITY xxe SYSTEM "file:///etc/passwd">`, el adapter rechaza inmediatamente con `XXE_INJECTION_REJECTED`.
    * **Higienización de Mensajes:** `sanitizeSoapMessage` elimina cualquier etiqueta XML del mensaje antes de que llegue al usuario.
 2. **REST con Sistema Moderno:**
-   * Documentación OpenAPI 3.1 completa disponible en `GET /openapi.json` ([docs/contracts/openapi.json](file:///c:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/docs/contracts/openapi.json)).
+   * Documentación OpenAPI 3.1 disponible en `GET /openapi.json` ([docs/contracts/openapi.json](../contracts/openapi.json)).
    * DTOs validados con `class-validator` y `class-transformer` con `whitelist: true` y `forbidNonWhitelisted: true`.
 3. **Mensajería Asíncrona (RabbitMQ):**
    * Emisión de eventos de dominio: `event.created`, `order.created`, `order.paid`.
@@ -184,15 +186,15 @@ sequenceDiagram
 
 * **El Problema del 2PC (Two-Phase Commit):** Si guardamos la orden en PostgreSQL y luego intentamos publicar en RabbitMQ pero la red falla, se pierde la notificación y la venta queda desincronizada.
 * **La Solución: Transactional Outbox Pattern (ADR-007):**
-  1. Dentro de la **misma transacción atómica** donde se confirma la orden en PostgreSQL, se inserta un registro en la tabla `outbox_events` con `status = 'PENDING'`.
-  2. Un worker en segundo plano (`OutboxService`) sondea periódicamente los eventos `PENDING` y los despacha a RabbitMQ.
-  3. Tras la confirmación del broker, el evento se actualiza a `status = 'SENT'`.
+  1. En operaciones compatibles, el mensaje se inserta en `outbox_messages` dentro de la transacción PostgreSQL.
+  2. `OutboxService`, dentro del proceso API, sondea los mensajes `PENDING` y los publica a RabbitMQ.
+  3. Si `publish` retorna, el evento se actualiza a `SENT`; el publicador usa canal AMQP normal, no publisher confirms, por lo que `SENT` no prueba ACK del broker.
 * **Prueba de Falla Real (Broker Apagado):**
   * Se apaga el contenedor de RabbitMQ (`docker stop eventhub_broker`).
   * Se emite una compra o publicación de evento: el API responde **HTTP 201 Created**.
   * El evento queda preservado en PostgreSQL (`PENDING`).
-  * Se enciende RabbitMQ (`docker start eventhub_broker`): el worker reconecta automáticamente, despacha los mensajes pendientes a la cola y los marca como `SENT`.
-  * **Resultado:** Cero pérdida de mensajes ante caídas del broker.
+  * Se enciende RabbitMQ (`docker start eventhub_broker`): el siguiente ciclo del `OutboxService` intenta publicar los mensajes pendientes y marcarlos `SENT` si la llamada de publicación retorna.
+  * **Resultado del escenario ensayado:** el mensaje pendiente se reintenta al recuperar el broker. No demuestra una garantía absoluta de cero pérdida.
 
 ---
 
@@ -208,7 +210,7 @@ sequenceDiagram
     1. El consumidor reintenta hasta 3 veces.
     2. Al superar el umbral, ejecuta `nack(requeue: false)`.
     3. RabbitMQ transfiere automáticamente el mensaje a `notifications_dlq` adjuntando la cabecera diagnóstica `x-death`.
-    4. El equipo de soporte puede corregir el dato y reprocesar el mensaje sin pérdida de información.
+    4. El equipo de soporte puede corregir el dato y reprocesar el mensaje según el flujo ensayado; no se afirma garantía absoluta de entrega.
 
 ---
 
@@ -254,15 +256,15 @@ sequenceDiagram
 
 | Condición | Requisito Eliminatorio | Estado | Evidencia Concreta |
 |---|---|---|---|
-| **G1** | Build reproducible con un solo comando | **CUMPLE** | `docker compose up -d --build --wait` levanta PostgreSQL, RabbitMQ, API y Web con 4/4 contenedores `healthy`. |
-| **G2** | Tag `v1.0-final` en main antes del turno | **CUMPLE** | Tag `v1.0-final` publicado en GitHub sobre la rama `main` en commit sincronizado. |
-| **G3** | Pipeline de CI en verde | **CUMPLE** | GitHub Actions con 6 jobs en verde: `build-and-test`, `mutation-testing`, `playwright-e2e`, `docker-smoke`, `load-test-k6`, `security-scan`. |
-| **G4** | Documentación completa en repositorio | **CUMPLE** | `docs/` organizado con Arquitectura (8 ADRs), Testing, Despliegue, Seguridad, Manual de Usuario y Producto. |
-| **G5** | Jira al día con HU y QA designado | **CUMPLE** | Historias de usuario priorizadas en MoSCoW, criterios Gherkin vinculados, defectos tipificados y QA designado. |
-| **G6** | Sin secretos en el historial | **CUMPLE** | Escaneo con `Gitleaks v8.28.0` sobre los commits de todo el historial: `no leaks found`. |
-| **G7** | Demostración en vivo funcional | **CUMPLE** | Flujo completo verificado: Login $\rightarrow$ Catálogo $\rightarrow$ Compra $\rightarrow$ Pago SOAP $\rightarrow$ Ticket $\rightarrow$ Check-in QR. |
-| **G8** | Declaración honesta de uso de IA | **CUMPLE** | Documento formal [docs/ia/DECLARACION_IA.md](file:///c:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/docs/ia/DECLARACION_IA.md) con prompts, herramientas, casos de error y verificación. |
-| **G9** | Informe honesto de testing | **CUMPLE** | [docs/testing/INFORME_CUMPLIMIENTO_TESTING.md](file:///c:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/docs/testing/INFORME_CUMPLIMIENTO_TESTING.md) declara métricas reales y brechas sin falsear resultados. |
+| **G1** | Build reproducible con un solo comando | Evidencia local histórica | El repositorio registra un smoke Docker; falta repetirlo en una máquina limpia. |
+| **G2** | Tag requerido publicado en main | No verificado remotamente | Existe el tag local `v1.0-testing`; confirmar tag final y publicación remota. |
+| **G3** | Pipeline de CI en verde | **No cumple en el run actual** | Run `46105294262`: 2/6 jobs exitosos, 4/6 fallidos. |
+| **G4** | Documentación completa en repositorio y entrega | Parcial | Documentación versionada; carga a Teams no verificada. |
+| **G5** | Jira al día con HU y QA designado | No verificable | No hubo acceso a Jira ni evidencia del nombre oficial del QA. |
+| **G6** | Sin secretos en el historial | Evidencia histórica | Gitleaks reportó `no leaks found`; la última CI no revalidó todos los pasos posteriores al fallo de contrato. |
+| **G7** | Demostración en vivo funcional | Pendiente | Hay evidencia histórica de smoke/Playwright; demo presencial no realizada en esta revisión. |
+| **G8** | Declaración honesta de uso de IA | Documento actualizado; oral pendiente | [DECLARACION_IA.md](../ia/DECLARACION_IA.md) explicita atribuciones verificables y limitaciones. |
+| **G9** | Informe honesto de testing | Actualizado; contraste externo pendiente | [INFORME_CUMPLIMIENTO_TESTING.md](../testing/INFORME_CUMPLIMIENTO_TESTING.md) refleja CI y cobertura actuales; Jira no se verificó. |
 
 ---
 
@@ -271,7 +273,7 @@ sequenceDiagram
 * **Alcance de Negocio:**
   * **11 Historias de Usuario** priorizadas con MoSCoW (HU-01 a HU-11).
   * **43 criterios de aceptación en formato Gherkin** (Dado / Cuando / Entonces), cubriendo caminos felices, alternativos y de fallo externo.
-  * **43 de 43 criterios verificados y aprobados (100%)**.
+  * La matriz versionada registra los 43 criterios y los casos asociados; sus aprobaciones son evidencia histórica, no resultado de la CI más reciente.
 * **Pruebas E2E Reales en Navegador con Playwright:**
   * Ejecución contra el stack Docker real en `apps/web/e2e/critical-flows.spec.ts`.
   * Escenarios: Login con JWT real, navegación de catálogo, compra completa, alta y publicación de evento, rechazo de credenciales y check-in.
@@ -309,7 +311,7 @@ sequenceDiagram
 ### Diapositiva 14: Eje C — Integración Real y Pruebas de Carga k6 (p95 < 20ms)
 
 * **Suite de Integración Real (`test/integration-real-deps.e2e-spec.ts`):**
-  * 17 tests automatizados levantando NestJS contra PostgreSQL 15 y RabbitMQ 3 reales (sin mocks en memoria).
+  * La evidencia histórica reporta 17 tests con PostgreSQL y RabbitMQ reales; SOAP y geocodificación pueden usar mocks del proyecto.
   * Verifica persistencia de entidades, consumo de colas AMQP, idempotencia en base de datos y transiciones State.
 * **Prueba de Carga con k6:**
   * **Escenario:** 50 Usuarios Virtuales (VUs) concurrentes durante 5 minutos ininterrumpidos.
@@ -317,7 +319,7 @@ sequenceDiagram
   * **Resultado Obtenido:**
     * **p95 Latencia:** **16,41 ms** (Umbral exigido: < 500 ms).
     * **Tasa de Errores HTTP:** **0,00%** (6.695 solicitudes completadas exitosamente).
-    * Evidencia guardada en [docs/evidencias/k6-summary.json](file:///c:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/docs/evidencias/k6-summary.json).
+    * Evidencia guardada en [docs/evidencias/k6-summary.json](../evidencias/k6-summary.json). En el run más reciente el resumen muestra p95 16,405 ms y 0,00 % de errores, pero el job k6 terminó fallido.
 
 ---
 
@@ -331,7 +333,7 @@ sequenceDiagram
   * **Fuerza Bruta:** Rate limiter responde **HTTP 429 Too Many Requests** tras superar el umbral de intentos fallidos de login.
   * **Protección XXE:** Carga útil XML maliciosa en canal SOAP rechazada con `XXE_INJECTION_REJECTED`.
 * **Auditoría de Vulnerabilidades con OWASP ZAP & pnpm audit:**
-  * **OWASP ZAP Baseline & API Scan autenticado:** **0 Alertas High**, **0 Medium**, **0 Low** (solo informativas justificadas en `docs/evidencias/zap-justificaciones.md`).
+  * **Evidencia histórica OWASP ZAP Baseline & API Scan:** 0 alertas High/Medium/Low en los reportes previos. El job ZAP más reciente (`46105294262`) terminó fallido.
   * **`pnpm audit --prod`:** **0 vulnerabilidades** en dependencias de producción.
 
 ---
@@ -341,10 +343,10 @@ sequenceDiagram
 * **Testing de la Capa de Inteligencia Artificial:**
   * **14 pruebas unitarias** y **10 pruebas HTTP E2E** específicas para el módulo de IA.
   * Validación de guardrails: respuestas bloqueadas ante prompts hostiles sin filtrar datos del sistema.
-  * Enmascaramiento de datos personales (PII) antes de invocar la lógica del asistente.
+  * El simulador enmascara emails y números que coinciden con el patrón de tarjeta; no se comunica con un proveedor LLM.
 * **Declaración Formal de Uso de Herramientas de IA:**
-  * Documentada en [docs/ia/DECLARACION_IA.md](file:///c:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/docs/ia/DECLARACION_IA.md).
-  * Detalle de herramientas utilizadas con evidencia de versiones (Claude 5.5, Codex, Figma Make).
+  * Documentada en [DECLARACION_IA.md](../ia/DECLARACION_IA.md).
+  * `AiAdvisorService` es un simulador determinístico; no invoca un proveedor LLM. Las versiones/modelos no verificables se señalan como tales.
   * Registro honesto de casos donde la IA generó código erróneo y cómo fue detectado y corregido por el equipo (ej. comparación de tipos en script de ZAP, volumen de permisos Docker, colisión concurrente en seeds).
 
 ---
@@ -371,7 +373,7 @@ flowchart LR
    * Intento de escanear la misma entrada por segunda vez: el sistema responde **409 Conflict** (`ENTRADA_YA_UTILIZADA`).
 3. **Flujo de Resiliencia en Vivo:**
    * Se detiene el broker RabbitMQ en vivo.
-   * Se realiza una compra: el sistema responde 201 OK y almacena el evento en `outbox_events` (`PENDING`).
+   * Se realiza una compra: el sistema responde 201 OK y almacena el evento en `outbox_messages` (`PENDING`), según el escenario ensayado.
    * Se inicia RabbitMQ: se observa en consola cómo el worker despacha el evento pendiente y lo marca como `SENT`.
 
 ---
@@ -395,7 +397,7 @@ flowchart LR
 ### Diapositiva 19: Conclusiones, Lecciones Aprendidas y Preguntas de Defensa
 
 * **Logros Destacados:**
-  * Integración exitosa de sistemas con protocolos dispares (SOAP 1.1/1.2 bancario vs REST moderno vs colas AMQP).
+  * Integración de sistemas con protocolos dispares (SOAP para pagos, REST y colas AMQP); en el entorno local algunos proveedores son mocks.
   * Arquitectura tolerante a fallos reales gracias al patrón Outbox, Circuit Breaker y Dead Letter Queues.
   * Calidad respaldada por métricas rigurosas: 96.5% cobertura, 76.2% mutación y latencias p95 menores a 20 ms.
   * Código limpio, libre de secretos en Git y validado por herramientas de análisis estático y dinámico.

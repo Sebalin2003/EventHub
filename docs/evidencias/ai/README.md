@@ -33,7 +33,7 @@ pnpm --filter api test:e2e
 
 ## Cobertura de los criterios de la cátedra
 
-- Salidas esperadas y criterio de evaluación: matriz en `docs/DECLARACION_IA.md`, sección 2.2.
+- Salidas esperadas y criterio de evaluación: matriz en [DECLARACION_IA.md](../../ia/DECLARACION_IA.md), sección 2.2.
 - Inyección directa e indirecta: casos unitarios y HTTP con `SECURITY_BLOCKED`.
 - Pedidos fuera de dominio: médicos y legales con `GUARDRAIL_TRIGGERED`.
 - Fuga de datos: emails y tarjetas enmascarados con `sanitizedPii=true`.

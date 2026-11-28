@@ -66,7 +66,7 @@ Si deseas activar la mensajería asíncrona real y la cola de mensajes muertos (
 3. Haz clic sobre la tarjeta del nuevo servicio y abre la pestaña **Settings**:
    - **Service Name:** `eventhub-api`.
    - **Root Directory:** `apps/api` *(¡indispensable para que Railway compile el backend!)*.
-   - El archivo [apps/api/railway.json](file:///C:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/apps/api/railway.json) ya incluido en el proyecto configura automáticamente el builder Nixpacks y el healthcheck en `/events`.
+   - El archivo [apps/api/railway.json](../../apps/api/railway.json) ya incluido en el proyecto configura automáticamente el builder Nixpacks y el healthcheck en `/events`.
 4. Ve a la pestaña **Variables** y agrega:
 
 | Variable | Valor en Railway | Propósito |
@@ -95,7 +95,7 @@ Si deseas activar la mensajería asíncrona real y la cola de mensajes muertos (
 3. Haz clic sobre la nueva tarjeta y ve a la pestaña **Settings**:
    - **Service Name:** `eventhub-web`.
    - **Root Directory:** `apps/web` *(¡fundamental para compilar el frontend!)*.
-   - El archivo [apps/web/railway.json](file:///C:/Users/jazmin/OneDrive/Documentos/EVENTHUB/EventHub-main/EventHub-main/apps/web/railway.json) ya preconfigura `npm install && npm run build` y ejecuta `serve -s dist -l $PORT` (con soporte para SPA y React Router).
+   - El archivo [apps/web/railway.json](../../apps/web/railway.json) ya preconfigura `npm install && npm run build` y ejecuta `serve -s dist -l $PORT` (con soporte para SPA y React Router).
 4. Ve a la pestaña **Variables**:
 
 > [!IMPORTANT]
