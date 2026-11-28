@@ -2,13 +2,13 @@
 
 ## Conclusión ejecutiva
 
-**Estado revisado al 28/11/2026:** este informe contiene resultados históricos del 12/11 y evidencia local/CI más reciente. No se declara cumplimiento actual de los umbrales ni CI verde.
+**Estado revisado al 28/11/2026:** el pipeline está en verde. El run [46165701834](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834), sobre el commit `65e0dd8` de `main`, terminó con **6/6 jobs exitosos** en 12 min 05 s: build y tests (con Newman), mutación, Playwright, carga k6, dependencias y ZAP, y smoke de Docker Compose.
 
-El último run consultado, [46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262), finalizó con 2/6 jobs exitosos y 4/6 fallidos. Los jobs de mutación y smoke Docker pasaron; fallaron build/tests en validación del contrato OpenAPI, Playwright, k6 y ZAP activo autenticado. El run `46069841619`, asociado al checkout local `4f93684`, también falló.
+Métricas del run verde: Newman **104 requests / 192 aserciones** sin fallos; Playwright **18/18** con `retries: 0`; k6 **p95 = 263,79 ms** y **error rate = 0,00 %** con escritura (crear orden y pagar); Stryker por encima del umbral `break: 60`. La cobertura se midió con el mismo comando del CI (`pnpm --filter api test:cov`) sobre `65e0dd8`: **318/318 tests**, **91,55 % de líneas**, **81,59 % de ramas**, 89,28 % de sentencias y 85,9 % de funciones. Supera tanto el mínimo de la cátedra (80/70) como el baseline anti-regresión del CI (90/75). `pnpm --filter @evenhub/web test` pasó 8/8.
 
-En local, `pnpm --filter api test:cov` ejecutó 307/307 tests, pero el comando terminó con error por cobertura bajo los umbrales: 75,71 % de líneas y 66,34 % de ramas (requisito 80/70). `pnpm --filter @evenhub/web test` pasó 8/8. Por lo tanto, la etapa sigue parcial: faltan corregir fallos de CI y recuperar los umbrales de cobertura.
+Las corridas anteriores del 28/11 (`46105294262`, `46156117286` y `46159895506`) fallaron; los defectos que las causaron (contrato OpenAPI, cobertura, Playwright A6, Luhn en escenarios críticos, setup de k6 y permisos de ZAP) se corrigieron en `ea0bf8e`, `33a3dff` y `65e0dd8`.
 
-Persisten además los siguientes bloqueos: no se dispone de cuenta/token para confirmar el Quality Gate de Sonar; no hay acceso para verificar Teams o actualizar Jira; la prueba del docente y la demostración presencial están pendientes; faltan el nombre oficial del QA y el número de grupo para completar el PDF. EVH-108 continúa abierto según el registro técnico local; el estado de Jira no se verificó.
+Quedan fuera del alcance verificable desde el repositorio: no se dispone de cuenta/token para confirmar el Quality Gate de Sonar; no hay acceso para verificar Teams o actualizar Jira; la prueba del docente y la demostración presencial están pendientes; faltan el nombre oficial del QA y el número de grupo, que el equipo debe completar en el PDF. EVH-108 continúa abierto según el registro técnico local; el estado de Jira no se verificó.
 
 ## Evidencia histórica (mediciones reportadas al 12/11/2026)
 
@@ -35,22 +35,23 @@ Persisten además los siguientes bloqueos: no se dispone de cuenta/token para co
 | Typecheck del frontend | Correcto |
 | Oxlint | Correcto, sin warnings |
 | Gitleaks v8.28.0 sobre todo el historial | Sin hallazgos (`no leaks found`) |
-| CI histórico sobre `main` y tag `v1.0-testing` | Run `43040287065` se reportó verde el 11/11/2026; no representa el último estado: run `46105294262` del 28/11/2026 falló en 4/6 jobs |
+| CI histórico sobre `main` y tag `v1.0-testing` | Run `43040287065` verde el 11/11/2026; estado actual: run `46165701834` del 28/11/2026, 6/6 jobs en verde |
 | `docker compose up -d --build --wait` | 4 contenedores `healthy` |
 | Smoke HTTP del flujo crítico | Login, evento, publicación, orden, pago, tickets y check-in OK |
 | Caída y recuperación de RabbitMQ | Publicación HTTP 201 con broker detenido; reconexión automática y API `healthy` |
 | Sesión exploratoria interna | 6 sondeos; EVH-107 corregido y EVH-108 documentado |
 
-## Evidencia más reciente
+## Evidencia más reciente (28/11/2026)
 
 | Fuente | Resultado |
 |---|---|
-| CI run `46105294262` | 2/6 jobs exitosos (mutación, smoke Docker); 4/6 fallidos (build/tests por contrato OpenAPI, Playwright, k6 y ZAP activo autenticado) |
-| API local, `pnpm --filter api test:cov` | 307/307 tests pasaron; el comando falla el gate de cobertura: 75,71 % líneas, 66,34 % ramas, 74,34 % sentencias y 61,04 % funciones |
-| Frontend local, `pnpm --filter @evenhub/web test` | 8/8 tests pasaron |
-| Artefacto k6 del run `46105294262` | p95 16,405 ms, `http_req_failed` 0,00 %, 6.695 iteraciones y 20.087 checks aprobados. El job k6 terminó fallido; el resumen no basta para atribuir la causa |
-
-El fallo de contrato OpenAPI detuvo el job build/tests antes de las suites, la cobertura y Newman; esas etapas no se consideran aprobadas por ese run.
+| CI run `46165701834` (`65e0dd8`) | 6/6 jobs exitosos; duración total 12 min 05 s |
+| Newman (job build y tests) | 104 requests / 192 aserciones, 0 fallos |
+| Playwright (job Eje A) | 18/18 (6 críticos + 3 responsive + 9 accesibilidad), sin reintentos |
+| k6 (job Eje C, 50 VUs, 5 min) | p95 263,79 ms; `http_req_failed` 0,00 % |
+| Stryker (job Eje B) | Job en verde con umbral `break: 60` |
+| API, `pnpm --filter api test:cov` sobre `65e0dd8` | 318/318 tests; 91,55 % líneas, 81,59 % ramas, 89,28 % sentencias, 85,9 % funciones |
+| Frontend, `pnpm --filter @evenhub/web test` | 8/8 tests |
 
 Los comandos ejecutados fueron:
 
@@ -76,27 +77,27 @@ docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.28.0 detect --s
 
 | Código | Estado | Evidencia y acción necesaria |
 |---|---|---|
-| G1 | Evidencia local histórica | El repositorio registra `docker compose up -d --build --wait` y un smoke del flujo principal. Falta repetirlo en una máquina limpia para la evidencia formal. |
+| G1 | Cumple en CI | El job G1 del run `46165701834` levantó el stack con `docker compose up -d --build --wait` desde un checkout limpio y pasó el smoke en 1 min 19 s. Queda el ensayo en una máquina limpia del equipo (etapa 8). |
 | G2 | Parcial / remoto no verificado | El tag `v1.0-testing` existe en este checkout. La publicación remota y relación exacta con el commit final no se verificaron en esta revisión. |
-| G3 | No cumple en el estado consultado | Run `46105294262`: 2/6 jobs exitosos, 4/6 fallidos. Ver el resumen de evidencia más reciente al inicio del informe. |
+| G3 | Cumple | Run `46165701834` sobre `65e0dd8`: 6/6 jobs exitosos en 12 min 05 s. |
 | G4 | No verificable | Hay documentación en el repositorio, pero debe confirmarse la entrega del plan, matriz, informe, defectos y PDF en Teams. |
 | G5 | No verificable | Debe comprobarse que cada caso y defecto exista en Jira con estado, responsable y vínculo a la HU. |
-| G6 | Evidencia histórica | Gitleaks v8.28.0 sobre el historial reportó `no leaks found`, con allowlist justificada. La última CI no revalidó todos los pasos posteriores al fallo de contrato. |
+| G6 | Cumple | Gitleaks v8.28.0 sobre el historial reportó `no leaks found`, con allowlist justificada. El run `46165701834` volvió a ejecutar Gitleaks dentro del job de build y tests, en verde. |
 | G7 | No verificable | Requiere demostrar en vivo el flujo principal de punta a punta. El flujo ya fue validado por Playwright y por smoke HTTP contra Docker. |
 | G8 | Documento actualizado; firma pendiente | [DECLARACION_IA.md](../ia/DECLARACION_IA.md) identifica la revisión actual y distingue datos registrados de atribuciones no verificables. Resta que el equipo valide y firme la declaración y la defensa oral. |
 | G9 | No verificable | Debe contrastarse el informe con Jira y la ejecución para asegurar que no existan defectos conocidos omitidos. |
 
-El estado de publicación del tag requiere confirmación remota; el pipeline actual no está verde. Las condiciones externas siguen dependiendo de Teams, Jira y la defensa.
+El pipeline está en verde; el tag `v1.0-final` se mueve a la punta de `main` en la etapa 8. Las condiciones externas siguen dependiendo de Teams, Jira y la defensa.
 
 ## Eje A: historias de usuario y pruebas E2E
 
-Los resultados de esta sección son evidencia histórica; la CI actual falló en el job Playwright.
+El job Playwright del run `46165701834` pasó 18/18 sin reintentos.
 
 ### Cumplimientos observados
 
 - **11 HU** en el alcance (HU-01 a HU-11), priorizadas con **MOSCOW**.
 - **43 criterios Gherkin** medibles: camino feliz, alternativo y error; las HU de integración suman falla del sistema externo.
-- La matriz registra 43 criterios y los casos asociados; sus aprobaciones son evidencia histórica, no resultado de la CI más reciente.
+- La matriz registra 43 criterios y los casos asociados; sus estados técnicos están respaldados por el run `46165701834`.
 - **6 escenarios críticos E2E** automatizados con Playwright y ejecutados contra el stack Docker real: login con JWT, catálogo/filtros, compra completa, alta y publicación de evento, rechazo de credenciales inválidas y check-in con doble uso.
 - **Responsive verificado** a 360, 768 y 1280 px en inicio, explorar, detalle, login, dashboard y eventos del organizador, sin scroll horizontal.
 - **Accesibilidad WCAG 2.2 AA**: axe-core sin violaciones `critical` ni `serious` en 9 pantallas; Lighthouse 13.6.0 Accessibility **100/100** en desktop y mobile. Evidencia en `docs/evidencias/lighthouse-home-*.json`.
@@ -130,7 +131,7 @@ La evidencia principal se encuentra en:
 
 ## Eje B: código y pruebas automatizadas
 
-Las mediciones de cierre que siguen son históricas (12/11/2026); las cifras actuales se consignan al inicio del informe.
+Las mediciones detalladas que siguen son del 12/11/2026. Las cifras vigentes (run `46165701834` y cobertura sobre `65e0dd8`) están al inicio del informe y en la tabla de umbrales.
 
 ### Cumplimientos observados
 
@@ -157,12 +158,13 @@ Las mediciones de cierre que siguen son históricas (12/11/2026); las cifras act
 | Pruebas de contrato OpenAPI/WSDL | Requerida | OpenAPI 3.1 + WSDL validados en E2E | Cumple |
 | Suite sin flaky tests tres veces | Requerida | 220×3 y 28×3 sin fallos (medición previa); 259 unitarios y 76 E2E verdes en el cierre | Cumple |
 | Pipeline menor o igual a 15 minutos | Requerida | Run completo en 12 min 15 s (`build-and-test` 1:49, `mutation-testing` 5:44, `security-scan` 2:17) | Cumple |
-| Cobertura actual local | 80% líneas / 70% ramas | 75,71% / 66,34% (307 tests pasaron; gate falló) | No cumple |
-| CI más reciente | 6/6 jobs exitosos | 2/6 exitosos; 4/6 fallidos | No cumple |
+| Cobertura actual (`65e0dd8`) | 80% líneas / 70% ramas | 91,55% / 81,59% (318/318 tests) | Cumple |
+| CI más reciente | 6/6 jobs exitosos | 6/6 exitosos (run `46165701834`, 12 min 05 s) | Cumple |
+| API con casos de éxito y error (actual) | Requerida | 104 requests / 192 aserciones con Newman, 0 fallos | Cumple |
 
 ### Brecha pendiente
 
-El **Quality Gate de SonarQube/SonarCloud** no se pudo verificar por falta de cuenta/token. Además, la cobertura local actual está bajo los umbrales configurados y el CI más reciente no completó la validación del contrato OpenAPI; sus pasos de suite, cobertura y Newman quedaron omitidos. Los resultados históricos de cobertura y pipeline no resuelven esos bloqueos actuales.
+El **Quality Gate de SonarQube/SonarCloud** no se pudo verificar por falta de cuenta/token. Es el único umbral del Eje B que no se declara cumplido.
 
 ### Acciones necesarias
 
@@ -178,7 +180,7 @@ El **Quality Gate de SonarQube/SonarCloud** no se pudo verificar por falta de cu
 
 ### Cumplimientos observados
 
-La evidencia histórica cubre los diez criterios del Eje C. La CI más reciente no volvió a ejecutar todas estas pruebas, y la prueba de recuperación del broker no demuestra garantías universales de entrega:
+Los diez criterios del Eje C tienen evidencia; el run `46165701834` volvió a ejecutar las suites de integración y la carga k6 en verde. La prueba de recuperación del broker no demuestra garantías universales de entrega:
 
 | Criterio | Evidencia |
 | :--- | :--- |
@@ -214,7 +216,7 @@ La medición histórica reporta **17 tests** contra PostgreSQL y RabbitMQ. Adem�
 
 ## Eje D: seguridad
 
-Las mediciones de ZAP y dependencias que siguen son históricas. El job ZAP activo autenticado del run `46105294262` terminó fallido.
+Las mediciones de ZAP y dependencias que siguen son históricas. El job Eje D (dependencias y ZAP) del run `46165701834` terminó en verde.
 
 ### Cumplimientos observados
 
@@ -322,14 +324,13 @@ Al recargar la página en el paso **Medio de pago**, la aplicación vuelve al in
 
 ## Acciones pendientes
 
-1. Corregir la discrepancia del contrato OpenAPI y volver a ejecutar CI.
-2. Diagnosticar por separado los fallos de Playwright, k6 y ZAP; los datos resumidos no determinan por sí solos sus causas.
-3. Recuperar la cobertura API a los mínimos configurados de 80 % de líneas y 70 % de ramas.
-4. Confirmar el Quality Gate de Sonar cuando se disponga de acceso.
-5. Validar en Teams y Jira los entregables, historias, defectos, responsables y estados externos.
-6. Ejecutar la prueba del manual y la exploratoria del docente; completar demo y defensa.
-7. Completar el PDF al confirmar número de grupo y nombre oficial del QA.
+1. ~~Corregir el contrato OpenAPI, Playwright, k6 y ZAP y volver a ejecutar CI.~~ Hecho: run `46165701834`, 6/6.
+2. ~~Recuperar la cobertura API a los mínimos configurados.~~ Hecho: 91,55 % / 81,59 %.
+3. Confirmar el Quality Gate de Sonar cuando se disponga de acceso.
+4. Validar en Teams y Jira los entregables, historias, defectos, responsables y estados externos.
+5. Ejecutar la prueba del manual y la exploratoria del docente; completar demo y defensa.
+6. Completar el PDF con el número de grupo y el nombre oficial del QA.
 
 ## Veredicto al 28/11/2026
 
-La etapa de testing y su documentación **no pueden declararse completamente conformes**. Hay evidencia histórica de pruebas, integración y escaneos, y la corrida actual de mutación y smoke Docker pasó. Sin embargo, la CI más reciente falló en 4 de 6 jobs y la cobertura local no alcanza los umbrales. Los estados de Jira/Teams y las actividades presenciales no se pudieron verificar desde el repositorio.
+Los criterios técnicos verificables desde el repositorio **se cumplen**: CI 6/6 en verde (run `46165701834`), cobertura 91,55 % / 81,59 %, Newman, Playwright, k6 y mutación sobre sus umbrales. **No se declaran cumplidos** el Quality Gate de Sonar (sin token) ni los puntos externos: Jira, Teams, número de grupo y nombre del QA en el PDF, demo y defensa.

@@ -124,4 +124,4 @@ sequenceDiagram
 
 ## 9. Estado de validación documental
 
-La CI más reciente consultada (run `46105294262`, 28/11/2026) falló en 4 de 6 jobs; el detalle y las métricas locales están en [INFORME_CUMPLIMIENTO_TESTING.md](../testing/INFORME_CUMPLIMIENTO_TESTING.md). No se presenta la medición histórica del 12/11 como resultado actual.
+El run [46165701834](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834) (28/11/2026, commit `65e0dd8`) terminó con 6/6 jobs en verde; el detalle y las métricas están en [INFORME_CUMPLIMIENTO_TESTING.md](../testing/INFORME_CUMPLIMIENTO_TESTING.md). Este documento describe la arquitectura implementada en ese commit.

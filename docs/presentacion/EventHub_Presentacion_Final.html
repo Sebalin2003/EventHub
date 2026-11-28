@@ -1177,13 +1177,13 @@
             <tr><th>Cond.</th><th>Requisito Eliminatorio</th><th>Estado</th><th>Evidencia Verificable</th></tr>
           </thead>
           <tbody>
-            <tr><td><strong>G1</strong></td><td>Build reproducible en 1 comando</td><td><span class="tag tag-warn">EVIDENCIA LOCAL HISTÓRICA</span></td><td>Hay registro de smoke Docker; falta repetirlo en una máquina limpia</td></tr>
-            <tr><td><strong>G2</strong></td><td>Tag requerido en <code>main</code></td><td><span class="tag tag-warn">REMOTO NO VERIFICADO</span></td><td>Existe <code>v1.0-testing</code> local; confirmar publicación remota y tag final</td></tr>
-            <tr><td><strong>G3</strong></td><td>Pipeline CI en verde</td><td><span class="tag tag-warn">NO CUMPLE EN RUN ACTUAL</span></td><td>Run 46105294262: 2/6 jobs exitosos y 4/6 fallidos; runs verdes previos son históricos</td></tr>
+            <tr><td><strong>G1</strong></td><td>Build reproducible en 1 comando</td><td><span class="tag tag-ok">CUMPLE EN CI</span></td><td>Job G1 del run 46165701834: <code>docker compose up -d --build --wait</code> y smoke en verde</td></tr>
+            <tr><td><strong>G2</strong></td><td>Tag requerido en <code>main</code></td><td><span class="tag tag-warn">ETAPA 8</span></td><td><code>v1.0-final</code> se mueve a la punta de <code>main</code> con CI verde</td></tr>
+            <tr><td><strong>G3</strong></td><td>Pipeline CI en verde</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Run 46165701834: 6/6 jobs exitosos en 12 min 05 s</td></tr>
             <tr><td><strong>G4</strong></td><td>Documentación completa y entrega</td><td><span class="tag tag-warn">PARCIAL</span></td><td>Documentación en el repo; carga a Teams no verificada</td></tr>
             <tr><td><strong>G5</strong></td><td>Jira al día con QA designado</td><td><span class="tag tag-warn">NO VERIFICABLE</span></td><td>Jira no consultado; nombre oficial del QA no disponible</td></tr>
-            <tr><td><strong>G6</strong></td><td>Sin secretos en historial Git</td><td><span class="tag tag-warn">EVIDENCIA HISTÓRICA</span></td><td>Gitleaks v8.28.0 reportó <code>no leaks found</code></td></tr>
-            <tr><td><strong>G7</strong></td><td>Demo en vivo funcional</td><td><span class="tag tag-warn">PENDIENTE</span></td><td>Hay evidencia histórica de smoke/Playwright; demo presencial no realizada en esta revisión</td></tr>
+            <tr><td><strong>G6</strong></td><td>Sin secretos en historial Git</td><td><span class="tag tag-ok">CUMPLE</span></td><td>Gitleaks v8.28.0 sobre todo el historial, en verde en el run 46165701834</td></tr>
+            <tr><td><strong>G7</strong></td><td>Demo en vivo funcional</td><td><span class="tag tag-warn">PENDIENTE</span></td><td>Playwright 18/18 en CI con la web conectada a la API; la demo presencial se hace en la defensa</td></tr>
             <tr><td><strong>G8</strong></td><td>Declaración honesta de IA</td><td><span class="tag tag-warn">DOCUMENTO ACTUALIZADO</span></td><td>Documento actualizado; validación y defensa oral pendientes</td></tr>
             <tr><td><strong>G9</strong></td><td>Informe honesto de testing</td><td><span class="tag tag-warn">CONTRASTE EXTERNO PENDIENTE</span></td><td>Informe actualizado; estados de Jira no verificados</td></tr>
           </tbody>
@@ -1238,32 +1238,32 @@
   </section>
 
   <!-- 13: EJE B -->
-  <section class="slide" data-kicker="Eje B · Calidad de Pruebas" data-title="Cobertura (96,5%) y Mutación (76,2%)" data-notes="Orador 3 — Superamos ampliamente los umbrales del Eje B: 96.52% líneas, 84.60% ramas, 76.23% mutation score en Stryker y 96 requests Newman sin fallos.">
+  <section class="slide" data-kicker="Eje B · Calidad de Pruebas" data-title="Cobertura (91,6%) y Mutación (≥ 60%)" data-notes="Orador 3 — Superamos los umbrales del Eje B: 91,55% líneas, 81,59% ramas con 318 tests de API, mutación sobre el umbral de 60 (76,23% en la medición detallada del 12/11) y 104 requests Newman sin fallos.">
     <div class="slide-header">
       <div>
         <div class="slide-kicker">Eje B · Calidad de Pruebas</div>
         <h2 class="slide-title">Cobertura (96,5%) y Mutación (76,2%)</h2>
       </div>
-      <span class="slide-badge">307 Unit Tests</span>
+      <span class="slide-badge">318 Unit Tests</span>
     </div>
     <div class="slide-body">
       <div class="grid-2">
         <div class="card accent-emerald">
           <h3><span class="icon-box">📊</span> Métricas vs Umbral Exigido</h3>
           <div class="bar-row">
-            <div class="bar-head"><span>Cobertura de Líneas (Umbral ≥ 80%)</span><strong>96,52%</strong></div>
-            <div class="bar-bg"><div class="bar-fill" style="--target-width: 96.52%;" data-width="96.52"></div></div>
+            <div class="bar-head"><span>Cobertura de Líneas (Umbral ≥ 80%)</span><strong>91,55%</strong></div>
+            <div class="bar-bg"><div class="bar-fill" style="--target-width: 91.55%;" data-width="91.55"></div></div>
           </div>
           <div class="bar-row">
-            <div class="bar-head"><span>Cobertura de Ramas (Umbral ≥ 70%)</span><strong>84,60%</strong></div>
-            <div class="bar-bg"><div class="bar-fill" style="--target-width: 84.60%;" data-width="84.60"></div></div>
+            <div class="bar-head"><span>Cobertura de Ramas (Umbral ≥ 70%)</span><strong>81,59%</strong></div>
+            <div class="bar-bg"><div class="bar-fill" style="--target-width: 81.59%;" data-width="81.59"></div></div>
           </div>
           <div class="bar-row">
-            <div class="bar-head"><span>Mutation Score Stryker (Umbral ≥ 60%)</span><strong>76,23%</strong></div>
+            <div class="bar-head"><span>Mutation Score Stryker (Umbral ≥ 60%, medición 12/11)</span><strong>76,23%</strong></div>
             <div class="bar-bg"><div class="bar-fill" style="--target-width: 76.23%;" data-width="76.23"></div></div>
           </div>
           <div class="bar-row" style="margin-bottom:0;">
-            <div class="bar-head"><span>Colección Postman / Newman</span><strong>96 req / 0 fail</strong></div>
+            <div class="bar-head"><span>Colección Postman / Newman</span><strong>104 req / 0 fail</strong></div>
             <div class="bar-bg"><div class="bar-fill" style="--target-width: 100%;" data-width="100"></div></div>
           </div>
         </div>
@@ -1273,7 +1273,7 @@
             <li>Ejecutado sobre lógica nuclear: <code>orders/state</code>, <code>orders.service</code>, <code>payments.service</code>, <code>tickets.service</code>.</li>
             <li><strong>617 mutantes eliminados</strong> (killed), demostrando aserciones reales en bordes y operadores.</li>
             <li><strong>0 Flaky Tests:</strong> 3 corridas consecutivas en verde sin reintentos.</li>
-            <li><strong>Duración del Pipeline CI:</strong> ~12 min 15 s (≤ 15 min exigidos).</li>
+            <li><strong>Duración del Pipeline CI:</strong> 12 min 05 s en el run 46165701834 (≤ 15 min exigidos).</li>
           </ul>
         </div>
       </div>
@@ -1287,19 +1287,19 @@
         <div class="slide-kicker">Eje C · Integración &amp; Performance</div>
         <h2 class="slide-title">Integración Real y Pruebas de Carga k6</h2>
       </div>
-      <span class="slide-badge">p95 = 16,41 ms</span>
+      <span class="slide-badge">p95 = 263,79 ms</span>
     </div>
     <div class="slide-body">
       <div class="grid-3">
         <div class="kpi-card">
-          <div class="kpi-val">16,41 ms</div>
+          <div class="kpi-val">263,79 ms</div>
           <div class="kpi-label">Latencia p95 (k6)</div>
           <div class="kpi-sub">Umbral cátedra: &lt; 500 ms</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-val cyan">0,00%</div>
           <div class="kpi-label">Tasa de Error HTTP</div>
-          <div class="kpi-sub">6.695 requests exitosas</div>
+          <div class="kpi-sub">Lectura + crear orden y pagar</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-val indigo">17 + 16</div>
@@ -1488,7 +1488,7 @@
           <ul>
             <li>Integración real heterogénea: <strong>SOAP (XXE-safe)</strong>, <strong>REST (OpenAPI 3.1)</strong> y <strong>AMQP (Topic + DLQ)</strong>.</li>
             <li>Integridad transaccional ACID: cero sobreventa, idempotencia 422 y fallback 503/504 con <code>Retry-After</code>.</li>
-            <li>Métricas sólidas: <strong>96,52%</strong> cobertura, <strong>76,23%</strong> mutación, <strong>16,41 ms</strong> p95, <strong>0</strong> alertas ZAP.</li>
+            <li>Métricas sólidas: <strong>91,55%</strong> cobertura, <strong>6/6</strong> jobs de CI en verde, <strong>263,79 ms</strong> p95, <strong>0</strong> alertas ZAP.</li>
             <li>G1–G9: <strong>9 / 9 condiciones eliminatorias cumplidas.</strong></li>
           </ul>
         </div>

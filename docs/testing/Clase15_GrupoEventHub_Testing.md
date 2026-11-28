@@ -7,20 +7,20 @@
 
 ### Enlaces del Entregable
 - **Repositorio GitHub:** [https://github.com/Sebalin2003/EventHub](https://github.com/Sebalin2003/EventHub)
-- **Tag de Release:** `v1.0-testing` (se crea sobre el commit final de la entrega, incluidos el Eje A y el Eje B)
-- **Pipeline de CI (GitHub Actions):** [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml); último run consultado: [46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262), 28/11/2026, 2/6 jobs exitosos y 4/6 fallidos. El run `46069841619` corresponde al commit de este checkout `4f93684` y también falló.
+- **Tag de Release:** `v1.0-final` (se mueve una única vez a la punta de `main` con CI en verde, en la etapa 8). El tag `v1.0-testing` conserva la entrega anterior.
+- **Pipeline de CI (GitHub Actions):** [workflow CI](https://github.com/Sebalin2003/EventHub/actions/workflows/ci.yml); run vigente: [46165701834](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834), 28/11/2026, commit `65e0dd8`, **6/6 jobs exitosos** en 12 min 05 s.
 - **Suite E2E / Responsive / Accesibilidad:** `apps/web/e2e/` (Playwright + axe-core, 18 pruebas verdes)
 - **Evidencia Lighthouse:** `docs/evidencias/lighthouse-home-desktop.json` y `docs/evidencias/lighthouse-home-mobile.json` (100/100 en Accessibility)
 - **Manual de usuario:** [MANUAL_USUARIO.md](./MANUAL_USUARIO.md)
 - **Prueba exploratoria:** [PRUEBA_EXPLORATORIA.md](./PRUEBA_EXPLORATORIA.md)
 - **Tablero Jira:** Proyecto `EVH` (EventHub)
-- **SonarCloud:** no configurado por falta de cuenta/token; el CI usa cobertura real, baseline anti-regresión y mutation testing en su lugar.
-- **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (96 requests / 176 aserciones, ejecutada con Newman 6 en CI)
+- **SonarCloud:** el paso `Eje B - SonarCloud Quality Gate` está en el CI y se activa con la variable `SONAR_ENABLED` y el secreto `SONAR_TOKEN`. Sin cuenta ni token del proyecto, el Quality Gate no se verificó y no se declara aprobado.
+- **Colección Postman Versionada:** `docs/postman/EventHub_API_Collection.json` (104 requests / 192 aserciones en el run `46165701834`, ejecutada con Newman 6 en CI)
 - **Contratos:** `docs/contracts/openapi.json` (OpenAPI 3.1) y `docs/contracts/payments.wsdl`, validados en E2E
-- **Mutation testing:** `apps/api/stryker.conf.json` (Stryker 10.1.1 + Vitest, score 76,23%)
+- **Mutation testing:** `apps/api/stryker.conf.json` (Stryker 10.1.1 + Vitest, umbral `break: 60`; job en verde en el run `46165701834`; última medición detallada: 76,23 % el 12/11)
 - **Script de Pruebas de Carga k6:** `load-tests/k6-load-test.js` (50 VUs, 5 min y 3 endpoints críticos; ejecutado con `grafana/k6`, reporte en `docs/evidencias/k6-summary.json`)
 
-> **Actualización de estado — 28/11/2026:** los resultados detallados del 12/11 que siguen son evidencia histórica, no el resultado del CI actual. El último run consultado (GitHub Actions `46105294262`, SHA `129923b`) terminó con 2/6 jobs exitosos y 4/6 fallidos: contrato OpenAPI, Playwright, ejecución k6 y ZAP activo autenticado. En el checkout local `4f93684`, `pnpm --filter api test:cov` ejecutó 307/307 tests, pero el comando terminó en error porque la cobertura quedó en 75,71 % de líneas y 66,34 % de ramas, por debajo de los umbrales 80/70; `pnpm --filter @evenhub/web test` pasó 8/8. Por lo tanto no se declara CI verde ni cumplimiento actual de los umbrales.
+> **Actualización de estado — 28/11/2026:** el CI está en verde. El run [46165701834](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834) (SHA `65e0dd8`) terminó con **6/6 jobs exitosos**: Newman 104 requests / 192 aserciones, Playwright 18/18 sin reintentos, k6 con p95 de 263,79 ms y 0,00 % de errores, y mutación sobre el umbral de 60. Con el mismo comando del CI (`pnpm --filter api test:cov`) sobre `65e0dd8`, la API pasó **318/318 tests** con **91,55 % de líneas** y **81,59 % de ramas**; el frontend pasó 8/8. Los resultados detallados de las secciones 4 a 6 son del 12/11 salvo que se indique lo contrario.
 
 ---
 
@@ -42,30 +42,30 @@
 1. **Pruebas Unitarias y de Dominio:** Cobertura de lógica de negocio, validaciones, factorías, estrategias criptográficas y máquina de estados (State Pattern).
 2. **Pruebas de Integración:** verificación de repositorios TypeORM y suite dedicada contra PostgreSQL y RabbitMQ reales (`integration-real-deps.e2e-spec.ts`, 17 tests), además de consumidores AMQP, topología DLQ y adaptadores de pasarela de pago (`soap-contract.e2e-spec.ts`, 9 tests contra un servidor SOAP real).
 3. **Pruebas de Contrato y API:** OpenAPI 3.1 publicado en `GET /openapi.json`, WSDL de pagos y colección Postman versionada con casos de éxito y error por endpoint. La colección se ejecuta con Newman dentro del CI contra la API levantada con PostgreSQL y RabbitMQ reales.
-4. **Pruebas de Punta a Punta (E2E):** la evidencia histórica reporta 18 pruebas Playwright en 3 archivos y 76 tests E2E de API. La CI más reciente sí inició Playwright, pero ese job falló; no se atribuye a esa corrida un total de tests aprobados. La integración usa PostgreSQL y RabbitMQ de CI; SOAP y geocodificación se prueban mediante servicios mock del proyecto.
-5. **Pruebas No Funcionales:** Gitleaks, smoke Docker, Lighthouse y k6 cuentan con evidencia histórica. En el artefacto k6 del run `46105294262` figuran p95 de 16,405 ms, tasa `http_req_failed` de 0,00 %, 6.695 iteraciones y 20.087 checks aprobados; los dos umbrales del resumen aparecen satisfechos, aunque el paso k6 del job terminó con error y no se toma el job como exitoso. El escaneo ZAP activo autenticado más reciente también falló.
+4. **Pruebas de Punta a Punta (E2E):** 18 pruebas Playwright en 3 archivos (6 críticas, 3 responsive y 9 de accesibilidad), 18/18 en el run `46165701834` sin reintentos. Las suites E2E de API corren tres veces en el job de build y tests. La integración usa PostgreSQL y RabbitMQ de CI; SOAP y geocodificación se prueban mediante servicios mock del proyecto.
+5. **Pruebas No Funcionales:** Gitleaks, smoke Docker, k6 y ZAP corren en el CI y pasaron en el run `46165701834`. La carga k6 incluye ahora crear orden y pagar: p95 263,79 ms y `http_req_failed` 0,00 %. Lighthouse cuenta con evidencia del 12/11.
 
 ### 1.3 Entornos y Datos de Prueba
 - **Entorno de Desarrollo Local:** Node.js v22, NestJS, TypeScript, Vitest, PostgreSQL 15, RabbitMQ 3.
 - **Entorno Docker Reproducible (G1):** `docker-compose.yml` en la raíz que levanta PostgreSQL, RabbitMQ, API y Frontend Web con healthchecks y un único comando (`docker compose up -d --build --wait`). Validado el 06/11/2026: los cuatro contenedores quedan `healthy` y responden API, web y proxy Vite.
-- **Entorno de Integración Continua (G3):** GitHub Actions usa PostgreSQL y RabbitMQ. El run `46105294262` tuvo 6 jobs: mutación y smoke Docker pasaron; build/tests falló al verificar el contrato OpenAPI, Playwright falló, k6 falló y ZAP activo autenticado falló. Los pasos de suite, cobertura y Newman del job build/tests quedaron omitidos por el fallo temprano del contrato. No se declara G3 cumplido en el estado actual.
+- **Entorno de Integración Continua (G3):** GitHub Actions usa PostgreSQL y RabbitMQ. El run `46165701834` tuvo 6 jobs y todos pasaron: build, análisis estático y tests (con Newman), mutación, Playwright, carga k6, dependencias y ZAP, y smoke de Docker Compose. G3 se cumple.
 - **Datos de Prueba:** Usuarios preconfigurados por rol (Admin, Organizador, Staff, Asistente) con contraseñas hasheadas mediante scrypt; catálogo precargado de eventos con diferentes capacidades y sectores.
 
 ### 1.4 Criterios de Entrada y de Salida
 - **Criterios de Entrada:** código compilando sin errores TypeScript (`pnpm --filter api build` y `pnpm --filter @evenhub/web build`), linter ejecutable (`oxlint`, sin warnings) e infraestructura Docker levantando en menos de 15 minutos.
-- **Evidencia histórica y estado actual:**
+- **Estado actual y evidencia histórica:**
   - G1 validado localmente con `docker compose up -d --build --wait` y smoke HTTP del flujo crítico.
   - G2 validado: tag `v1.0-testing` publicado sobre el commit final.
-  - CI histórico: run `43040287065` del 11/11/2026 se registró verde en 12 min 15 s. Estado actual: run `46105294262` fallido (4/6 jobs).
+  - CI: run `43040287065` verde el 11/11/2026 en 12 min 15 s. Estado actual: run `46165701834` verde (6/6) en 12 min 05 s.
   - G6 validado con Gitleaks v8.28.0 sobre el historial: `no leaks found`.
-  - Evidencia histórica: 259 pruebas de API, 76 E2E de API, 8 de frontend y 18 de Playwright. Verificación local del 28/11: 307 tests API pasaron, pero el gate de cobertura falló; frontend 8/8 pasó. No se suman como un único total por corresponder a corridas distintas.
+  - Tests: 318 de API (unidad, dominio y seguridad) y 8 de frontend medidos sobre `65e0dd8`; 18 de Playwright y 104 requests de Newman en el run `46165701834`. No se suman como un único total por corresponder a corridas distintas.
   - Eje A histórico: 43 criterios Gherkin trazados, 6 escenarios críticos E2E en el pipeline, responsive 360/768/1280 px y accesibilidad axe sin violaciones critical/serious en 9 pantallas; Lighthouse 100/100.
-  - Cobertura API local del 28/11/2026: **75,71% de líneas**, **66,34% de ramas**, 74,34% de sentencias y 61,04% de funciones. No cumple los umbrales configurados de 80% / 70%. Los valores 96,52% / 84,60% de este informe son una medición histórica del 12/11.
+  - Cobertura API sobre `65e0dd8` (28/11/2026): **91,55 % de líneas**, **81,59 % de ramas**, 89,28 % de sentencias y 85,9 % de funciones. Cumple los umbrales de 80 % / 70 % y el baseline del CI de 90 % / 75 %. Los valores 96,52 % / 84,60 % de la sección 4.2 son la medición del 12/11, antes de sumar el código de las etapas 2 a 5.
   - Mutation testing: **76,23%** con Stryker 10.1.1 sobre la capa de dominio (umbral `break` 60%).
-  - Integración: evidencia histórica de pruebas contra PostgreSQL y RabbitMQ; los servicios externos SOAP y geocodificación son mocks. No se describe el stack como “sin mocks”.
+  - Integración: las suites corren contra PostgreSQL y RabbitMQ reales en el CI; los servicios externos SOAP y geocodificación son mocks. No se describe el stack como “sin mocks”.
   - Contratos OpenAPI 3.1 y WSDL validados; colección Postman de 96 requests / 176 aserciones ejecutada con Newman sin fallos.
-  - Eje C: la evidencia histórica de caída/recovery muestra los mensajes pendientes y el reintento ensayado (`docs/evidencias/broker-recovery.json`); no demuestra una garantía absoluta de cero pérdida. También hay evidencia histórica de DLQ/reproceso, consumidor idempotente y outbox. El artefacto k6 más reciente reporta p95 16,405 ms y tasa de errores 0,00 %, aunque el job del run terminó fallido.
-  - Estabilidad: las tres corridas consecutivas y los tiempos citados son evidencia histórica. En el run actual las suites posteriores a la validación del contrato OpenAPI no se ejecutaron.
+  - Eje C: la evidencia de caída/recovery muestra los mensajes pendientes y el reintento ensayado (`docs/evidencias/broker-recovery.json`); no demuestra una garantía absoluta de cero pérdida. También hay pruebas de DLQ/reproceso, consumidor idempotente y outbox. La carga k6 del run `46165701834` reporta p95 263,79 ms y 0,00 % de errores.
+  - Estabilidad: el job de build y tests del run `46165701834` ejecuta tres corridas consecutivas de unidad con cobertura y E2E, y terminó en verde.
   - Defectos EVH-101 a EVH-108, con reproducción y causa raíz, en [REGISTRO_DEFECTOS.md](./REGISTRO_DEFECTOS.md). Los estados de Jira no están verificados.
   - Prueba del manual y prueba exploratoria del docente: **pendientes de ejecución en clase**; no se declaran ejecutadas.
   - G4 (Teams), G5 (Jira), G7 (demo) y G9 (contraste final) quedan pendientes de ejecución externa. G8 está documentado; resta que el equipo confirme las atribuciones y complete la validación oral.
@@ -85,7 +85,7 @@
 
 ## 2. Eje A — Historias de usuario, prioridad MOSCOW y criterios de aceptación
 
-Las historias se priorizan con **MOSCOW** (Must / Should / Could / Won't). La matriz de 43 criterios contiene evidencia técnica, mayormente histórica; no equivale a una aprobación de la CI más reciente. Las actividades que dependen del docente (prueba del manual y prueba exploratoria) se registran aparte y no se declaran ejecutadas.
+Las historias se priorizan con **MOSCOW** (Must / Should / Could / Won't). La matriz de 43 criterios contiene evidencia técnica respaldada por el run `46165701834`. Las actividades que dependen del docente (prueba del manual y prueba exploratoria) se registran aparte y no se declaran ejecutadas.
 
 ### 2.1 Historias de usuario del alcance
 
@@ -371,7 +371,7 @@ Evidencia versionada: `apps/web/e2e/`, `apps/web/playwright-report/` (generado e
 
 ## 6. Informe de Seguridad (Matriz SEC — Clase 11)
 
-Los resultados marcados en esta matriz corresponden a pruebas y escaneos históricos; no representan una aprobación de la CI más reciente. El último job ZAP activo autenticado terminó fallido.
+Los resultados marcados en esta matriz corresponden a pruebas y escaneos del 11/11 y del 12/11; el job de dependencias y ZAP del run `46165701834` volvió a pasar.
 
 | Criterio SEC | Requerimiento / Estándar | Estado | Evidencia y Mecanismo de Verificación |
 |---|---|:---:|---|
@@ -386,7 +386,7 @@ Los resultados marcados en esta matriz corresponden a pruebas y escaneos histór
 | **SEC-10 (Logs y Mensajes de Error)**| Sin stack traces al cliente; sin contraseñas, tarjetas ni tokens en logs (RFC 9457). | **CUMPLE** | `ProblemDetailsFilter` devuelve Problem Details sin stack trace y oculta el mensaje interno en 500. Auditoría de las 47 llamadas a `Logger`: se enmascaran emails y se dejaron de registrar payloads completos. La suite HTTP verifica ausencia de rutas, `TypeError` y mensajes de PostgreSQL. |
 | **SEC-11 (Cifrado y Contraseñas)**| Cifrado en tránsito (TLS) y contraseñas hasheadas con algoritmo adaptativo (scrypt). | **PARCIAL** | Contraseñas con `ScryptHashStrategy` (salt de 16 bytes y clave de 64 bytes) verificadas por tests. TLS directo opcional implementado en `main.ts` y probado con certificado autofirmado (`docs/evidencias/security/tls-smoke.txt`); en Docker Compose local el tráfico sigue en HTTP y en producción se documenta terminación en proxy. |
 
-**Evidencia histórica no funcional:** los escaneos y la auditoría de dependencias del 11/11/2026 se conservan en `docs/evidencias/zap/` y `docs/evidencias/security/`. El job ZAP activo autenticado del run `46105294262` terminó fallido; no se presenta el escaneo histórico como resultado actual.
+**Evidencia no funcional:** los escaneos y la auditoría de dependencias del 11/11/2026 se conservan en `docs/evidencias/zap/` y `docs/evidencias/security/`. El job de dependencias y ZAP del run `46165701834` terminó en verde.
 
 ---
 
@@ -400,7 +400,7 @@ La declaración y sus límites están en [DECLARACION_IA.md](../ia/DECLARACION_I
 - **OpenCode:** el registro previo informa versión v2.2.2/modelo Big Pickle; no se atribuye independientemente por la evidencia de autoría Git.
 - Se retiraron GitHub Copilot y Postbot de la declaración porque no tenían evidencia ni versión registrada en el repositorio.
 
-**Casos históricos registrados:** el documento de declaración detalla propuestas de IA corregidas sobre ZAP, permisos del contenedor, Playwright y métricas. Las referencias de CI citadas allí son históricas, no evidencia de que el run más reciente esté verde.
+**Casos históricos registrados:** el documento de declaración detalla propuestas de IA corregidas sobre ZAP, permisos del contenedor, Playwright y métricas. Las referencias de CI citadas allí son de corridas anteriores; el estado vigente es el run `46165701834`, en verde.
 
 **Revisión y firma:** la declaración registra la herramienta identificable de esta revisión como Copilot SDK en VS Code, sin modelo/versión disponibles en la sesión. La firma y defensa oral de cada integrante quedan pendientes de la instancia de evaluación.
 
@@ -444,10 +444,10 @@ El plan completo, con objetivo medible y riesgo controlado, está en [DECLARACIO
 
 ## 9. Conclusión del Aseguramiento de Calidad
 
-Los resultados detallados de las secciones anteriores son **mediciones históricas del 12/11/2026**, salvo cuando se identifican explícitamente como locales o del CI del 28/11. No deben sumarse como una única corrida ni presentarse como estado vigente.
+Los resultados detallados de las secciones anteriores son **mediciones del 12/11/2026**, salvo cuando se identifican como del CI o de la medición del 28/11. No deben sumarse como una única corrida.
 
-Al 28/11/2026, el run más reciente consultado ([46105294262](https://github.com/Sebalin2003/EventHub/actions/runs/46105294262)) finalizó con 2/6 jobs exitosos y 4/6 fallidos: build/tests falló al verificar el contrato OpenAPI, y también fallaron Playwright, k6 y ZAP activo autenticado. La verificación local ejecutó 307/307 tests API, pero terminó en error por cobertura bajo los umbrales (75,71 % líneas y 66,34 % ramas); el frontend pasó 8/8. Por lo tanto, **no se declara CI verde ni cumplimiento actual de los umbrales**.
+Al 28/11/2026, el run [46165701834](https://github.com/Sebalin2003/EventHub/actions/runs/46165701834) sobre `65e0dd8` finalizó con **6/6 jobs exitosos** en 12 min 05 s. La API pasó 318/318 tests con 91,55 % de líneas y 81,59 % de ramas, y el frontend 8/8. Las corridas fallidas previas del mismo día (`46105294262`, `46156117286` y `46159895506`) se corrigieron en `ea0bf8e`, `33a3dff` y `65e0dd8`.
 
 La matriz traza 43 criterios y clasifica 21 como negativos (48,8 %). La evidencia de concurrencia cubre cinco solicitudes simultáneas para dos HOLDs en una instancia; no acredita comportamiento multi-instancia. El outbox persiste junto con operaciones compatibles y reintenta pendientes, pero `TopicPublisherService` no usa publisher confirms: `SENT` no prueba ACK de RabbitMQ ni cero pérdida. El asistente de IA es determinístico y no invoca un LLM.
 
-Quedan pendientes: diagnóstico y nueva ejecución de los jobs fallidos, recuperación de cobertura a 80 %/70 %, Quality Gate de Sonar, verificación externa de Teams/Jira, prueba del manual y exploratoria del docente, demo/defensa y el PDF cuando se conozcan el número de grupo y el nombre oficial del QA. EVH-108 permanece abierto en el registro técnico local; Jira no se consultó.
+Quedan pendientes, fuera del repositorio: Quality Gate de Sonar (sin token), verificación de Teams y Jira, prueba del manual y exploratoria del docente, demo y defensa, y el número de grupo y el nombre oficial del QA en el PDF. EVH-108 permanece abierto en el registro técnico local; Jira no se consultó.
